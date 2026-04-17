@@ -55,6 +55,8 @@ _HERMES_CORE_TOOLS = [
     "session_search",
     # Clarifying questions
     "clarify",
+    # Peer networking
+    "peer_query",
     # Code execution + delegation
     "execute_code", "delegate_task",
     # Cronjob management
@@ -234,6 +236,12 @@ TOOLSETS = {
     "clarify": {
         "description": "Ask the user clarifying questions (multiple-choice or open-ended)",
         "tools": ["clarify"],
+        "includes": []
+    },
+
+    "peer": {
+        "description": "Peer agent queries across the local Hermes network",
+        "tools": ["peer_query"],
         "includes": []
     },
     
