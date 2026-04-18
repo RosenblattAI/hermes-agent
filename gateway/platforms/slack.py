@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 import re
 import time
 from dataclasses import dataclass, field
@@ -100,6 +101,8 @@ class SlackAdapter(BasePlatformAdapter):
         # to thread replies even without an explicit @mention.
         self._bot_message_ts: set = set()
         self._BOT_TS_MAX = 5000  # cap to avoid unbounded growth
+        # Track active typing status per chat_id so stop_typing can clear it.
+        self._typing_threads: Dict[str, str] = {}  # chat_id → thread_ts
         # Track threads where the bot has been @mentioned — once mentioned,
         # respond to ALL subsequent messages in that thread automatically.
         self._mentioned_threads: set = set()
@@ -361,10 +364,31 @@ class SlackAdapter(BasePlatformAdapter):
                 thread_ts=thread_ts,
                 status="is thinking...",
             )
+            self._typing_threads[chat_id] = thread_ts
         except Exception as e:
             # Silently ignore — may lack assistant:write scope or not be
             # in an assistant-enabled context. Falls back to reactions.
             logger.debug("[Slack] assistant.threads.setStatus failed: %s", e)
+
+    async def stop_typing(self, chat_id: str) -> None:
+        """Explicitly clear the assistant 'is thinking...' status indicator.
+
+        The Slack Assistant API is supposed to auto-clear the status when the
+        bot sends a message, but this is unreliable — the indicator often
+        lingers well after the response is delivered.  Explicitly setting an
+        empty status removes it immediately.
+        """
+        thread_ts = self._typing_threads.pop(chat_id, None)
+        if not thread_ts or not self._app:
+            return
+        try:
+            await self._get_client(chat_id).assistant_threads_setStatus(
+                channel_id=chat_id,
+                thread_ts=thread_ts,
+                status="",
+            )
+        except Exception as e:
+            logger.debug("[Slack] clear assistant status failed: %s", e)
 
     def _dm_top_level_threads_as_sessions(self) -> bool:
         """Whether top-level Slack DMs get per-message session threads.
@@ -1215,7 +1239,14 @@ class SlackAdapter(BasePlatformAdapter):
 
         if _should_react:
             await self._remove_reaction(channel_id, ts, "eyes")
-            await self._add_reaction(channel_id, ts, "white_check_mark")
+            _completion_emojis = [
+                "dab-squidward", "dumpster-fire", "pray", "sweat_smile",
+                "upside_down_face", "+1", "thumbsup_all", "saluting_face",
+                "middle_finger", "wink", "stuck_out_tongue_winking_eye",
+                "smirk", "smirk_cat", "raised_hands", "ok_hand",
+                "pinched_fingers", "clap", "heart_hands",
+            ]
+            await self._add_reaction(channel_id, ts, random.choice(_completion_emojis))
 
     # ----- Approval button support (Block Kit) -----
 
