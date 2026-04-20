@@ -7754,6 +7754,12 @@ class HermesCLI:
                     trace_parent=_trace_parent or None,
                     baggage=_trace_baggage or None,
                 ) as _txn:
+                    if _txn is not None:
+                        try:
+                            from hermes_sentry import sanitize_observability_text as _sot
+                            _txn.set_data("input", _sot(agent_message, limit=2000))
+                        except Exception:
+                            pass
                     try:
                         result = self.agent.run_conversation(
                             user_message=agent_message,
@@ -7765,6 +7771,10 @@ class HermesCLI:
                         if _txn is not None and result:
                             _txn.set_data("api_calls", result.get("api_calls", 0))
                             _txn.set_data("completed", result.get("completed", False))
+                            try:
+                                _txn.set_data("output", _sot(result.get("final_response", ""), limit=2000))
+                            except Exception:
+                                pass
                     except Exception as exc:
                         logging.error("run_conversation raised: %s", exc, exc_info=True)
                         _summary = getattr(self.agent, '_summarize_api_error', lambda e: str(e)[:300])(exc)

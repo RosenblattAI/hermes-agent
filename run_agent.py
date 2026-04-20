@@ -7297,7 +7297,13 @@ class AIAgent:
             op="hermes.tool",
             description=function_name,
             tags={"tool_name": function_name},
-        ):
+        ) as _tool_span:
+            if _tool_span is not None:
+                try:
+                    from hermes_sentry import sanitize_observability_text as _sot
+                    _tool_span.set_data("input", _sot(function_args, limit=1000))
+                except Exception:
+                    pass
             # Check plugin hooks for a block directive before executing anything.
             block_message: Optional[str] = None
             try:
@@ -8922,13 +8928,24 @@ class AIAgent:
                         op="hermes.llm_call",
                         description=f"#{api_call_count} {self.model}",
                         tags={"model": self.model or "", "api_call": str(api_call_count)},
-                    ):
+                    ) as _llm_span:
+                        if _llm_span is not None:
+                            _llm_span.set_data("message_count", len(api_kwargs.get("messages", [])))
                         if _use_streaming:
                             response = self._interruptible_streaming_api_call(
                                 api_kwargs, on_first_delta=_stop_spinner
                             )
                         else:
                             response = self._interruptible_api_call(api_kwargs)
+                        if _llm_span is not None and response:
+                            try:
+                                _usage = getattr(response, "usage", None)
+                                if _usage:
+                                    _llm_span.set_data("prompt_tokens", getattr(_usage, "prompt_tokens", 0) or 0)
+                                    _llm_span.set_data("completion_tokens", getattr(_usage, "completion_tokens", 0) or 0)
+                                    _llm_span.set_data("total_tokens", getattr(_usage, "total_tokens", 0) or 0)
+                            except Exception:
+                                pass
                     
                     api_duration = time.time() - api_start_time
                     

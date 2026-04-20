@@ -5759,6 +5759,11 @@ class GatewayRunner:
                             txn.set_tag("platform", str(source.platform.value if hasattr(source.platform, 'value') else source.platform))
                             txn.set_tag("model", turn_route.get("model", ""))
                             txn.set_tag("entry_point", "gateway.ask")
+                            try:
+                                from hermes_sentry import sanitize_observability_text as _sot
+                                txn.set_data("input", _sot(prompt, limit=2000))
+                            except Exception:
+                                pass
                         result = agent.run_conversation(
                             user_message=prompt,
                             task_id=task_id,
@@ -5766,6 +5771,10 @@ class GatewayRunner:
                         if txn is not None:
                             txn.set_data("api_calls", result.get("api_calls", 0))
                             txn.set_tag("status", "ok" if not result.get("failed") else "error")
+                            try:
+                                txn.set_data("output", _sot(result.get("final_response", ""), limit=2000))
+                            except Exception:
+                                pass
                         return result
                 finally:
                     self._cleanup_agent_resources(agent)
@@ -5955,6 +5964,11 @@ class GatewayRunner:
                             txn.set_tag("platform", str(source.platform.value if hasattr(source.platform, 'value') else source.platform))
                             txn.set_tag("model", turn_route.get("model", ""))
                             txn.set_tag("entry_point", "gateway.btw")
+                            try:
+                                from hermes_sentry import sanitize_observability_text as _sot
+                                txn.set_data("input", _sot(btw_prompt, limit=2000))
+                            except Exception:
+                                pass
                         result = agent.run_conversation(
                             user_message=btw_prompt,
                             conversation_history=history_snapshot,
@@ -5963,6 +5977,10 @@ class GatewayRunner:
                         if txn is not None:
                             txn.set_data("api_calls", result.get("api_calls", 0))
                             txn.set_tag("status", "ok" if not result.get("failed") else "error")
+                            try:
+                                txn.set_data("output", _sot(result.get("final_response", ""), limit=2000))
+                            except Exception:
+                                pass
                         return result
                 finally:
                     self._cleanup_agent_resources(agent)
@@ -8915,11 +8933,20 @@ class GatewayRunner:
                         txn.set_tag("platform", str(source.platform.value if hasattr(source.platform, 'value') else source.platform))
                         txn.set_tag("model", turn_route.get("model", ""))
                         txn.set_tag("entry_point", "gateway")
+                        try:
+                            from hermes_sentry import sanitize_observability_text as _sot
+                            txn.set_data("input", _sot(message, limit=2000))
+                        except Exception:
+                            pass
                     result = agent.run_conversation(message, conversation_history=agent_history, task_id=session_id)
                     if txn is not None:
                         txn.set_data("api_calls", result.get("api_calls", 0))
                         txn.set_data("completed", result.get("completed", False))
                         txn.set_tag("status", "ok" if not result.get("failed") else "error")
+                        try:
+                            txn.set_data("output", _sot(result.get("final_response", ""), limit=2000))
+                        except Exception:
+                            pass
             finally:
                 unregister_gateway_notify(_approval_session_key)
                 reset_current_session_key(_approval_session_token)
