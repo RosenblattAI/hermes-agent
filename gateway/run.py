@@ -5751,10 +5751,22 @@ class GatewayRunner:
                     fallback_model=self._fallback_model,
                 )
                 try:
-                    return agent.run_conversation(
-                        user_message=prompt,
-                        task_id=task_id,
-                    )
+                    from hermes_sentry import start_transaction
+                    _txn_name = f"gateway.ask {source.platform.value if hasattr(source.platform, 'value') else source.platform}"
+                    with start_transaction(op="hermes.chat", name=_txn_name) as txn:
+                        if txn is not None:
+                            txn.set_tag("session_id", task_id or "")
+                            txn.set_tag("platform", str(source.platform.value if hasattr(source.platform, 'value') else source.platform))
+                            txn.set_tag("model", turn_route.get("model", ""))
+                            txn.set_tag("entry_point", "gateway.ask")
+                        result = agent.run_conversation(
+                            user_message=prompt,
+                            task_id=task_id,
+                        )
+                        if txn is not None:
+                            txn.set_data("api_calls", result.get("api_calls", 0))
+                            txn.set_tag("status", "ok" if not result.get("failed") else "error")
+                        return result
                 finally:
                     self._cleanup_agent_resources(agent)
 
@@ -5935,11 +5947,23 @@ class GatewayRunner:
                     persist_session=False,
                 )
                 try:
-                    return agent.run_conversation(
-                        user_message=btw_prompt,
-                        conversation_history=history_snapshot,
-                        task_id=task_id,
-                    )
+                    from hermes_sentry import start_transaction
+                    _txn_name = f"gateway.btw {source.platform.value if hasattr(source.platform, 'value') else source.platform}"
+                    with start_transaction(op="hermes.chat", name=_txn_name) as txn:
+                        if txn is not None:
+                            txn.set_tag("session_id", task_id or "")
+                            txn.set_tag("platform", str(source.platform.value if hasattr(source.platform, 'value') else source.platform))
+                            txn.set_tag("model", turn_route.get("model", ""))
+                            txn.set_tag("entry_point", "gateway.btw")
+                        result = agent.run_conversation(
+                            user_message=btw_prompt,
+                            conversation_history=history_snapshot,
+                            task_id=task_id,
+                        )
+                        if txn is not None:
+                            txn.set_data("api_calls", result.get("api_calls", 0))
+                            txn.set_tag("status", "ok" if not result.get("failed") else "error")
+                        return result
                 finally:
                     self._cleanup_agent_resources(agent)
 
@@ -8883,7 +8907,19 @@ class GatewayRunner:
             _approval_session_token = set_current_session_key(_approval_session_key)
             register_gateway_notify(_approval_session_key, _approval_notify_sync)
             try:
-                result = agent.run_conversation(message, conversation_history=agent_history, task_id=session_id)
+                from hermes_sentry import start_transaction
+                _txn_name = f"gateway {source.platform.value if hasattr(source.platform, 'value') else source.platform}"
+                with start_transaction(op="hermes.chat", name=_txn_name) as txn:
+                    if txn is not None:
+                        txn.set_tag("session_id", session_id or "")
+                        txn.set_tag("platform", str(source.platform.value if hasattr(source.platform, 'value') else source.platform))
+                        txn.set_tag("model", turn_route.get("model", ""))
+                        txn.set_tag("entry_point", "gateway")
+                    result = agent.run_conversation(message, conversation_history=agent_history, task_id=session_id)
+                    if txn is not None:
+                        txn.set_data("api_calls", result.get("api_calls", 0))
+                        txn.set_data("completed", result.get("completed", False))
+                        txn.set_tag("status", "ok" if not result.get("failed") else "error")
             finally:
                 unregister_gateway_notify(_approval_session_key)
                 reset_current_session_key(_approval_session_token)
@@ -9716,6 +9752,12 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # Idempotent, so repeated calls from AIAgent.__init__ won't duplicate.
     from hermes_logging import setup_logging
     setup_logging(hermes_home=_hermes_home, mode="gateway")
+
+    try:
+        from hermes_sentry import init_sentry
+        init_sentry("gateway")
+    except Exception:
+        pass
 
     # Optional stderr handler — level driven by -v/-q flags on the CLI.
     # verbosity=None (-q/--quiet): no stderr output
