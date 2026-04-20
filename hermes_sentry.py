@@ -11,6 +11,7 @@ import contextlib
 import json
 import logging
 import os
+import atexit
 import threading
 from typing import Any, Generator, Mapping
 
@@ -166,6 +167,7 @@ def init_sentry(component: str) -> bool:
         )
         _set_common_tags(component)
         _SENTRY_INITIALIZED = True
+        atexit.register(lambda: sentry_sdk.flush(timeout=2.0))
         logger.info("Sentry initialized for component=%s", component)
         return True
 
@@ -250,7 +252,6 @@ def start_transaction(
             for key, value in (tags or {}).items():
                 txn.set_tag(str(key), str(value)[:200])
             yield txn
-    sentry_sdk.flush(timeout=2.0)
 
 
 def get_trace_headers() -> dict[str, str]:

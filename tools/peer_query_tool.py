@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 
-from hermes_peer.client import PeerNetworkError, broadcast_query, get_agent, list_agents, query_peer
+from hermes_peer.client import PeerNetworkError, PeerNotFoundError, broadcast_query, get_agent, list_agents, query_peer
 from hermes_peer.common import get_int_env, redact_secrets, run_hermes_query
 from tools.registry import registry
 
@@ -39,8 +39,10 @@ def _synthesize_peer_responses(question: str, responses: list[dict[str, str]], t
     with _sentry_span(
         op="hermes.peer_synthesis",
         description=f"synthesize {len(responses)} peers",
-        tags={"peer_count": str(len(responses)), "peers": peer_names},
+        tags={"peer_count": str(len(responses))},
     ) as span:
+        if span is not None:
+            span.set_data("peers", peer_names)
         if span is not None and _sanitize:
             span.set_data("input", _sanitize(synthesis_question, limit=3000))
         try:
@@ -67,8 +69,10 @@ def _fuzzy_resolve_agent(query: str, requester: str, timeout: int) -> dict:
     q = query.lower()
     try:
         peers = list_agents(timeout_seconds=min(timeout, 10))
-    except Exception:
-        raise PeerNetworkError(f"Unknown peer agent: {query}")
+    except PeerNetworkError:
+        raise
+    except Exception as exc:
+        raise PeerNetworkError(f"Registry lookup failed: {exc}") from exc
 
     candidates = [
         p for p in peers
@@ -111,7 +115,7 @@ def peer_query(
         if agent.strip():
             try:
                 peer = get_agent(agent.strip(), timeout_seconds=min(timeout, 10))
-            except PeerNetworkError:
+            except PeerNotFoundError:
                 peer = _fuzzy_resolve_agent(agent.strip(), requester, timeout)
             answer = query_peer(
                 peer["endpoint"],
@@ -158,6 +162,10 @@ def peer_query(
                     "error": "No peers returned a usable response",
                 }
             )
+
+        # Redact each peer response before synthesis and output
+        for item in responses:
+            item["response"] = redact_secrets(item["response"])
 
         synthesis = _synthesize_peer_responses(normalized_question, responses, timeout)
         return json.dumps(
