@@ -5305,6 +5305,10 @@ For more help on a command:
     cop_show = copilot_subparsers.add_parser("show", help="Show details of a copilot job")
     cop_show.add_argument("job_id", help="Job ID to inspect")
 
+    # copilot stop
+    cop_stop = copilot_subparsers.add_parser("stop", help="Stop a running copilot job")
+    cop_stop.add_argument("job_id", help="Job ID to stop")
+
     copilot_parser.set_defaults(func=cmd_copilot)
 
     # =========================================================================

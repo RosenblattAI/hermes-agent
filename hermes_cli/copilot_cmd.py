@@ -8,6 +8,9 @@ to resume a completed session.
 """
 
 import json
+import os
+import signal
+import subprocess
 import sys
 import time
 import uuid
@@ -224,6 +227,139 @@ def copilot_show(args):
         db.close()
 
 
+def _find_copilot_pids(job_id: str) -> list:
+    """Return PIDs of all processes whose cmdline contains the job_id.
+
+    The job_id appears as ``--resume <job_id>`` in the copilot invocation
+    and as an argument to ``complete_job.py``, so a single string match
+    catches the entire process tree spawned by the launcher.
+    """
+    try:
+        result = subprocess.run(
+            ["ps", "ax", "-o", "pid=,args="],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        pids = []
+        for line in result.stdout.splitlines():
+            if job_id not in line:
+                continue
+            parts = line.split(None, 1)
+            if not parts:
+                continue
+            try:
+                pids.append(int(parts[0].strip()))
+            except ValueError:
+                continue
+        return pids
+    except Exception:
+        return []
+
+
+def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
+    """Kill the process tree associated with a copilot job.
+
+    Sends SIGTERM to every process group that contains processes matching
+    the job_id string, waits up to *timeout* seconds for them to exit,
+    then sends SIGKILL to any survivors.
+
+    Returns True if at least one process was found and signaled.
+    """
+    pids = _find_copilot_pids(job_id)
+    if not pids:
+        return False
+
+    # Collect unique process group IDs so we can kill entire groups.
+    pgids: set = set()
+    for pid in pids:
+        try:
+            pgids.add(os.getpgid(pid))
+        except OSError:
+            pass
+
+    # Graceful shutdown first.
+    for pgid in pgids:
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+        except OSError:
+            pass
+
+    # Wait up to *timeout* seconds for all matched processes to exit.
+    deadline = time.time() + timeout
+    surviving = list(pids)
+    while surviving and time.time() < deadline:
+        time.sleep(0.2)
+        surviving = [
+            pid for pid in surviving
+            if _pid_exists(pid)
+        ]
+
+    # Force-kill anything still alive.
+    for pid in surviving:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+
+    return True
+
+
+def _pid_exists(pid: int) -> bool:
+    """Return True if the process still exists."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except PermissionError:
+        return True  # Process exists but we don't own it
+    except OSError:
+        return False
+
+
+def copilot_stop(args):
+    """Stop a running Copilot job.
+
+    Finds the copilot process tree via ``--resume <job_id>`` in the process
+    list, sends SIGTERM (then SIGKILL if needed), and marks the DB row as
+    stopped regardless of whether a live process was found.
+    """
+    job_id = args.job_id
+
+    db = _get_db()
+    try:
+        job = db.get_copilot_job(job_id)
+        if not job:
+            print(f"Error: Job not found: {job_id}", file=sys.stderr)
+            sys.exit(1)
+
+        if job["state"] != "running":
+            print(
+                f"Job {job_id} is already stopped (state: {_state_badge(job['state'])})."
+            )
+            return
+
+        print(f"Stopping copilot job: {job_id}")
+        killed = _kill_copilot_procs(job_id)
+
+        db.finish_copilot_job(
+            job_id,
+            state="failed",
+            exit_code=-1,
+            error_text="stopped by user",
+        )
+
+        if killed:
+            print(f"  Process tree terminated.")
+        else:
+            print(
+                f"  No live process found for this job — "
+                f"the job may have already exited."
+            )
+        print(f"  State: 🔴 stopped")
+    finally:
+        db.close()
+
+
 def copilot_command(args):
     """Route copilot subcommands."""
     subcmd = getattr(args, "copilot_action", None)
@@ -235,6 +371,7 @@ def copilot_command(args):
     handlers = {
         "launch": copilot_launch,
         "show": copilot_show,
+        "stop": copilot_stop,
     }
 
     handler = handlers.get(subcmd)
@@ -242,7 +379,7 @@ def copilot_command(args):
         handler(args)
     else:
         print(f"Unknown copilot command: {subcmd}")
-        print("Usage: hermes copilot [launch|list|show]")
+        print("Usage: hermes copilot [launch|list|show|stop]")
         sys.exit(1)
 
 
@@ -300,14 +437,19 @@ def handle_copilot_slash(raw_command: str) -> None:
             ns = SimpleNamespace(job_id=args_rest[0])
             copilot_show(ns)
 
+        elif subcmd == "stop" and args_rest:
+            ns = SimpleNamespace(job_id=args_rest[0])
+            copilot_stop(ns)
+
         else:
-            print("Usage: /copilot [launch|list|show]")
+            print("Usage: /copilot [launch|list|show|stop]")
             print()
             print("  /copilot list                        List all jobs")
             print("  /copilot launch <prompt>             Route prompt → repo, launch copilot")
             print("  /copilot launch --model <m> <prompt> Use specific model")
             print("  /copilot launch --repo <slug> <msg>  Launch for specific repo")
             print("  /copilot show <job_id>               Show job details + connect command")
+            print("  /copilot stop <job_id>               Stop a running job")
 
     except SystemExit:
         pass
