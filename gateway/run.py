@@ -461,14 +461,24 @@ def _resolve_gateway_model(config: dict | None = None) -> str:
     Without this, temporary AIAgent instances (memory flush, /compress) fall
     back to the hardcoded default which fails when the active provider is
     openai-codex.
+
+    When ``delegation.orchestration_model`` is set it takes precedence over the
+    top-level ``model`` key so the orchestrator is always pinned to the strong
+    model regardless of any per-turn routing overrides.
     """
     cfg = config if config is not None else _load_gateway_config()
     model_cfg = cfg.get("model", {})
     if isinstance(model_cfg, str):
-        return model_cfg
+        model = model_cfg
     elif isinstance(model_cfg, dict):
-        return model_cfg.get("default") or model_cfg.get("model") or ""
-    return ""
+        model = model_cfg.get("default") or model_cfg.get("model") or ""
+    else:
+        model = ""
+
+    orchestration_model = str(cfg.get("delegation", {}).get("orchestration_model") or "").strip()
+    if orchestration_model:
+        return orchestration_model
+    return model
 
 
 def _resolve_hermes_bin() -> Optional[list[str]]:

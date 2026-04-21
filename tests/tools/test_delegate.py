@@ -1278,5 +1278,86 @@ class TestDelegationReasoningEffort(unittest.TestCase):
         self.assertEqual(call_kwargs["reasoning_config"], {"enabled": True, "effort": "medium"})
 
 
+class TestDelegationModelConfig(unittest.TestCase):
+    """Tests for delegation.model and delegation.orchestration_model config fields."""
+
+    @patch("tools.delegate_tool._load_config")
+    @patch("run_agent.AIAgent")
+    def test_child_uses_delegation_model_from_config(self, MockAgent, mock_cfg):
+        """When delegation.model is set in config, child agent uses that model."""
+        mock_cfg.return_value = {
+            "model": "anthropic/claude-sonnet-4.6",
+            "provider": "",
+            "max_iterations": 50,
+        }
+        mock_child = MagicMock()
+        mock_child.run_conversation.return_value = {
+            "final_response": "done",
+            "completed": True,
+            "api_calls": 1,
+        }
+        MockAgent.return_value = mock_child
+
+        parent = _make_mock_parent(depth=0)
+        parent.model = "anthropic/claude-opus-4.6"
+
+        delegate_task(goal="Run subtask", parent_agent=parent)
+
+        _, kwargs = MockAgent.call_args
+        self.assertEqual(kwargs["model"], "anthropic/claude-sonnet-4.6",
+                         "Child should use delegation.model, not parent's orchestration model")
+
+    @patch("tools.delegate_tool._load_config")
+    @patch("run_agent.AIAgent")
+    def test_child_inherits_parent_model_when_delegation_model_empty(self, MockAgent, mock_cfg):
+        """When delegation.model is empty, child inherits parent's model."""
+        mock_cfg.return_value = {"model": "", "provider": "", "max_iterations": 50}
+        mock_child = MagicMock()
+        mock_child.run_conversation.return_value = {
+            "final_response": "done",
+            "completed": True,
+            "api_calls": 1,
+        }
+        MockAgent.return_value = mock_child
+
+        parent = _make_mock_parent(depth=0)
+        parent.model = "anthropic/claude-opus-4.6"
+
+        delegate_task(goal="Run subtask", parent_agent=parent)
+
+        _, kwargs = MockAgent.call_args
+        self.assertEqual(kwargs["model"], "anthropic/claude-opus-4.6",
+                         "Child should inherit parent orchestration model when delegation.model is empty")
+
+    @patch("tools.delegate_tool._load_config")
+    @patch("run_agent.AIAgent")
+    def test_two_tier_opus_orchestrator_sonnet_executor(self, MockAgent, mock_cfg):
+        """Two-tier setup: Opus as orchestrator, Sonnet as child executor."""
+        mock_cfg.return_value = {
+            "model": "anthropic/claude-sonnet-4.6",
+            "provider": "",
+            "max_iterations": 50,
+        }
+        mock_child = MagicMock()
+        mock_child.run_conversation.return_value = {
+            "final_response": "done",
+            "completed": True,
+            "api_calls": 1,
+        }
+        MockAgent.return_value = mock_child
+
+        # Parent agent represents the orchestrator running Opus
+        parent = _make_mock_parent(depth=0)
+        parent.model = "anthropic/claude-opus-4.6"
+
+        delegate_task(goal="Execute subtask cheaply", parent_agent=parent)
+
+        _, kwargs = MockAgent.call_args
+        # Child must run on Sonnet (the delegation.model), not on Opus
+        self.assertEqual(kwargs["model"], "anthropic/claude-sonnet-4.6")
+        # Orchestrator's own model is untouched
+        self.assertEqual(parent.model, "anthropic/claude-opus-4.6")
+
+
 if __name__ == "__main__":
     unittest.main()

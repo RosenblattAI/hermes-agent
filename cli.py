@@ -302,7 +302,8 @@ def load_cli_config() -> Dict[str, Any]:
         "delegation": {
             "max_iterations": 45,  # Max tool-calling turns per child agent
             "default_toolsets": ["terminal", "file", "web"],  # Default toolsets for subagents
-            "model": "",       # Subagent model override (empty = inherit parent model)
+            "orchestration_model": "",  # Orchestrator model (empty = use top-level model key)
+            "model": "",       # Subagent model override (empty = inherit orchestration model)
             "provider": "",    # Subagent provider override (empty = inherit parent provider)
             "base_url": "",    # Direct OpenAI-compatible endpoint for subagents
             "api_key": "",     # API key for delegation.base_url (falls back to OPENAI_API_KEY)
@@ -1674,6 +1675,14 @@ class HermesCLI:
                 _detected = _auto_detect_local_model(_base_url)
                 if _detected:
                     self.model = _detected
+        # delegation.orchestration_model pins the orchestrator model explicitly,
+        # overriding the top-level model config key.  A CLI --model arg is more
+        # explicit and takes priority; orchestration_model only applies when the
+        # model was not given on the command line.
+        if not model:
+            _orch_model = str(CLI_CONFIG.get("delegation", {}).get("orchestration_model") or "").strip()
+            if _orch_model:
+                self.model = _orch_model
         # Track whether model was explicitly chosen by the user or fell back
         # to the global default.  Provider-specific normalisation may override
         # the default silently but should warn when overriding an explicit choice.
