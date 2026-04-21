@@ -1227,10 +1227,10 @@ class SlackAdapter(BasePlatformAdapter):
             channel_prompt=_channel_prompt,
         )
 
-        # Only react when bot is directly addressed (DM or @mention).
-        # In listen-all channels (require_mention=false), reacting to every
-        # casual message would be noisy.
-        _should_react = is_dm or is_mentioned
+        # Only react when bot is @mentioned in a channel/group conversation.
+        # Skip reactions in DMs — they just flood the user's Activity tab
+        # with noise from their own bot interactions.
+        _should_react = is_mentioned and not is_dm
 
         if _should_react:
             await self._add_reaction(channel_id, ts, "eyes")

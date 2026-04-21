@@ -629,3 +629,19 @@ class TestDiscordChannelPromptsConfig:
         assert raw["_config_version"] == 18
         assert raw["discord"]["auto_thread"] is True
         assert raw["discord"]["channel_prompts"] == {}
+
+
+class TestSlackHomeChannelInExtraEnvKeys:
+    """Regression test: SLACK_HOME_CHANNEL must be in _EXTRA_ENV_KEYS so
+    config.yaml values are synced to the environment (see gateway/run.py:3858)."""
+
+    def test_slack_home_channel_in_extra_env_keys(self):
+        from hermes_cli.config import _EXTRA_ENV_KEYS
+        assert "SLACK_HOME_CHANNEL" in _EXTRA_ENV_KEYS
+
+    def test_slack_home_channel_survives_sanitize(self, tmp_path):
+        """Ensure SLACK_HOME_CHANNEL written to .env is loaded back correctly."""
+        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+            save_env_value("SLACK_HOME_CHANNEL", "C0AT03MJYV7")
+            env_vars = load_env()
+            assert env_vars["SLACK_HOME_CHANNEL"] == "C0AT03MJYV7"
