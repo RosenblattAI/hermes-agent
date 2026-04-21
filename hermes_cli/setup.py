@@ -1618,9 +1618,9 @@ def setup_agent_settings(config: dict):
 
     if orch_model or exec_model:
         if orch_model:
-            print_success(f"Orchestration model: {orch_model or '(inherit top-level model)'}")
+            print_success(f"Orchestration model: {orch_model}")
         if exec_model:
-            print_success(f"Execution model:     {exec_model or '(inherit orchestration model)'}")
+            print_success(f"Execution model:     {exec_model}")
         if not exec_model and orch_model:
             print_info("Tip: set delegation.model to a cheaper model to reduce subtask costs.")
     else:
