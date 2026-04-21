@@ -1593,6 +1593,39 @@ def setup_agent_settings(config: dict):
         )
     # else: keep current (idx == 4)
 
+    # ── Two-tier Orchestration / Delegation Model ──
+    print_header("Two-Tier Model: Orchestrator vs. Executor")
+    print_info("Hermes can use a strong model for planning/orchestration and a")
+    print_info("cheaper/faster model for delegate_task child agents (execution).")
+    print_info("")
+    print_info("  orchestration_model — the model Hermes uses to plan and reason.")
+    print_info("  delegation.model    — the model child agents use to execute tasks.")
+    print_info("")
+    print_info("Example: Opus 4.6 as orchestrator, Sonnet 4.6 as executor (~3-5× cheaper).")
+    print_info("Leave both empty to keep using a single model (current default).")
+
+    current_orch = str(config.get("delegation", {}).get("orchestration_model") or "").strip()
+    current_exec = str(config.get("delegation", {}).get("model") or "").strip()
+
+    orch_model = prompt("Orchestration model (e.g. anthropic/claude-opus-4.6, empty = keep current)", current_orch)
+    exec_model = prompt("Execution model for delegate_task (e.g. anthropic/claude-sonnet-4.6, empty = same as orchestrator)", current_exec)
+
+    config.setdefault("delegation", {})
+    if orch_model != current_orch:
+        config["delegation"]["orchestration_model"] = orch_model
+    if exec_model != current_exec:
+        config["delegation"]["model"] = exec_model
+
+    if orch_model or exec_model:
+        if orch_model:
+            print_success(f"Orchestration model: {orch_model}")
+        if exec_model:
+            print_success(f"Execution model:     {exec_model}")
+        if not exec_model and orch_model:
+            print_info("Tip: set delegation.model to a cheaper model to reduce subtask costs.")
+    else:
+        print_info("Two-tier model not configured — single model used for all turns.")
+
     save_config(config)
 
 

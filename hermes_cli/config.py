@@ -653,12 +653,30 @@ DEFAULT_CONFIG = {
         "provider": "",
     },
 
-    # Subagent delegation — override the provider:model used by delegate_task
-    # so child agents can run on a different (cheaper/faster) provider and model.
+    # Subagent delegation — two-tier orchestration/execution model split.
+    #
+    # How the two-tier pattern works:
+    #   orchestration_model  — the model that plans, reasons, and calls delegate_task
+    #                          (the "smart" model; overrides the top-level model key).
+    #   model                — the model used by each delegate_task child agent
+    #                          (the "fast" or cheaper model for execution).
+    #
+    # Example two-tier config:
+    #   delegation:
+    #     orchestration_model: "anthropic/claude-opus-4.6"   # orchestrator
+    #     model: "anthropic/claude-sonnet-4.6"               # executor
+    #     provider: "openrouter"
+    #     reasoning_effort: "medium"
+    #
+    # When orchestration_model is empty, the top-level model key is used for
+    # orchestration (existing default behaviour — no change).
+    # When model is empty, child agents inherit the orchestration model.
+    #
     # Uses the same runtime provider resolution as CLI/gateway startup, so all
     # configured providers (OpenRouter, Nous, Z.ai, Kimi, etc.) are supported.
     "delegation": {
-        "model": "",       # e.g. "google/gemini-3-flash-preview" (empty = inherit parent model)
+        "orchestration_model": "",  # orchestrator model (empty = use top-level model key)
+        "model": "",       # e.g. "anthropic/claude-sonnet-4.6" (empty = inherit orchestration model)
         "provider": "",    # e.g. "openrouter" (empty = inherit parent provider + credentials)
         "base_url": "",    # direct OpenAI-compatible endpoint for subagents
         "api_key": "",     # API key for delegation.base_url (falls back to OPENAI_API_KEY)
@@ -777,7 +795,7 @@ DEFAULT_CONFIG = {
     },
 
     # Config schema version - bump this when adding new required fields
-    "_config_version": 18,
+    "_config_version": 19,
 }
 
 # =============================================================================

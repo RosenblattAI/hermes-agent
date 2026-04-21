@@ -118,3 +118,27 @@ class TestResolveGatewayModel:
     def test_string_model_config(self):
         from gateway.run import _resolve_gateway_model
         assert _resolve_gateway_model({"model": "my-model"}) == "my-model"
+
+    def test_orchestration_model_overrides_top_level_model(self):
+        """delegation.orchestration_model takes precedence over the top-level model key."""
+        from gateway.run import _resolve_gateway_model
+        cfg = {
+            "model": {"default": "anthropic/claude-sonnet-4.6"},
+            "delegation": {"orchestration_model": "anthropic/claude-opus-4.6"},
+        }
+        assert _resolve_gateway_model(cfg) == "anthropic/claude-opus-4.6"
+
+    def test_orchestration_model_empty_falls_back_to_model(self):
+        """When delegation.orchestration_model is empty, top-level model is returned."""
+        from gateway.run import _resolve_gateway_model
+        cfg = {
+            "model": {"default": "anthropic/claude-sonnet-4.6"},
+            "delegation": {"orchestration_model": ""},
+        }
+        assert _resolve_gateway_model(cfg) == "anthropic/claude-sonnet-4.6"
+
+    def test_orchestration_model_no_delegation_section(self):
+        """When delegation block is absent, top-level model is returned unchanged."""
+        from gateway.run import _resolve_gateway_model
+        cfg = {"model": {"default": "anthropic/claude-sonnet-4.6"}}
+        assert _resolve_gateway_model(cfg) == "anthropic/claude-sonnet-4.6"
