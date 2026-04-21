@@ -58,6 +58,7 @@ def _state_badge(state: str) -> str:
         "running": "🟢 running",
         "done": "✅ done",
         "failed": "🔴 failed",
+        "stopped": "🛑 stopped",
     }
     return badges.get(state, state)
 
@@ -321,7 +322,9 @@ def copilot_stop(args):
 
     Finds the copilot process tree via ``--resume <job_id>`` in the process
     list, sends SIGTERM (then SIGKILL if needed), and marks the DB row as
-    stopped regardless of whether a live process was found.
+    stopped.  Uses a conditional UPDATE (``WHERE state = 'running'``) so
+    that the transition is atomic even if complete_job.py races to write a
+    terminal state at the same moment.
     """
     job_id = args.job_id
 
@@ -341,9 +344,9 @@ def copilot_stop(args):
         print(f"Stopping copilot job: {job_id}")
         killed = _kill_copilot_procs(job_id)
 
-        db.finish_copilot_job(
+        updated = db.finish_copilot_job(
             job_id,
-            state="failed",
+            state="stopped",
             exit_code=-1,
             error_text="stopped by user",
         )
@@ -355,7 +358,17 @@ def copilot_stop(args):
                 f"  No live process found for this job — "
                 f"the job may have already exited."
             )
-        print(f"  State: 🔴 stopped")
+
+        if updated:
+            print(f"  State: {_state_badge('stopped')}")
+        else:
+            # complete_job.py raced and already wrote a terminal state.
+            current = db.get_copilot_job(job_id)
+            current_state = current["state"] if current else "unknown"
+            print(
+                f"  Job exited on its own before the DB update; "
+                f"state is now {_state_badge(current_state)}."
+            )
     finally:
         db.close()
 

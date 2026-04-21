@@ -1380,18 +1380,27 @@ class SessionDB:
         state: str,
         exit_code: int = None,
         error_text: str = None,
-    ) -> None:
-        """Mark a copilot job as done or failed with results."""
+    ) -> int:
+        """Transition a copilot job from 'running' to a terminal state.
+
+        Only updates rows whose current state is 'running', making the
+        transition idempotent and safe against races between complete_job.py
+        and a concurrent ``hermes copilot stop`` call.
+
+        Returns the number of rows updated (1 on success, 0 if the job was
+        already in a terminal state).
+        """
         now = time.time()
         def _do(conn):
-            conn.execute(
+            cursor = conn.execute(
                 """UPDATE copilot_jobs
                    SET state = ?, exit_code = ?,
                        finished_at = ?, error_text = ?
-                   WHERE id = ?""",
+                   WHERE id = ? AND state = 'running'""",
                 (state, exit_code, now, error_text, job_id),
             )
-        self._execute_write(_do)
+            return cursor.rowcount
+        return self._execute_write(_do)
 
     def update_copilot_job_signal_ref(
         self,
