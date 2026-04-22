@@ -1,7 +1,7 @@
 """State enums and dataclasses for copilot jobs."""
 
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -14,6 +14,36 @@ class JobState(str, Enum):
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
+    # Wall-clock deadline elapsed before the job finished.
+    TIMED_OUT = "timed_out"
+    # Explicitly cancelled (e.g. by operator or merge-gate veto).
+    CANCELLED = "cancelled"
+
+    @property
+    def is_terminal(self) -> bool:
+        """Return True if this state is a terminal (non-resumable) state."""
+        return self in (
+            JobState.DONE,
+            JobState.FAILED,
+            JobState.TIMED_OUT,
+            JobState.CANCELLED,
+        )
+
+
+class HookType(str, Enum):
+    """Hook types supported by the copilot job lifecycle."""
+    # Fired when a child session opens a PR — used to gate merge readiness.
+    MERGE_GATE = "merge_gate"
+    # Fired after the job reaches a terminal state — used for validation.
+    POST_TASK = "post_task"
+
+
+class HookState(str, Enum):
+    """State of a registered lifecycle hook."""
+    PENDING = "pending"
+    FIRED = "fired"
+    FAILED = "failed"
+    SKIPPED = "skipped"
 
 
 @dataclass

@@ -177,7 +177,8 @@ def build_copilot_command(
 
 def _log_dir() -> Path:
     """Return (and create) the copilot log directory."""
-    d = Path.home() / ".hermes" / "logs"
+    from hermes_constants import get_hermes_home
+    d = get_hermes_home() / "logs"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -191,12 +192,19 @@ def launch_copilot(
     model: Optional[str] = None,
     dry_run: bool = False,
     on_complete: Optional[Callable[[str, int], None]] = None,
+    db: Any = None,
     _spawn: Optional[Callable] = None,
 ) -> Dict[str, Any]:
     """Launch ``copilot -i`` with ``--remote`` for a repo.
 
     *session_id* is the pre-generated UUID used as both the hermes job ID
     and the copilot session (passed via ``--resume=<uuid>``).
+
+    *db* is an optional :class:`~hermes_state.SessionDB` instance.  When
+    provided, the resolved ``connect_id`` is persisted via
+    :meth:`~hermes_state.SessionDB.update_copilot_job_connect_id` so it
+    survives process restarts and is available for ``--connect`` resumption
+    and distributed tracing.
 
     **Real launches** (no ``_spawn``): copilot runs fully detached via a
     shell wrapper that redirects stdout to a log file and calls
@@ -208,7 +216,8 @@ def launch_copilot(
 
     If *dry_run* is True, skips the subprocess and returns placeholders.
 
-    Returns ``{"session_id": str, "cmd": [...], "proc": Popen|None}``.
+    Returns ``{"session_id": str, "cmd": [...], "proc": Popen|None,
+    "connect_id": str|None}``.
     """
     cmd = build_copilot_command(
         prompt,
@@ -281,6 +290,14 @@ def launch_copilot(
             )
 
             connect_id = _wait_for_remote_task_id(session_id)
+            if connect_id and db is not None:
+                try:
+                    db.update_copilot_job_connect_id(session_id, connect_id)
+                except Exception:
+                    logger.warning(
+                        "Failed to persist connect_id %s for job %s",
+                        connect_id, session_id, exc_info=True,
+                    )
 
         return {
             "session_id": session_id,
