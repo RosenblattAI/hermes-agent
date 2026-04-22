@@ -212,14 +212,22 @@ def _read_pid_record(pid_path: Optional[Path] = None) -> Optional[dict]:
     return None
 
 
-def _cleanup_invalid_pid_path(pid_path: Path, *, cleanup_stale: bool) -> None:
+def _cleanup_invalid_pid_path(
+    pid_path: Path,
+    *,
+    cleanup_stale: bool,
+    expected_record: Optional[dict[str, Any]] = None,
+) -> None:
     if not cleanup_stale:
         return
     try:
-        if pid_path == _get_pid_path():
-            remove_pid_file()
-        else:
-            pid_path.unlink(missing_ok=True)
+        current_record = _read_pid_record(pid_path)
+        if expected_record is None:
+            if current_record is not None:
+                return
+        elif current_record != expected_record:
+            return
+        pid_path.unlink(missing_ok=True)
     except Exception:
         pass
 
@@ -585,30 +593,50 @@ def get_running_pid(
     resolved_pid_path = pid_path or _get_pid_path()
     record = _read_pid_record(resolved_pid_path)
     if not record:
-        _cleanup_invalid_pid_path(resolved_pid_path, cleanup_stale=cleanup_stale)
+        _cleanup_invalid_pid_path(
+            resolved_pid_path,
+            cleanup_stale=cleanup_stale,
+            expected_record=None,
+        )
         return None
 
     try:
         pid = int(record["pid"])
     except (KeyError, TypeError, ValueError):
-        _cleanup_invalid_pid_path(resolved_pid_path, cleanup_stale=cleanup_stale)
+        _cleanup_invalid_pid_path(
+            resolved_pid_path,
+            cleanup_stale=cleanup_stale,
+            expected_record=record,
+        )
         return None
 
     try:
         os.kill(pid, 0)  # signal 0 = existence check, no actual signal sent
     except (ProcessLookupError, PermissionError):
-        _cleanup_invalid_pid_path(resolved_pid_path, cleanup_stale=cleanup_stale)
+        _cleanup_invalid_pid_path(
+            resolved_pid_path,
+            cleanup_stale=cleanup_stale,
+            expected_record=record,
+        )
         return None
 
     recorded_start = record.get("start_time")
     current_start = _get_process_start_time(pid)
     if recorded_start is not None and current_start is not None and current_start != recorded_start:
-        _cleanup_invalid_pid_path(resolved_pid_path, cleanup_stale=cleanup_stale)
+        _cleanup_invalid_pid_path(
+            resolved_pid_path,
+            cleanup_stale=cleanup_stale,
+            expected_record=record,
+        )
         return None
 
     if not _looks_like_gateway_process(pid):
         if not _record_looks_like_gateway(record):
-            _cleanup_invalid_pid_path(resolved_pid_path, cleanup_stale=cleanup_stale)
+            _cleanup_invalid_pid_path(
+                resolved_pid_path,
+                cleanup_stale=cleanup_stale,
+                expected_record=record,
+            )
             return None
 
     return pid

@@ -5,7 +5,7 @@ import pytest
 
 
 class TestDeprecatedCwdWarning:
-    """Warn when MESSAGING_CWD or TERMINAL_CWD is set in .env."""
+    """Warn when deprecated CWD env vars are present in the environment."""
 
     def test_messaging_cwd_triggers_warning(self, monkeypatch, capsys):
         monkeypatch.setenv("MESSAGING_CWD", "/some/path")
@@ -16,6 +16,7 @@ class TestDeprecatedCwdWarning:
 
         captured = capsys.readouterr()
         assert "MESSAGING_CWD" in captured.err
+        assert "found in the environment" in captured.err
         assert "deprecated" in captured.err.lower()
         assert "config.yaml" in captured.err
 
@@ -24,11 +25,13 @@ class TestDeprecatedCwdWarning:
         monkeypatch.delenv("MESSAGING_CWD", raising=False)
 
         from hermes_cli.config import warn_deprecated_cwd_env_vars
-        # config has placeholder cwd → TERMINAL_CWD likely from .env
+        # config has placeholder cwd → TERMINAL_CWD is likely inherited from
+        # process startup rather than resolved from config.yaml.
         warn_deprecated_cwd_env_vars(config={"terminal": {"cwd": "."}})
 
         captured = capsys.readouterr()
         assert "TERMINAL_CWD" in captured.err
+        assert "found in the environment" in captured.err
         assert "deprecated" in captured.err.lower()
 
     def test_no_warning_when_config_has_explicit_cwd(self, monkeypatch, capsys):

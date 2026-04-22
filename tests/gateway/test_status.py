@@ -51,6 +51,38 @@ class TestGatewayPidState:
         assert status.get_running_pid() is None
         assert not pid_path.exists()
 
+    def test_get_running_pid_removes_stale_default_pid_file_from_other_process(
+        self, tmp_path, monkeypatch
+    ):
+        """Stale default gateway.pid files must be unlinked even when they
+        belong to a different PID than the current process.
+
+        This is the Docker/container restart case: a previous container leaves a
+        mounted gateway.pid behind, get_running_pid() correctly decides the PID
+        is dead, and startup must remove the stale file before write_pid_file()
+        retries the exclusive create.
+        """
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        pid_path = tmp_path / "gateway.pid"
+        pid_path.write_text(
+            json.dumps(
+                {
+                    "pid": 784,
+                    "kind": "hermes-gateway",
+                    "argv": ["/home/node/hermes-agent/venv/bin/hermes", "gateway"],
+                    "start_time": 70141313,
+                }
+            )
+        )
+
+        def _raise_process_lookup(pid, sig):
+            raise ProcessLookupError()
+
+        monkeypatch.setattr(status.os, "kill", _raise_process_lookup)
+
+        assert status.get_running_pid() is None
+        assert not pid_path.exists()
+
     def test_get_running_pid_accepts_gateway_metadata_when_cmdline_unavailable(self, tmp_path, monkeypatch):
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
         pid_path = tmp_path / "gateway.pid"

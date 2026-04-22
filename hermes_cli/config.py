@@ -2314,7 +2314,7 @@ def print_config_warnings(config: Optional[Dict[str, Any]] = None) -> None:
 
 
 def warn_deprecated_cwd_env_vars(config: Optional[Dict[str, Any]] = None) -> None:
-    """Warn if MESSAGING_CWD or TERMINAL_CWD is set in .env instead of config.yaml.
+    """Warn if deprecated CWD env vars are present instead of config.yaml.
 
     These env vars are deprecated — the canonical setting is terminal.cwd
     in config.yaml.  Prints a migration hint to stderr.
@@ -2336,18 +2336,19 @@ def warn_deprecated_cwd_env_vars(config: Optional[Dict[str, Any]] = None) -> Non
     lines: list[str] = []
     if messaging_cwd:
         lines.append(
-            f"  \033[33m⚠\033[0m MESSAGING_CWD={messaging_cwd} found in .env — "
+            f"  \033[33m⚠\033[0m MESSAGING_CWD={messaging_cwd} found in the environment — "
             f"this is deprecated."
         )
     if terminal_cwd_env and not config_has_explicit_cwd:
-        # TERMINAL_CWD in env but not from config bridge — likely from .env
+        # TERMINAL_CWD in env but not from config bridge — likely inherited from
+        # process startup rather than resolved from config.yaml.
         lines.append(
-            f"  \033[33m⚠\033[0m TERMINAL_CWD={terminal_cwd_env} found in .env — "
+            f"  \033[33m⚠\033[0m TERMINAL_CWD={terminal_cwd_env} found in the environment — "
             f"this is deprecated."
         )
     if lines:
         hint_path = os.environ.get("HERMES_HOME", "~/.hermes")
-        lines.insert(0, "\033[33m⚠ Deprecated .env settings detected:\033[0m")
+        lines.insert(0, "\033[33m⚠ Deprecated environment settings detected:\033[0m")
         lines.append(
             f"  \033[2mMove to config.yaml instead:  "
             f"terminal:\\n    cwd: /your/project/path\033[0m"
