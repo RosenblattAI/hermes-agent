@@ -16,8 +16,8 @@ class JobState(str, Enum):
     FAILED = "failed"
     # Wall-clock deadline elapsed before the job finished.
     TIMED_OUT = "timed_out"
-    # Explicitly cancelled (e.g. by operator or merge-gate veto).
-    CANCELLED = "cancelled"
+    # Explicitly stopped (e.g. by operator or merge-gate veto).
+    STOPPED = "stopped"
 
     @property
     def is_terminal(self) -> bool:
@@ -26,7 +26,7 @@ class JobState(str, Enum):
             JobState.DONE,
             JobState.FAILED,
             JobState.TIMED_OUT,
-            JobState.CANCELLED,
+            JobState.STOPPED,
         )
 
 

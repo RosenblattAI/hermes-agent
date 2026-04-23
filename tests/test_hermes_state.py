@@ -933,9 +933,10 @@ class TestSchemaInit:
         assert "schema_version" in tables
 
     def test_schema_version(self, db):
+        from hermes_state import SCHEMA_VERSION
         cursor = db._conn.execute("SELECT version FROM schema_version")
         version = cursor.fetchone()[0]
-        assert version == 8
+        assert version == SCHEMA_VERSION
 
     def test_title_column_exists(self, db):
         """Verify the title column was created in the sessions table."""
@@ -991,7 +992,7 @@ class TestSchemaInit:
         conn.commit()
         conn.close()
 
-        # Open with SessionDB — should migrate to v7
+        # Open with SessionDB — should migrate to current SCHEMA_VERSION
         migrated_db = SessionDB(db_path=db_path)
 
         # Verify migration
@@ -1828,9 +1829,9 @@ class TestJobStateEnum:
         from copilot_jobs.models import JobState
         assert JobState.TIMED_OUT.is_terminal is True
 
-    def test_cancelled_is_terminal(self):
+    def test_stopped_is_terminal(self):
         from copilot_jobs.models import JobState
-        assert JobState.CANCELLED.is_terminal is True
+        assert JobState.STOPPED.is_terminal is True
 
     def test_running_is_not_terminal(self):
         from copilot_jobs.models import JobState
