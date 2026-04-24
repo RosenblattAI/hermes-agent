@@ -1022,12 +1022,14 @@ class TestReactions:
         }
         await adapter._handle_slack_message(event)
 
-        # Should have added 👀, then removed 👀, then added ✅
+        # Should have added 👀, then removed 👀, then added a random completion emoji
         add_calls = adapter._app.client.reactions_add.call_args_list
         remove_calls = adapter._app.client.reactions_remove.call_args_list
         assert len(add_calls) == 2
         assert add_calls[0].kwargs["name"] == "eyes"
-        assert add_calls[1].kwargs["name"] == "white_check_mark"
+        # Completion emoji is randomly chosen from a list — just verify it's a non-empty string
+        assert isinstance(add_calls[1].kwargs["name"], str)
+        assert add_calls[1].kwargs["name"] != ""
         assert len(remove_calls) == 1
         assert remove_calls[0].kwargs["name"] == "eyes"
 
