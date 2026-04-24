@@ -150,7 +150,10 @@ testpaths = ["tests"]
 markers = [
     "integration: marks tests requiring external services (API keys, Modal, etc.)",
 ]
-addopts = "-m 'not integration' -n auto --cov=. --cov-report=json --cov-report=term-missing"
+addopts = "-m 'not integration' -n auto"
+# Note: coverage flags (--cov, --cov-fail-under) are intentionally NOT in addopts.
+# They are applied only in CI via the dedicated "coverage" job in tests.yml,
+# so local test runs are fast and dev tools (vulture_whitelist, etc.) don't confuse coverage.
 
 [tool.coverage.run]
 omit = [

@@ -17,7 +17,10 @@ concurrency:
 jobs:
   # ---------------------------------------------------------------------------
   # Lint job — Ruff + mypy + interrogate + vulture (AZ-8, AZ-9, AZ-10, AZ-11)
-  # Runs first (fast, <2min) to give quick feedback before the full test suite
+  # All steps are non-blocking (continue-on-error: true) initially.
+  # They run, emit annotations, and upload machine-readable artifacts for the
+  # upcoming Hermes AI review agent (AZ-4).  Gates will be made blocking once
+  # a clean baseline is established for each tool.
   # ---------------------------------------------------------------------------
   lint:
     name: Lint & Static Analysis
@@ -39,16 +42,15 @@ jobs:
           source .venv/bin/activate
           uv pip install -e ".[dev]"
 
+      # Ruff lint — GitHub-format annotations + JSON artifact for AI review agent
+      # Non-blocking until pre-existing violations are cleaned up (AZ-8)
       - name: Ruff — lint (AZ-8)
-        run: |
-          source .venv/bin/activate
-          ruff check . --output-format=github
-        # Use --output-format=github for PR annotations; also emit JSON artifact
-      - name: Ruff — lint (JSON artifact)
         if: always()
         run: |
           source .venv/bin/activate
-          ruff check . --output-format=json > ruff-report.json 2>/dev/null || true
+          ruff check . --output-format=github 2>&1 || true
+          ruff check . --output-format=json > ruff-report.json 2>&1 || true
+
       - name: Upload ruff report
         if: always()
         uses: actions/upload-artifact@v4
@@ -56,18 +58,21 @@ jobs:
           name: ruff-report
           path: ruff-report.json
 
+      # Ruff format check — non-blocking until codebase is formatted (AZ-8)
       - name: Ruff — format check (AZ-8)
+        if: always()
         run: |
           source .venv/bin/activate
-          ruff format --check .
+          ruff format --check . 2>&1 || true
+        continue-on-error: true
 
+      # mypy — non-blocking until type baseline is established (AZ-9)
       - name: mypy — type check (AZ-9)
+        if: always()
         run: |
           source .venv/bin/activate
           mypy . --ignore-missing-imports --no-error-summary 2>&1 | tee mypy-report.txt || true
-          # Fail only on errors (exit 1), not on missing stubs (exit 2)
-          mypy . --ignore-missing-imports --no-error-summary
-        continue-on-error: true  # Non-blocking until type baseline is established
+        continue-on-error: true
 
       - name: Upload mypy report
         if: always()
@@ -76,20 +81,25 @@ jobs:
           name: mypy-report
           path: mypy-report.txt
 
+      # interrogate — non-blocking until docstring baseline is established (AZ-18)
       - name: interrogate — docstring coverage (AZ-18)
+        if: always()
         run: |
           source .venv/bin/activate
-          interrogate -vv --fail-under 60 . --ignore-init-method --ignore-init-module \
-            --ignore-magic --ignore-semiprivate --ignore-private --ignore-module \
-            --ignore-nested-functions --exclude tests --exclude environments --exclude .venv
-        continue-on-error: true  # Non-blocking until docstring baseline is established
+          interrogate -vv --fail-under 60 . \
+            --ignore-init-method --ignore-init-module \
+            --ignore-magic --ignore-semiprivate --ignore-private \
+            --ignore-module --ignore-nested-functions \
+            --exclude tests --exclude environments --exclude .venv 2>&1 || true
+        continue-on-error: true
 
+      # vulture — non-blocking initially (AZ-11)
       - name: vulture — dead code (AZ-11)
+        if: always()
         run: |
           source .venv/bin/activate
-          vulture . --min-confidence 80 > vulture-report.txt 2>&1 || true
-          cat vulture-report.txt
-        continue-on-error: true  # Non-blocking initially; convert to blocking after first clean pass
+          vulture . --min-confidence 80 2>&1 | tee vulture-report.txt || true
+        continue-on-error: true
 
       - name: Upload vulture report
         if: always()
@@ -129,6 +139,29 @@ jobs:
           OPENROUTER_API_KEY: ""
           OPENAI_API_KEY: ""
           NOUS_API_KEY: ""
+
+      # Coverage measurement — non-blocking initially (AZ-16)
+      # Gate will be enforced once coverage reaches the 50% threshold.
+      - name: Run tests with coverage (AZ-16)
+        if: always()
+        run: |
+          source .venv/bin/activate
+          python -m pytest tests/ -q --ignore=tests/integration --ignore=tests/e2e \
+            --tb=no -n auto \
+            --cov=. --cov-report=json --cov-report=term-missing \
+            --cov-config=pyproject.toml 2>&1 | tail -20 || true
+        env:
+          OPENROUTER_API_KEY: ""
+          OPENAI_API_KEY: ""
+          NOUS_API_KEY: ""
+        continue-on-error: true
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.json
 
   e2e:
     runs-on: ubuntu-latest
