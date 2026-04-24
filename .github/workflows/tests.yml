@@ -53,7 +53,7 @@ jobs:
 
       - name: Upload ruff report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.2
         with:
           name: ruff-report
           path: ruff-report.json
@@ -76,7 +76,7 @@ jobs:
 
       - name: Upload mypy report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.2
         with:
           name: mypy-report
           path: mypy-report.txt
@@ -98,12 +98,12 @@ jobs:
         if: always()
         run: |
           source .venv/bin/activate
-          vulture . --min-confidence 80 2>&1 | tee vulture-report.txt || true
+          vulture . vulture_whitelist.py --min-confidence 80 2>&1 | tee vulture-report.txt || true
         continue-on-error: true
 
       - name: Upload vulture report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.2
         with:
           name: vulture-report
           path: vulture-report.txt
@@ -158,7 +158,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.2
         with:
           name: coverage-report
           path: coverage.json
