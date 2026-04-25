@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Plan mode for Hermes — inspect context, write a markdown plan into the active workspace's `.hermes/plans/` directory, and do not execute the work.
+description: Plan mode for Hermes — inspect context, write a markdown plan into the active workspace's `.hermes/plans/` directory, do not execute the work, and hand off software implementation to `/copilot` by default.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -13,6 +13,12 @@ metadata:
 # Plan Mode
 
 Use this skill when the user wants a plan instead of execution.
+
+## Copilot-First Routing
+
+This skill is the planning exception. Stay read-only while producing the plan itself.
+When the user wants to execute software-development work after planning, hand off to
+`/copilot` by default unless they explicitly ask for a different path.
 
 ## Core behavior
 

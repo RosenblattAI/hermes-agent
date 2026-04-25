@@ -1,6 +1,6 @@
 ---
 name: systematic-debugging
-description: Use when encountering any bug, test failure, or unexpected behavior. 4-phase root cause investigation — NO fixes without understanding the problem first.
+description: Use when encountering any bug, test failure, or unexpected behavior. Copilot-first, 4-phase root cause investigation — NO fixes without understanding the problem first.
 version: 1.1.0
 author: Hermes Agent (adapted from obra/superpowers)
 license: MIT
@@ -19,6 +19,12 @@ Random fixes waste time and create new bugs. Quick patches mask underlying issue
 **Core principle:** ALWAYS find root cause before attempting fixes. Symptom fixes are failure.
 
 **Violating the letter of this process is violating the spirit of debugging.**
+
+## Copilot-First Routing
+
+This skill assumes `/copilot` is the default execution path for software-development
+ debugging in Hermes. Do not let that shortcut the process: `/copilot` should help
+execute the investigation, not replace root-cause analysis.
 
 ## The Iron Law
 
@@ -325,27 +331,25 @@ Use these Hermes tools during Phase 1:
 - **`terminal`** — Run tests, check git history, reproduce bugs
 - **`web_search`/`web_extract`** — Research error messages, library docs
 
-### With delegate_task
+### With `/copilot`
 
-For complex multi-component debugging, dispatch investigation subagents:
+For complex multi-component debugging, prefer a fresh `/copilot` investigation context:
 
-```python
-delegate_task(
-    goal="Investigate why [specific test/behavior] fails",
-    context="""
-    Follow systematic-debugging skill:
-    1. Read the error message carefully
-    2. Reproduce the issue
-    3. Trace the data flow to find root cause
-    4. Report findings — do NOT fix yet
+```text
+/copilot Investigate why [specific test/behavior] fails.
 
-    Error: [paste full error]
-    File: [path to failing code]
-    Test command: [exact command]
-    """,
-    toolsets=['terminal', 'file']
-)
+Follow systematic-debugging skill:
+1. Read the error message carefully
+2. Reproduce the issue
+3. Trace the data flow to find root cause
+4. Report findings — do NOT fix yet
+
+Error: [paste full error]
+File: [path to failing code]
+Test command: [exact command]
 ```
+
+If `/copilot` is unavailable in the current runtime, fall back to `delegate_task` with the same prompt.
 
 ### With test-driven-development
 

@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Use when implementing any feature or bugfix, before writing implementation code. Enforces RED-GREEN-REFACTOR cycle with test-first approach.
+description: Use when implementing any feature or bugfix, before writing implementation code. Enforces a Copilot-first RED-GREEN-REFACTOR cycle with test-first approach.
 version: 1.1.0
 author: Hermes Agent (adapted from obra/superpowers)
 license: MIT
@@ -19,6 +19,12 @@ Write the test first. Watch it fail. Write minimal code to pass.
 **Core principle:** If you didn't watch the test fail, you don't know if it tests the right thing.
 
 **Violating the letter of the rules is violating the spirit of the rules.**
+
+## Copilot-First Routing
+
+This skill assumes `/copilot` is the default execution path for software-development
+implementation in Hermes. `/copilot` should carry out the RED-GREEN-REFACTOR loop,
+not skip it.
 
 ## When to Use
 
@@ -296,28 +302,26 @@ terminal("pytest tests/test_feature.py::test_name -v")
 terminal("pytest tests/ -q")
 ```
 
-### With delegate_task
+### With `/copilot`
 
-When dispatching subagents for implementation, enforce TDD in the goal:
+When using `/copilot` for implementation, enforce TDD in the prompt:
 
-```python
-delegate_task(
-    goal="Implement [feature] using strict TDD",
-    context="""
-    Follow test-driven-development skill:
-    1. Write failing test FIRST
-    2. Run test to verify it fails
-    3. Write minimal code to pass
-    4. Run test to verify it passes
-    5. Refactor if needed
-    6. Commit
+```text
+/copilot Implement [feature] using strict TDD.
 
-    Project test command: pytest tests/ -q
-    Project structure: [describe relevant files]
-    """,
-    toolsets=['terminal', 'file']
-)
+Follow test-driven-development skill:
+1. Write failing test FIRST
+2. Run test to verify it fails
+3. Write minimal code to pass
+4. Run test to verify it passes
+5. Refactor if needed
+6. Commit
+
+Project test command: pytest tests/ -q
+Project structure: [describe relevant files]
 ```
+
+If `/copilot` is unavailable in the current runtime, fall back to `delegate_task` with the same prompt.
 
 ### With systematic-debugging
 

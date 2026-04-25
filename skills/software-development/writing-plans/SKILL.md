@@ -1,6 +1,6 @@
 ---
 name: writing-plans
-description: Use when you have a spec or requirements for a multi-step task. Creates comprehensive implementation plans with bite-sized tasks, exact file paths, and complete code examples.
+description: Use when you have a spec or requirements for a multi-step task. Creates comprehensive Copilot-ready implementation plans with bite-sized tasks, exact file paths, and complete code examples.
 version: 1.1.0
 author: Hermes Agent (adapted from obra/superpowers)
 license: MIT
@@ -19,6 +19,12 @@ Write comprehensive implementation plans assuming the implementer has zero conte
 Assume the implementer is a skilled developer but knows almost nothing about the toolset or problem domain. Assume they don't know good test design very well.
 
 **Core principle:** A good plan makes implementation obvious. If someone has to guess, the plan is incomplete.
+
+## Copilot-First Routing
+
+This skill is planning, not implementation. Do not use `/copilot` while writing the
+plan itself. Instead, write plans that assume `/copilot` is the default execution
+path once implementation begins, unless the user explicitly asks for another route.
 
 ## When to Use
 
@@ -70,7 +76,7 @@ Every plan MUST start with:
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
+> **For Hermes:** Use `/copilot` as the default execution path for this plan, following the subagent-driven-development skill for task boundaries and review discipline.
 
 **Goal:** [One sentence describing what this builds]
 

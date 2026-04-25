@@ -1,6 +1,6 @@
 ---
 name: subagent-driven-development
-description: Use when executing implementation plans with independent tasks. Dispatches fresh delegate_task per task with two-stage review (spec compliance then code quality).
+description: Use when executing implementation plans with independent tasks. Defaults to fresh `/copilot` execution contexts per task with two-stage review (spec compliance then code quality), with `delegate_task` as fallback.
 version: 1.1.0
 author: Hermes Agent (adapted from obra/superpowers)
 license: MIT
@@ -17,6 +17,12 @@ metadata:
 Execute implementation plans by dispatching fresh subagents per task with systematic two-stage review.
 
 **Core principle:** Fresh subagent per task + two-stage review (spec then quality) = high quality, fast iteration.
+
+## Copilot-First Routing
+
+This skill assumes `/copilot` is the default execution path for each
+software-development implementation task in Hermes. Fresh contexts and review loops
+still matter; `/copilot` changes the route, not the discipline.
 
 ## When to Use
 
@@ -56,9 +62,9 @@ todo([
 
 For EACH task in the plan:
 
-#### Step 1: Dispatch Implementer Subagent
+#### Step 1: Dispatch Implementer via `/copilot`
 
-Use `delegate_task` with complete context:
+Use `/copilot` with complete context for implementation. Fall back to `delegate_task` only if `/copilot` is unavailable in the current runtime:
 
 ```python
 delegate_task(
