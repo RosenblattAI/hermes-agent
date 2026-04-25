@@ -26,6 +26,13 @@ This skill is planning, not implementation. Do not use `/copilot` while writing 
 plan itself. Instead, write plans that assume `/copilot` is the default execution
 path once implementation begins, unless the user explicitly asks for another route.
 
+Before writing a software-development plan, inspect the current workspace for a
+`repos/` directory and identify the repo the work should happen in. Hermes Copilot
+must launch inside one of those repos to run successfully. If the target repo is
+obvious, anchor the plan to that repo root and name it explicitly. If it is not
+obvious, include instructions to launch `/copilot` with `--repo <name>` or
+`--repo-path <absolute-path>` so execution lands in a valid repository.
+
 ## When to Use
 
 **Always use before:**

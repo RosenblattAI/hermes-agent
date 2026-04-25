@@ -28,6 +28,13 @@ work in Hermes. Keep the independent-review separation in this skill even when
 `/copilot` is doing the main execution; the reviewer and fixer should still use
 fresh contexts.
 
+Before any `/copilot` launch in this workflow, inspect the current workspace for a
+`repos/` directory and resolve which repo contains the code under review. Hermes
+Copilot must run inside one of those repos to work reliably. If the repo is obvious,
+launch from that repo root. If not, pass `--repo <name>` or `--repo-path <absolute-path>`
+explicitly so review and fix contexts attach to the correct repository instead of the
+wrapper workspace.
+
 ## When to Use
 
 - After implementing a feature or bug fix, before `git commit` or `git push`

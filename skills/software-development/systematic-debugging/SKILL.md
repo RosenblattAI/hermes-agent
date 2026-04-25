@@ -23,8 +23,14 @@ Random fixes waste time and create new bugs. Quick patches mask underlying issue
 ## Copilot-First Routing
 
 This skill assumes `/copilot` is the default execution path for software-development
- debugging in Hermes. Do not let that shortcut the process: `/copilot` should help
+debugging in Hermes. Do not let that shortcut the process: `/copilot` should help
 execute the investigation, not replace root-cause analysis.
+
+Before opening a `/copilot` debugging context, inspect the current workspace for a
+`repos/` directory and identify the repo that owns the failing code. Hermes Copilot
+must start inside one of those repos to work reliably. If the repo is clear, launch
+from that repo root. If it is not clear, pass `--repo <name>` or `--repo-path <absolute-path>`
+so the investigation attaches to the correct repository.
 
 ## The Iron Law
 

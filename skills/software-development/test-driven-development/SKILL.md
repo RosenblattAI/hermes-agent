@@ -26,6 +26,12 @@ This skill assumes `/copilot` is the default execution path for software-develop
 implementation in Hermes. `/copilot` should carry out the RED-GREEN-REFACTOR loop,
 not skip it.
 
+Before any `/copilot` implementation session, inspect the current workspace for a
+`repos/` directory and determine which repo contains the feature or bugfix. Hermes
+Copilot must launch inside one of those repos to work correctly. If the repo can be
+inferred, run from that repo root. Otherwise, pass `--repo <name>` or `--repo-path <absolute-path>`
+explicitly when launching `/copilot`.
+
 ## When to Use
 
 **Always:**

@@ -24,6 +24,13 @@ This skill assumes `/copilot` is the default execution path for each
 software-development implementation task in Hermes. Fresh contexts and review loops
 still matter; `/copilot` changes the route, not the discipline.
 
+Before dispatching any implementation task, inspect the current workspace for a
+`repos/` directory and determine which repo the task belongs to. Hermes Copilot must
+launch into one of those repos to run successfully. When the target repo can be
+inferred, start the task from that repo root. When it cannot, launch `/copilot` with
+`--repo <name>` or `--repo-path <absolute-path>` so the subagent lands in a valid repo
+instead of the workspace wrapper.
+
 ## When to Use
 
 Use this skill when:
