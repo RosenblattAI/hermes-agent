@@ -114,6 +114,7 @@ Common examples:
 | `/tools` | List currently available tools |
 | `/skills browse` | Browse the skills hub and official optional skills |
 | `/background <prompt>` | Run a prompt in a separate background session |
+| `/copilot launch <prompt>` | Route work to a repo and launch a tracked GitHub Copilot remote session |
 | `/skin` | Show or switch the active CLI skin |
 | `/voice on` | Enable CLI voice mode (press `Ctrl+B` to record) |
 | `/voice tts` | Toggle spoken playback for Hermes replies |
@@ -127,6 +128,12 @@ For setup, providers, silence tuning, and messaging/Discord voice usage, see [Vo
 :::tip
 Commands are case-insensitive — `/HELP` works the same as `/help`. Installed skills also become slash commands automatically.
 :::
+
+### Copilot Remote Jobs
+
+`/copilot` is available in both the CLI and the messaging gateway. Use `/copilot launch <prompt>` to let Hermes route work to a repo and start a detached Copilot remote session, `/copilot list` to browse tracked jobs, and `/copilot show <job-id>` to recover the best reconnect handle Hermes captured for one job.
+
+For prerequisites, explicit repo flags, reconnect behavior, and troubleshooting, see [Copilot Remote Jobs](/docs/user-guide/features/copilot-jobs).
 
 ## Quick Commands
 

@@ -66,6 +66,7 @@ Type `/` in the CLI to open the autocomplete menu. Built-in commands are case-in
 | `/browser [connect\|disconnect\|status]` | Manage local Chrome CDP connection. `connect` attaches browser tools to a running Chrome instance (default: `ws://localhost:9222`). `disconnect` detaches. `status` shows current connection. Auto-launches Chrome if no debugger is detected. |
 | `/skills` | Search, install, inspect, or manage skills from online registries |
 | `/cron` | Manage scheduled tasks (list, add/create, edit, pause, resume, run, remove) |
+| `/copilot [launch\|list\|show]` | Manage Copilot remote jobs: launch a routed session, list tracked jobs, or show reconnect details for one job. |
 | `/reload-mcp` (alias: `/reload_mcp`) | Reload MCP servers from config.yaml |
 | `/reload` | Reload `.env` variables into the running session (picks up new API keys without restarting) |
 | `/plugins` | List installed plugins and their status |
@@ -143,6 +144,7 @@ The messaging gateway supports the following built-in commands inside Telegram, 
 | `/rollback [number]` | List or restore filesystem checkpoints. |
 | `/snapshot [create\|restore <id>\|prune]` (alias: `/snap`) | Create or restore state snapshots of Hermes config/state. |
 | `/background <prompt>` | Run a prompt in a separate background session. Results are delivered back to the same chat when the task finishes. See [Messaging Background Sessions](/docs/user-guide/messaging/#background-sessions). |
+| `/copilot [launch\|list\|show]` | Launch, list, or inspect tracked Copilot remote jobs. See [Copilot Remote Jobs](/docs/user-guide/features/copilot-jobs). |
 | `/plan [request]` | Load the bundled `plan` skill to write a markdown plan instead of executing the work. Plans are saved under `.hermes/plans/` relative to the active workspace/backend working directory. |
 | `/reload-mcp` (alias: `/reload_mcp`) | Reload MCP servers from config. |
 | `/reload` | Reload `.env` variables into the running session. |
@@ -161,5 +163,5 @@ The messaging gateway supports the following built-in commands inside Telegram, 
 - `/skin`, `/tools`, `/toolsets`, `/browser`, `/config`, `/cron`, `/skills`, `/platforms`, `/paste`, `/image`, `/terminal-setup`, `/statusbar`, and `/plugins` are **CLI-only** commands.
 - `/verbose` is **CLI-only by default**, but can be enabled for messaging platforms by setting `display.tool_progress_command: true` in `config.yaml`. When enabled, it cycles the `display.tool_progress` mode and saves to config.
 - `/sethome`, `/update`, `/restart`, `/approve`, `/deny`, and `/commands` are **messaging-only** commands.
-- `/status`, `/background`, `/voice`, `/reload-mcp`, `/rollback`, `/snapshot`, `/debug`, `/fast`, and `/yolo` work in **both** the CLI and the messaging gateway.
+- `/status`, `/background`, `/copilot`, `/voice`, `/reload-mcp`, `/rollback`, `/snapshot`, `/debug`, `/fast`, and `/yolo` work in **both** the CLI and the messaging gateway.
 - `/voice join`, `/voice channel`, and `/voice leave` are only meaningful on Discord.

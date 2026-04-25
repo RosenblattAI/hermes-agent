@@ -95,6 +95,13 @@ For native Anthropic auth, Hermes prefers Claude Code's own credential files whe
 | `HERMES_PREFILL_MESSAGES_FILE` | Path to a JSON file of ephemeral prefill messages injected at API-call time |
 | `HERMES_TIMEZONE` | IANA timezone override (for example `America/New_York`) |
 
+## Copilot Remote Jobs
+
+| Variable | Description |
+|----------|-------------|
+| `HERMES_WORKSPACE_PATH` | Workspace root scanned by `hermes copilot launch` when routing prompts automatically. Expected layout: `repos/<org>/<repo>/README.md`. |
+| `COPILOT_API_URL` | Override the GitHub Copilot API base URL used to inspect and steer remote Copilot tasks (default: `https://api.githubcopilot.com`). |
+
 ## Tool APIs
 
 | Variable | Description |

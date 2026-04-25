@@ -43,6 +43,7 @@ hermes [global-options] <command> [subcommand/options]
 | `hermes login` / `logout` | **Deprecated** — use `hermes auth` instead. |
 | `hermes status` | Show agent, auth, and platform status. |
 | `hermes cron` | Inspect and tick the cron scheduler. |
+| `hermes copilot` | Launch, list, and inspect tracked GitHub Copilot remote sessions. |
 | `hermes webhook` | Manage dynamic webhook subscriptions for event-driven activation. |
 | `hermes doctor` | Diagnose config and dependency issues. |
 | `hermes dump` | Copy-pasteable setup summary for support/debugging. |
@@ -260,6 +261,58 @@ hermes cron <list|create|edit|pause|resume|run|remove|status|tick>
 | `remove` | Delete a scheduled job. |
 | `status` | Check whether the cron scheduler is running. |
 | `tick` | Run due jobs once and exit. |
+
+## `hermes copilot`
+
+```bash
+hermes copilot <launch|list|show>
+```
+
+Launch and inspect GitHub Copilot remote sessions that Hermes tracks as jobs. See [Copilot Remote Jobs](/docs/user-guide/features/copilot-jobs) for the full workflow and troubleshooting.
+
+### `hermes copilot launch`
+
+```bash
+hermes copilot launch [options] "<prompt>"
+```
+
+If `--repo` is omitted, Hermes uses the repo router to scan `HERMES_WORKSPACE_PATH/repos/`, summarize README content, and pick the best repo for the prompt. Launches are detached: Hermes stores the job, prints reconnect commands, and returns immediately while Copilot keeps running.
+
+| Option | Description |
+|--------|-------------|
+| `--repo <slug>` | Skip routing and target a specific repo |
+| `--repo-path <abs-path>` | Required with `--repo`; absolute repo path visible to the active environment |
+| `--model <name>` | Ask Copilot CLI to use a specific model |
+| `--dry-run` | Simulate the launch without spawning Copilot |
+| `--signal-source <name>` | Advanced metadata for where the launch came from |
+| `--signal-ref <value>` | Advanced reference such as a ticket ID |
+
+### `hermes copilot list`
+
+```bash
+hermes copilot list [--state running|done|failed] [--limit N]
+```
+
+List tracked jobs. Alias: `hermes copilot ls`.
+
+### `hermes copilot show`
+
+```bash
+hermes copilot show <job-id>
+```
+
+Show repo, prompt preview, state, exit code, error text, and the best connect or resume handle Hermes captured for that job.
+
+Examples:
+
+```bash
+hermes copilot launch "Audit the webhook retry path in fridai-backend"
+hermes copilot launch --repo fridai-backend --repo-path /workspace/repos/proservice/fridai-backend "Patch the EventBridge retry bug"
+hermes copilot list --state running
+hermes copilot show <job-id>
+```
+
+Job records live in `~/.hermes/state.db`. Detached launch logs go to `~/.hermes/logs/copilot-<job-id>.log`. If Hermes cannot verify prompt delivery or resolve the exported remote task ID, it prints a warning instead of silently pretending the remote session is fully attached.
 
 ## `hermes webhook`
 

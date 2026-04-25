@@ -14,6 +14,7 @@ Source file: `hermes_state.py`
 ├── sessions          — Session metadata, token counts, billing
 ├── messages          — Full message history per session
 ├── messages_fts      — FTS5 virtual table for full-text search
+├── copilot_jobs      — Detached Copilot remote session lifecycle metadata
 └── schema_version    — Single-row table tracking migration state
 ```
 
@@ -22,6 +23,7 @@ Key design decisions:
 - **FTS5 virtual table** for fast text search across all session messages
 - **Session lineage** via `parent_session_id` chains (compression-triggered splits)
 - **Source tagging** (`cli`, `telegram`, `discord`, etc.) for platform filtering
+- **Detached Copilot job tracking** via `copilot_jobs` rows (separate from transcripts)
 - Batch runner and RL trajectories are NOT stored here (separate systems)
 
 
@@ -95,6 +97,34 @@ Notes:
 - `reasoning` stores the raw reasoning text for providers that expose it
 - Timestamps are Unix epoch floats (`time.time()`)
 
+### Copilot Jobs Table
+
+```sql
+CREATE TABLE IF NOT EXISTS copilot_jobs (
+    id TEXT PRIMARY KEY,
+    hermes_session_id TEXT REFERENCES sessions(id),
+    repo_slug TEXT NOT NULL,
+    repo_path TEXT NOT NULL,
+    prompt TEXT,
+    signal_source TEXT,
+    signal_ref TEXT,
+    state TEXT NOT NULL DEFAULT 'running',
+    exit_code INTEGER,
+    created_at REAL NOT NULL,
+    finished_at REAL,
+    error_text TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_copilot_jobs_state ON copilot_jobs(state);
+CREATE INDEX IF NOT EXISTS idx_copilot_jobs_repo ON copilot_jobs(repo_slug, state);
+```
+
+Notes:
+- `id` is the Hermes-side job ID and primary lookup key
+- `signal_ref` stores an external reconnect handle when Hermes resolves Copilot's remote task ID
+- `hermes_session_id` can link a launch back to the Hermes chat session that created it
+- This table stores lifecycle metadata only; Copilot transcripts remain outside `state.db`
+
 ### FTS5 Full-Text Search
 
 ```sql
@@ -128,7 +158,7 @@ END;
 
 ## Schema Version and Migrations
 
-Current schema version: **6**
+Current schema version: **9**
 
 The `schema_version` table stores a single integer. On initialization,
 `_init_schema()` checks the current version and applies migrations sequentially:
@@ -141,6 +171,9 @@ The `schema_version` table stores a single integer. On initialization,
 | 4 | Add unique index on `title` (NULLs allowed, non-NULL must be unique) |
 | 5 | Add billing columns: `cache_read_tokens`, `cache_write_tokens`, `reasoning_tokens`, `billing_provider`, `billing_base_url`, `billing_mode`, `estimated_cost_usd`, `actual_cost_usd`, `cost_status`, `cost_source`, `pricing_version` |
 | 6 | Add reasoning columns to messages: `reasoning`, `reasoning_details`, `codex_reasoning_items` |
+| 7 | Add `reasoning_content` to messages and introduce the first `copilot_jobs` table |
+| 8 | Add `api_call_count` to sessions and simplify Copilot job storage |
+| 9 | Remove `copilot_session_id`; Hermes job IDs become the canonical Copilot job key |
 
 Each migration uses `ALTER TABLE ADD COLUMN` wrapped in try/except to handle
 the column-already-exists case (idempotent). The version number is bumped after
@@ -235,6 +268,25 @@ session_id = db.resolve_session_by_title("Fix Docker Build")
 # Auto-generate next title in lineage
 next_title = db.get_next_title_in_lineage("Fix Docker Build")
 # Returns: "Fix Docker Build #2"
+```
+
+### Create and Manage Copilot Jobs
+
+```python
+job_id = db.create_copilot_job(
+    job_id="job_123",
+    repo_slug="fridai-backend",
+    repo_path="/workspace/repos/proservice/fridai-backend",
+    prompt="Patch the failing webhook retry path",
+    signal_source="cli",
+)
+
+db.update_copilot_job_signal_ref(job_id, "task-123")
+
+job = db.get_copilot_job(job_id)
+running_jobs = db.list_copilot_jobs(state="running", limit=20)
+
+db.finish_copilot_job(job_id, state="done", exit_code=0)
 ```
 
 

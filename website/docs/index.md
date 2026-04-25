@@ -28,6 +28,7 @@ It's not a coding copilot tethered to an IDE or a chatbot wrapper around a singl
 | 📖 **[Quickstart Tutorial](/docs/getting-started/quickstart)** | Your first conversation and key features to try |
 | 🗺️ **[Learning Path](/docs/getting-started/learning-path)** | Find the right docs for your experience level |
 | ⚙️ **[Configuration](/docs/user-guide/configuration)** | Config file, providers, models, and options |
+| 🤖 **[Copilot Remote Jobs](/docs/user-guide/features/copilot-jobs)** | Route work to repos, launch tracked GitHub Copilot remote sessions, and reconnect later |
 | 💬 **[Messaging Gateway](/docs/user-guide/messaging)** | Set up Telegram, Discord, Slack, or WhatsApp |
 | 🔧 **[Tools & Toolsets](/docs/user-guide/features/tools)** | 47 built-in tools and how to configure them |
 | 🧠 **[Memory System](/docs/user-guide/features/memory)** | Persistent memory that grows across sessions |
@@ -50,6 +51,7 @@ It's not a coding copilot tethered to an IDE or a chatbot wrapper around a singl
 - **Lives where you do** — CLI, Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Mattermost, Email, SMS, DingTalk, Feishu, WeCom, BlueBubbles, Home Assistant — 15+ platforms from one gateway
 - **Built by model trainers** — Created by [Nous Research](https://nousresearch.com), the lab behind Hermes, Nomos, and Psyche. Works with [Nous Portal](https://portal.nousresearch.com), [OpenRouter](https://openrouter.ai), OpenAI, or any endpoint
 - **Scheduled automations** — Built-in cron with delivery to any platform
+- **Tracked Copilot remote jobs** — Route a task to the right repo, launch a detached GitHub Copilot session, and reconnect or inspect it later through Hermes
 - **Delegates & parallelizes** — Spawn isolated subagents for parallel workstreams. Programmatic Tool Calling via `execute_code` collapses multi-step pipelines into single inference calls
 - **Open standard skills** — Compatible with [agentskills.io](https://agentskills.io). Skills are portable, shareable, and community-contributed via the Skills Hub
 - **Full web control** — Search, extract, browse, vision, image generation, TTS
