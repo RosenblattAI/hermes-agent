@@ -13,6 +13,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from batch_runner import BatchRunner, _process_batch_worker
+from batch_runner import main
 
 
 @pytest.fixture
@@ -186,3 +187,16 @@ class TestBatchWorkerResumeBehavior:
         assert result["discarded_no_reasoning"] == 1
         assert result["completed_prompts"] == [0]
         assert not batch_file.exists() or batch_file.read_text() == ""
+
+
+class TestListDistributions:
+    def test_main_lists_available_distributions(self, monkeypatch, capsys):
+        seen = []
+
+        monkeypatch.setattr("batch_runner.get_all_distributions", lambda: {"zeta": {}, "alpha": {}})
+        monkeypatch.setattr("toolset_distributions.print_distribution_info", lambda name: seen.append(name))
+
+        main(list_distributions=True)
+
+        assert seen == ["alpha", "zeta"]
+        assert "Available Toolset Distributions" in capsys.readouterr().out

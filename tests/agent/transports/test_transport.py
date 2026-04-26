@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 from agent.transports.base import ProviderTransport
 from agent.transports.types import NormalizedResponse, ToolCall, Usage
+from agent.transports.types import build_tool_call
 from agent.transports import get_transport, register_transport, _REGISTRY
 
 
@@ -79,6 +80,19 @@ class TestTransportRegistry:
         assert t.api_mode == "dummy_test"
         # Cleanup
         _REGISTRY.pop("dummy_test", None)
+
+
+class TestBuildToolCall:
+
+    def test_preserves_string_arguments(self):
+        tool_call = build_tool_call("tool_123", "terminal", '{"command":"ls"}')
+
+        assert tool_call.arguments == '{"command":"ls"}'
+
+    def test_json_serializes_list_arguments(self):
+        tool_call = build_tool_call("tool_123", "terminal", ["ls", "-la"])
+
+        assert tool_call.arguments == '["ls", "-la"]'
 
 
 # ── AnthropicTransport tests ────────────────────────────────────────────

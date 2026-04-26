@@ -8,7 +8,7 @@ streaming, or the _run_codex_stream() call path.
 from typing import Any, Dict, List, Optional
 
 from agent.transports.base import ProviderTransport
-from agent.transports.types import NormalizedResponse, ToolCall, Usage
+from agent.transports.types import NormalizedResponse, Usage, build_tool_call
 
 
 class ResponsesApiTransport(ProviderTransport):
@@ -149,11 +149,11 @@ class ResponsesApiTransport(ProviderTransport):
                     provider_data["call_id"] = tc.call_id
                 if hasattr(tc, "response_item_id") and tc.response_item_id:
                     provider_data["response_item_id"] = tc.response_item_id
-                tool_calls.append(ToolCall(
-                    id=tc.id if hasattr(tc, "id") else (tc.function.name if hasattr(tc, "function") else None),
+                tool_calls.append(build_tool_call(
+                    id=getattr(tc, "id", None) or None,
                     name=tc.function.name if hasattr(tc, "function") else getattr(tc, "name", ""),
                     arguments=tc.function.arguments if hasattr(tc, "function") else getattr(tc, "arguments", "{}"),
-                    provider_data=provider_data or None,
+                    **provider_data,
                 ))
 
         # Extract reasoning items for provider_data

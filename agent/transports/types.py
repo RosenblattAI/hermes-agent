@@ -81,11 +81,11 @@ def build_tool_call(
     arguments: Any,
     **provider_fields: Any,
 ) -> ToolCall:
-    """Build a ``ToolCall``, auto-serialising *arguments* if it's a dict.
+    """Build a ``ToolCall``, auto-serialising non-string arguments as JSON.
 
     Any extra keyword arguments are collected into ``provider_data``.
     """
-    args_str = json.dumps(arguments) if isinstance(arguments, dict) else str(arguments)
+    args_str = arguments if isinstance(arguments, str) else json.dumps(arguments)
     pd = dict(provider_fields) if provider_fields else None
     return ToolCall(id=id, name=name, arguments=args_str, provider_data=pd)
 

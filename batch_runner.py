@@ -37,7 +37,7 @@ import fire
 
 from run_agent import AIAgent
 from toolset_distributions import (
-    list_distributions, 
+    list_distributions as get_all_distributions,
     sample_toolsets_from_distribution,
     validate_distribution
 )
@@ -1195,7 +1195,7 @@ def main(
         print("📊 Available Toolset Distributions")
         print("=" * 70)
 
-        all_dists = list_distributions()
+        all_dists = get_all_distributions()
         for dist_name in sorted(all_dists.keys()):
             print_distribution_info(dist_name)
         

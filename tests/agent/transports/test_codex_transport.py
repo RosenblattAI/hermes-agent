@@ -218,3 +218,32 @@ class TestCodexNormalizeResponse:
         tc = nr.tool_calls[0]
         assert tc.name == "terminal"
         assert '"command"' in tc.arguments
+
+    def test_tool_call_without_response_item_id_keeps_none_id(self, transport):
+        msg = SimpleNamespace(
+            content=None,
+            reasoning=None,
+            tool_calls=[
+                SimpleNamespace(
+                    call_id="call_abc123",
+                    function=SimpleNamespace(
+                        name="terminal",
+                        arguments={"command": ["ls", "-la"]},
+                    ),
+                )
+            ],
+        )
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(
+                "agent.codex_responses_adapter._normalize_codex_response",
+                lambda response: (msg, "tool_calls"),
+            )
+            nr = transport.normalize_response(SimpleNamespace())
+
+        assert nr.finish_reason == "tool_calls"
+        assert len(nr.tool_calls) == 1
+        tc = nr.tool_calls[0]
+        assert tc.id is None
+        assert tc.provider_data == {"call_id": "call_abc123"}
+        assert tc.arguments == '{"command": ["ls", "-la"]}'

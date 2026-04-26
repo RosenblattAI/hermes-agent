@@ -67,8 +67,8 @@ _SUMMARY_FAILURE_COOLDOWN_SECONDS = 600
 def _content_text_for_contains(content: Any) -> str:
     """Return a best-effort text view of message content.
 
-    Used only for substring checks when we need to know whether we've already
-    appended a note to a message. Keeps multimodal lists intact elsewhere.
+    Used when callers need a plain-text view of structured message content,
+    such as substring checks or summary serialization.
     """
     if content is None:
         return ""
@@ -600,7 +600,7 @@ class ContextCompressor(ContextEngine):
         parts = []
         for msg in turns:
             role = msg.get("role", "unknown")
-            content = redact_sensitive_text(msg.get("content") or "")
+            content = redact_sensitive_text(_content_text_for_contains(msg.get("content")))
 
             # Tool results: keep enough content for the summarizer
             if role == "tool":

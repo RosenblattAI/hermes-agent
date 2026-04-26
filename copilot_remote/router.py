@@ -17,6 +17,11 @@ from copilot_remote.models import RepoEntry
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_log_value(value: object) -> str:
+    """Render log values without embedded CR/LF characters."""
+    return str(value).replace("\n", " ").replace("\r", " ")
+
+
 def _get_default_branch(repo_path: Path) -> str:
     """Detect default branch from git remote HEAD. Falls back to 'main'."""
     try:
@@ -119,7 +124,7 @@ def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[Rep
     try:
         data = json.loads(text)
     except (json.JSONDecodeError, TypeError):
-        logger.warning("Router LLM returned non-JSON: %s", text[:200])
+        logger.warning("Router LLM returned non-JSON: %s", _sanitize_log_value(text)[:200])
         return None
 
     slug = data.get("slug")
@@ -131,7 +136,7 @@ def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[Rep
         if entry.slug.lower() == slug_lower:
             return entry
 
-    logger.warning("Router LLM returned unknown slug: %s", slug)
+    logger.warning("Router LLM returned unknown slug: %s", _sanitize_log_value(slug))
     return None
 
 

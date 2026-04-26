@@ -1,6 +1,7 @@
 """Tests for copilot_remote.router — LLM-powered repo routing."""
 
 import json
+import logging
 import pytest
 from pathlib import Path
 from types import SimpleNamespace
@@ -156,6 +157,14 @@ class TestParseRoutingResponse:
         result = _parse_routing_response('not json at all', self._entries())
         assert result is None
 
+    def test_invalid_json_log_is_sanitized(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            result = _parse_routing_response('not json\nforged line', self._entries())
+
+        assert result is None
+        assert any("Router LLM returned non-JSON: not json forged line" in record.message for record in caplog.records)
+        assert all("\n" not in record.message and "\r" not in record.message for record in caplog.records)
+
     def test_case_insensitive_slug_match(self):
         result = _parse_routing_response('{"slug": "App-Frontend"}', self._entries())
         assert result is not None
@@ -164,6 +173,15 @@ class TestParseRoutingResponse:
     def test_empty_string_returns_none(self):
         result = _parse_routing_response('', self._entries())
         assert result is None
+
+    def test_unknown_slug_log_is_sanitized(self, caplog):
+        payload = json.dumps({"slug": "bad\nslug"})
+        with caplog.at_level(logging.WARNING):
+            result = _parse_routing_response(payload, self._entries())
+
+        assert result is None
+        assert any("Router LLM returned unknown slug: bad slug" in record.message for record in caplog.records)
+        assert all("\n" not in record.message and "\r" not in record.message for record in caplog.records)
 
 
 # =========================================================================

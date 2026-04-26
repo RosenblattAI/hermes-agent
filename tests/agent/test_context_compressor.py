@@ -135,6 +135,23 @@ class TestGenerateSummaryNoneContent:
 class TestNonStringContent:
     """Regression: content as dict (e.g., llama.cpp tool calls) must not crash."""
 
+    def test_list_content_serializes_text_blocks_for_summary(self):
+        with patch("agent.context_compressor.get_model_context_length", return_value=100000):
+            c = ContextCompressor(model="test", quiet_mode=True)
+
+        serialized = c._serialize_for_summary([
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "first block"},
+                    {"type": "input_image", "image_url": "https://example.invalid/image.png"},
+                    "second block",
+                ],
+            }
+        ])
+
+        assert "[USER]: first block\nsecond block" in serialized
+
     def test_dict_content_coerced_to_string(self):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
