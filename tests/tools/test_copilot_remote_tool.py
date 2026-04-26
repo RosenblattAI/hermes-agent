@@ -6,7 +6,7 @@ import pytest
 
 from copilot_jobs.models import RepoEntry
 from hermes_state import SessionDB
-from tools.copilot_remote_tool import copilot_remote
+from tools.copilot_remote_tool import COPILOT_REMOTE_SCHEMA, copilot_remote
 
 
 @pytest.fixture()
@@ -117,3 +117,10 @@ def test_hermes_slack_toolset_exposes_copilot_remote():
     from toolsets import resolve_toolset
 
     assert "copilot_remote" in resolve_toolset("hermes-slack")
+
+
+def test_schema_discourages_terminal_copilot_probes():
+    description = COPILOT_REMOTE_SCHEMA["description"]
+
+    assert "terminal Copilot probes" in description
+    assert "call this tool directly" in description

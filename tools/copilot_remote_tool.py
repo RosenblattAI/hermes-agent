@@ -23,9 +23,11 @@ COPILOT_REMOTE_SCHEMA = {
         "Launch, list, or inspect tracked GitHub Copilot remote jobs. Use this "
         "when the user asks Hermes to hand work off to Copilot, have Copilot "
         "build or edit something in a repository, start a Copilot job/session, "
-        "or otherwise delegate implementation work to Copilot. This launches "
-        "the existing detached `copilot -i --remote` job flow; do not use "
-        "terminal commands or Copilot ACP for these requests."
+        "or otherwise delegate coding, site, docs, build, or file-editing work "
+        "as an unattended implementation job. This launches the existing detached "
+        "`copilot -i --remote` job flow. Do not run terminal Copilot probes, "
+        "Copilot smoke tests, or Copilot ACP for these requests; call this tool "
+        "directly and let it report launch errors."
     ),
     "parameters": {
         "type": "object",
