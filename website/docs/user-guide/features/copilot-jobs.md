@@ -88,6 +88,8 @@ The same capability is available inside Hermes chats in both the CLI and the mes
 
 A bare `/copilot` defaults to `list`.
 
+Hermes also exposes this workflow to the agent as the `copilot_remote` tool. In Slack or another gateway chat, plain requests such as "use Copilot to build a static webpage" can be handled as a tracked Copilot remote job without requiring slash-command syntax. If the target repo is not explicit, Hermes uses the same repo router as `hermes copilot launch`.
+
 ## Reconnect and Resume
 
 A successful launch prints commands like:
