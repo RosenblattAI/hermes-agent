@@ -207,10 +207,12 @@ def _parse_unified_diff_content(diff_text: str) -> List[Any]:
     for line in diff_text.splitlines():
         if line.startswith("--- "):
             _flush()
-            current_old_path = line[4:].strip()
+            old_header = line[4:].strip()
+            current_old_path = old_header.split(None, 1)[0] if old_header else ""
             continue
         if line.startswith("+++ "):
-            current_new_path = line[4:].strip()
+            new_header = line[4:].strip()
+            current_new_path = new_header.split(None, 1)[0] if new_header else ""
             continue
         if line.startswith("@@"):
             continue

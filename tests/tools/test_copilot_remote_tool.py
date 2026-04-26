@@ -37,13 +37,13 @@ def test_launch_explicit_repo_dry_run(db):
 
     assert result["success"] is True
     assert result["action"] == "launch"
-    assert result["job"]["repo"] == "static-pages"
+    assert result["job"]["repo"] == "corp_it/static-pages"
     assert result["job"]["state"] == "done"
     assert result["job"]["connect_command"].startswith("copilot --connect=")
 
     jobs = db.list_copilot_remote(state="done")
     assert len(jobs) == 1
-    assert jobs[0]["repo_slug"] == "static-pages"
+    assert jobs[0]["repo_slug"] == "corp_it/static-pages"
 
 
 def test_launch_routes_repo_and_stores_connect_handle(db, monkeypatch):

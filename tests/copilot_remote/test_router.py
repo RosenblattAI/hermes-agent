@@ -44,20 +44,20 @@ class TestDiscoverRepos:
     def test_discovers_repos_with_readmes(self, workspace):
         entries = _discover_repos(workspace)
         slugs = [e.slug for e in entries]
-        assert "app-frontend" in slugs
-        assert "app-backend" in slugs
+        assert "org-a/app-frontend" in slugs
+        assert "org-a/app-backend" in slugs
 
     def test_includes_dirs_without_readme(self, workspace):
         """Dirs without README are still discovered (just empty summary)."""
         entries = _discover_repos(workspace)
         slugs = [e.slug for e in entries]
-        assert "infra-tools" in slugs
-        it = next(e for e in entries if e.slug == "infra-tools")
+        assert "org-b/infra-tools" in slugs
+        it = next(e for e in entries if e.slug == "org-b/infra-tools")
         assert it.readme_summary == ""
 
     def test_captures_readme_summary(self, workspace):
         entries = _discover_repos(workspace)
-        fe = next(e for e in entries if e.slug == "app-frontend")
+        fe = next(e for e in entries if e.slug == "org-a/app-frontend")
         assert "App Frontend" in fe.readme_summary
         assert "React" in fe.readme_summary
 
@@ -129,21 +129,26 @@ class TestBuildRoutingMessages:
 class TestParseRoutingResponse:
     def _entries(self):
         return [
-            RepoEntry(slug="app-frontend", path="/fe"),
-            RepoEntry(slug="app-backend", path="/be"),
-            RepoEntry(slug="app-agent", path="/ag"),
+            RepoEntry(slug="org-a/app-frontend", path="/fe"),
+            RepoEntry(slug="org-a/app-backend", path="/be"),
+            RepoEntry(slug="org-b/app-agent", path="/ag"),
         ]
 
     def test_parses_valid_json(self):
-        result = _parse_routing_response('{"slug": "app-frontend"}', self._entries())
+        result = _parse_routing_response('{"slug": "org-a/app-frontend"}', self._entries())
         assert result is not None
-        assert result.slug == "app-frontend"
+        assert result.slug == "org-a/app-frontend"
 
     def test_parses_json_in_code_fence(self):
-        text = '```json\n{"slug": "app-backend"}\n```'
+        text = '```json\n{"slug": "org-a/app-backend"}\n```'
         result = _parse_routing_response(text, self._entries())
         assert result is not None
-        assert result.slug == "app-backend"
+        assert result.slug == "org-a/app-backend"
+
+    def test_unique_basename_slug_still_matches(self):
+        result = _parse_routing_response('{"slug": "app-agent"}', self._entries())
+        assert result is not None
+        assert result.slug == "org-b/app-agent"
 
     def test_null_slug_returns_none(self):
         result = _parse_routing_response('{"slug": null}', self._entries())
@@ -166,9 +171,9 @@ class TestParseRoutingResponse:
         assert all("\n" not in record.message and "\r" not in record.message for record in caplog.records)
 
     def test_case_insensitive_slug_match(self):
-        result = _parse_routing_response('{"slug": "App-Frontend"}', self._entries())
+        result = _parse_routing_response('{"slug": "Org-A/App-Frontend"}', self._entries())
         assert result is not None
-        assert result.slug == "app-frontend"
+        assert result.slug == "org-a/app-frontend"
 
     def test_empty_string_returns_none(self):
         result = _parse_routing_response('', self._entries())
@@ -212,10 +217,10 @@ class TestRouteRepo:
         return mock
 
     def test_routes_via_llm(self, workspace):
-        mock = self._mock_llm("app-backend")
+        mock = self._mock_llm("org-a/app-backend")
         result = route_repo("fix the lambda function", workspace, _llm_call=mock)
         assert result is not None
-        assert result.slug == "app-backend"
+        assert result.slug == "org-a/app-backend"
         mock.assert_called_once()
         call_kwargs = mock.call_args
         assert call_kwargs.kwargs["task"] == "repo_routing"
@@ -237,10 +242,10 @@ class TestRouteRepo:
         assert result is None
 
     def test_passes_repo_context_to_llm(self, workspace):
-        mock = self._mock_llm("app-frontend")
+        mock = self._mock_llm("org-a/app-frontend")
         route_repo("fix frontend", workspace, _llm_call=mock)
         messages = mock.call_args.kwargs["messages"]
         system_msg = messages[0]["content"]
-        assert "app-frontend" in system_msg
-        assert "app-backend" in system_msg
-        assert "app-agent" in system_msg
+        assert "org-a/app-frontend" in system_msg
+        assert "org-a/app-backend" in system_msg
+        assert "org-a/app-agent" in system_msg

@@ -13,13 +13,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from copilot_remote.models import RepoEntry
+from utils import sanitize_log_value
 
 logger = logging.getLogger(__name__)
-
-
-def _sanitize_log_value(value: object) -> str:
-    """Render log values without embedded CR/LF characters."""
-    return str(value).replace("\n", " ").replace("\r", " ")
 
 
 def _get_default_branch(repo_path: Path) -> str:
@@ -34,6 +30,23 @@ def _get_default_branch(repo_path: Path) -> str:
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
     return "main"
+
+
+def _match_repo_slug(slug: str, entries: List[RepoEntry]) -> Optional[RepoEntry]:
+    """Match an exact slug first, then a unique basename fallback."""
+    slug_lower = slug.lower()
+    for entry in entries:
+        if entry.slug.lower() == slug_lower:
+            return entry
+
+    basename_matches = [
+        entry
+        for entry in entries
+        if entry.slug.rsplit("/", 1)[-1].lower() == slug_lower
+    ]
+    if len(basename_matches) == 1:
+        return basename_matches[0]
+    return None
 
 
 def _discover_repos(workspace_path: Path = None) -> List[RepoEntry]:
@@ -66,7 +79,7 @@ def _discover_repos(workspace_path: Path = None) -> List[RepoEntry]:
             if readme_path.exists():
                 readme_text = readme_path.read_text(errors="replace")
 
-            slug = repo_dir.name
+            slug = f"{org_dir.name}/{repo_dir.name}"
             default_branch = _get_default_branch(repo_dir)
 
             entries.append(RepoEntry(
@@ -124,19 +137,18 @@ def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[Rep
     try:
         data = json.loads(text)
     except (json.JSONDecodeError, TypeError):
-        logger.warning("Router LLM returned non-JSON: %s", _sanitize_log_value(text)[:200])
+        logger.warning("Router LLM returned non-JSON: %s", sanitize_log_value(text)[:200])
         return None
 
     slug = data.get("slug")
     if not slug:
         return None
 
-    slug_lower = slug.lower()
-    for entry in entries:
-        if entry.slug.lower() == slug_lower:
-            return entry
+    matched = _match_repo_slug(str(slug), entries)
+    if matched:
+        return matched
 
-    logger.warning("Router LLM returned unknown slug: %s", _sanitize_log_value(slug))
+    logger.warning("Router LLM returned unknown slug: %s", sanitize_log_value(slug))
     return None
 
 

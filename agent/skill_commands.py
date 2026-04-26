@@ -13,7 +13,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from agent.redact import redact_sensitive_text
 from hermes_constants import display_hermes_home
+from tools.approval import detect_dangerous_command
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +84,10 @@ def _run_inline_shell(command: str, cwd: Path | None, timeout: int) -> str:
     Failures return a short ``[inline-shell error: ...]`` marker instead of
     raising, so one bad snippet can't wreck the whole skill message.
     """
+    is_dangerous, _pattern_key, description = detect_dangerous_command(command)
+    if is_dangerous:
+        return f"[inline-shell blocked: {description}]"
+
     try:
         completed = subprocess.run(
             ["bash", "-c", command],
@@ -92,15 +98,16 @@ def _run_inline_shell(command: str, cwd: Path | None, timeout: int) -> str:
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return f"[inline-shell timeout after {timeout}s: {command}]"
+        return f"[inline-shell timeout after {timeout}s: {redact_sensitive_text(command)}]"
     except FileNotFoundError:
         return f"[inline-shell error: bash not found]"
     except Exception as exc:
-        return f"[inline-shell error: {exc}]"
+        return f"[inline-shell error: {redact_sensitive_text(str(exc))}]"
 
     output = (completed.stdout or "").rstrip("\n")
     if not output and completed.stderr:
         output = completed.stderr.rstrip("\n")
+    output = redact_sensitive_text(output)
     if len(output) > _INLINE_SHELL_MAX_OUTPUT:
         output = output[:_INLINE_SHELL_MAX_OUTPUT] + "…[truncated]"
     return output

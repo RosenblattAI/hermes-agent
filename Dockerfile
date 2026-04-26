@@ -42,7 +42,7 @@ COPY --chown=hermes:hermes . .
 RUN cd web && npm run build
 
 # ---------- Python virtualenv ----------
-RUN chown hermes:hermes /opt/hermes
+RUN chown -R hermes:hermes /opt/hermes && chmod 0755 /opt/hermes/docker/entrypoint.sh
 USER hermes
 RUN uv venv && \
     uv pip install --no-cache-dir -e ".[all]"

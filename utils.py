@@ -33,6 +33,11 @@ def env_var_enabled(name: str, default: str = "") -> bool:
     return is_truthy_value(os.getenv(name, default), default=False)
 
 
+def sanitize_log_value(value: Any) -> str:
+    """Render log values without embedded CR/LF characters."""
+    return str(value).replace("\n", " ").replace("\r", " ")
+
+
 def _preserve_file_mode(path: Path) -> "int | None":
     """Capture the permission bits of *path* if it exists, else ``None``."""
     try:

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from agent.account_usage import (
@@ -201,3 +202,60 @@ def test_fetch_account_usage_openrouter_omits_quota_window_when_key_has_no_limit
     assert snapshot.windows == ()
     assert "Credits balance: $74.50" in snapshot.details
     assert "API key usage: $25.50 total • $1.25 today • $4.50 this week • $18.00 this month" in snapshot.details
+
+
+def test_fetch_account_usage_anthropic_oauth(monkeypatch):
+    monkeypatch.setattr("agent.account_usage.resolve_anthropic_token", lambda: "oauth-token")
+    monkeypatch.setattr("agent.account_usage._is_oauth_token", lambda token: True)
+    monkeypatch.setattr(
+        "agent.account_usage.httpx.Client",
+        lambda timeout=15.0: _Client(
+            {
+                "five_hour": {
+                    "utilization": 0.25,
+                    "resets_at": "2026-04-27T00:00:00Z",
+                },
+                "seven_day": {
+                    "utilization": 40,
+                    "resets_at": "2026-05-01T00:00:00Z",
+                },
+                "extra_usage": {
+                    "is_enabled": True,
+                    "used_credits": 12.5,
+                    "monthly_limit": 50.0,
+                    "currency": "USD",
+                },
+            }
+        ),
+    )
+
+    snapshot = fetch_account_usage("anthropic")
+
+    assert snapshot is not None
+    assert snapshot.provider == "anthropic"
+    assert snapshot.windows == (
+        AccountUsageWindow(
+            label="Current session",
+            used_percent=25.0,
+            reset_at=datetime(2026, 4, 27, 0, 0, tzinfo=timezone.utc),
+        ),
+        AccountUsageWindow(
+            label="Current week",
+            used_percent=40.0,
+            reset_at=datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc),
+        ),
+    )
+    assert snapshot.details == ("Extra usage: 12.50 / 50.00 USD",)
+
+
+def test_fetch_account_usage_logs_debug_on_exception(monkeypatch, caplog):
+    monkeypatch.setattr(
+        "agent.account_usage._fetch_openrouter_account_usage",
+        lambda base_url, api_key: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="agent.account_usage"):
+        snapshot = fetch_account_usage("openrouter")
+
+    assert snapshot is None
+    assert any("Account usage lookup failed for provider openrouter" in record.message for record in caplog.records)

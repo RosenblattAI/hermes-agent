@@ -1012,6 +1012,22 @@ def _load_agents_md(cwd_path: Path) -> str:
     return ""
 
 
+def _load_claude_md(cwd_path: Path) -> str:
+    """CLAUDE.md / claude.md — cwd only."""
+    for name in ["CLAUDE.md", "claude.md"]:
+        candidate = cwd_path / name
+        if candidate.exists():
+            try:
+                content = candidate.read_text(encoding="utf-8").strip()
+                if content:
+                    content = _scan_context_content(content, name)
+                    result = f"## {name}\n\n{content}"
+                    return _truncate_content(result, "CLAUDE.md")
+            except Exception as e:
+                logger.debug("Could not read %s: %s", candidate, e)
+    return ""
+
+
 def _load_cursorrules(cwd_path: Path) -> str:
     """.cursorrules + .cursor/rules/*.mdc — cwd only."""
     cursorrules_content = ""
@@ -1048,7 +1064,8 @@ def build_context_files_prompt(cwd: Optional[str] = None, skip_soul: bool = Fals
     Priority (first found wins — only ONE project context type is loaded):
       1. .hermes.md / HERMES.md  (walk to git root)
       2. AGENTS.md / agents.md   (cwd only)
-            3. .cursorrules / .cursor/rules/*.mdc  (cwd only)
+    3. CLAUDE.md / claude.md   (cwd only)
+    4. .cursorrules / .cursor/rules/*.mdc  (cwd only)
 
     SOUL.md from HERMES_HOME is independent and always included when present.
     Each context source is capped at 20,000 chars.
@@ -1066,6 +1083,7 @@ def build_context_files_prompt(cwd: Optional[str] = None, skip_soul: bool = Fals
     project_context = (
         _load_hermes_md(cwd_path)
         or _load_agents_md(cwd_path)
+        or _load_claude_md(cwd_path)
         or _load_cursorrules(cwd_path)
     )
     if project_context:

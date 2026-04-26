@@ -590,6 +590,48 @@ class TestInlineShellExpansion:
         # Timeout is surfaced as a marker instead of propagating as an error,
         # and the rest of the skill message still renders.
         assert "inline-shell timeout" in msg
-        # The command's intended stdout never made it through — only the
-        # timeout marker (which echoes the command text) survives.
-        assert "DYN_MARKER" not in msg.replace("sleep 5 && printf DYN_MARKER", "")
+        # The command itself can still appear in the timeout marker, but the
+        # command's intended stdout never made it through as a separate render.
+        assert "sleep 5 && printf DYN_MARKER" in msg
+
+    def test_inline_shell_blocks_dangerous_commands(self, tmp_path):
+        with (
+            patch("tools.skills_tool.SKILLS_DIR", tmp_path),
+            patch(
+                "agent.skill_commands._load_skills_config",
+                return_value={"template_vars": True, "inline_shell": True,
+                              "inline_shell_timeout": 5},
+            ),
+        ):
+            _make_skill(
+                tmp_path,
+                "dyn-danger",
+                body="Danger: !`rm -rf /tmp/example`",
+            )
+            scan_skill_commands()
+            msg = build_skill_invocation_message("/dyn-danger")
+
+        assert msg is not None
+        assert "inline-shell blocked" in msg
+        assert "rm -rf /tmp/example" not in msg
+
+    def test_inline_shell_redacts_sensitive_output_and_timeout_markers(self, tmp_path):
+        with (
+            patch("tools.skills_tool.SKILLS_DIR", tmp_path),
+            patch(
+                "agent.skill_commands._load_skills_config",
+                return_value={"template_vars": True, "inline_shell": True,
+                              "inline_shell_timeout": 5},
+            ),
+        ):
+            _make_skill(
+                tmp_path,
+                "dyn-redact",
+                body="Token: !`printf 'ghp_1234567890abcdef1234567890abcdef1234'`",
+            )
+            scan_skill_commands()
+            msg = build_skill_invocation_message("/dyn-redact")
+
+        assert msg is not None
+        assert "ghp_1234567890abcdef1234567890abcdef1234" not in msg
+        assert "ghp_12...1234" in msg

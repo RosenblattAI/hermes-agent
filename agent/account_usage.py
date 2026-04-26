@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -9,6 +10,9 @@ import httpx
 from agent.anthropic_adapter import _is_oauth_token, resolve_anthropic_token
 from hermes_cli.auth import _read_codex_tokens, resolve_codex_runtime_credentials
 from hermes_cli.runtime_provider import resolve_runtime_provider
+
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
@@ -322,5 +326,6 @@ def fetch_account_usage(
         if normalized == "openrouter":
             return _fetch_openrouter_account_usage(base_url, api_key)
     except Exception:
+        logger.debug("Account usage lookup failed for provider %s", normalized, exc_info=True)
         return None
     return None

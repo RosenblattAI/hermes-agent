@@ -4,6 +4,7 @@ import pytest
 
 from acp_adapter.tools import (
     TOOL_KIND_MAP,
+    _parse_unified_diff_content,
     build_tool_complete,
     build_tool_start,
     build_tool_title,
@@ -254,6 +255,23 @@ class TestBuildToolComplete:
         assert diff_item.path.endswith("diff-test.txt")
         assert diff_item.old_text is None
         assert diff_item.new_text == "hello from hermes"
+
+    def test_parse_unified_diff_content_ignores_header_timestamps(self):
+        diff_text = (
+            "--- a/README.md\t2026-04-26 14:34:35 +0000\n"
+            "+++ b/README.md\t2026-04-26 14:34:35 +0000\n"
+            "@@ -1 +1 @@\n"
+            "-old line\n"
+            "+new line\n"
+        )
+
+        content = _parse_unified_diff_content(diff_text)
+
+        assert len(content) == 1
+        diff_item = content[0]
+        assert diff_item.path == "README.md"
+        assert diff_item.old_text == "old line"
+        assert diff_item.new_text == "new line"
 
 
 # ---------------------------------------------------------------------------

@@ -53,6 +53,7 @@ def _ensure_discord_mock():
 
 _ensure_discord_mock()
 
+import gateway.platforms.discord as discord_platform  # noqa: E402
 from gateway.platforms.discord import DiscordAdapter  # noqa: E402
 
 
@@ -295,9 +296,8 @@ class TestEnvVarOverride:
 # library is installed — this guarantees isinstance() checks pass in
 # production code regardless of test ordering or monkeypatch state.
 try:
-    import discord as _discord_lib
-    _DMChannelBase = _discord_lib.DMChannel
-except (ImportError, AttributeError):
+    _DMChannelBase = discord_platform.discord.DMChannel
+except AttributeError:
     _DMChannelBase = object
 
 

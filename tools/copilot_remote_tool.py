@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from agent.redact import redact_sensitive_text
@@ -51,8 +52,8 @@ COPILOT_REMOTE_SCHEMA = {
             "repo": {
                 "type": "string",
                 "description": (
-                    "Optional repository slug, such as static-pages or "
-                    "fridai-backend. If omitted, Hermes routes from the prompt."
+                    "Optional repository slug, such as corp_it/static-pages or "
+                    "proservice/fridai-backend. If omitted, Hermes routes from the prompt."
                 ),
             },
             "repo_path": {
@@ -135,12 +136,40 @@ def _route_repo(prompt: str) -> Optional[RepoEntry]:
     return route_repo(prompt)
 
 
+def _slug_from_repo_path(repo_path: str) -> Optional[str]:
+    """Infer an ``org/repo`` slug when the path lives under ``repos/``."""
+    parts = Path(repo_path).parts
+    if len(parts) >= 3 and parts[-3] == "repos":
+        return f"{parts[-2]}/{parts[-1]}"
+    return None
+
+
+def _match_repo_entry(repo: str, entries: list[RepoEntry]) -> tuple[Optional[RepoEntry], Optional[str]]:
+    """Resolve a repo argument by exact slug or unique basename."""
+    repo_lower = repo.lower()
+    for entry in entries:
+        if entry.slug.lower() == repo_lower:
+            return entry, None
+
+    basename_matches = [
+        entry
+        for entry in entries
+        if entry.slug.rsplit("/", 1)[-1].lower() == repo_lower
+    ]
+    if len(basename_matches) == 1:
+        return basename_matches[0], None
+    if len(basename_matches) > 1:
+        options = ", ".join(sorted(entry.slug for entry in basename_matches))
+        return None, f"Repo slug '{repo}' is ambiguous. Use one of: {options}"
+    return None, None
+
+
 def _resolve_repo(prompt: str, repo: str = "", repo_path: str = "") -> tuple[Optional[RepoEntry], Optional[str]]:
     repo = (repo or "").strip()
     repo_path = (repo_path or "").strip()
 
     if repo and repo_path:
-        return RepoEntry(slug=repo, path=repo_path), None
+        return RepoEntry(slug=_slug_from_repo_path(repo_path) or repo, path=repo_path), None
 
     entries: list[RepoEntry] = []
     if repo:
@@ -150,16 +179,18 @@ def _resolve_repo(prompt: str, repo: str = "", repo_path: str = "") -> tuple[Opt
             entries = []
 
     if repo:
-        for entry in entries:
-            if entry.slug.lower() == repo.lower():
-                return RepoEntry(slug=entry.slug, path=repo_path or entry.path), None
+        matched_entry, match_error = _match_repo_entry(repo, entries)
+        if matched_entry:
+            return RepoEntry(slug=matched_entry.slug, path=repo_path or matched_entry.path), None
+        if match_error:
+            return None, match_error
         return None, (
             f"Could not find repo slug '{repo}'. Provide repo_path or use a "
             "slug under HERMES_WORKSPACE_PATH/repos."
         )
 
     if repo_path:
-        slug = repo_path.rstrip("/").rsplit("/", 1)[-1] or "repo"
+        slug = _slug_from_repo_path(repo_path) or repo_path.rstrip("/").rsplit("/", 1)[-1] or "repo"
         return RepoEntry(slug=slug, path=repo_path), None
 
     routed = _route_repo(prompt)
