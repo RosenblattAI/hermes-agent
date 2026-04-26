@@ -1,6 +1,6 @@
 """Copilot remote job tool for semantic Hermes delegation.
 
-This is the model-facing equivalent of ``hermes copilot``/``/copilot``:
+This is the model-facing equivalent of ``hermes copilot``/``/copilot_remote``:
 it lets a normal agent turn launch a tracked GitHub Copilot remote job
 without asking the model to improvise shell commands or ACP provider usage.
 """
@@ -12,7 +12,7 @@ import uuid
 from typing import Any, Dict, Optional
 
 from agent.redact import redact_sensitive_text
-from copilot_jobs.models import RepoEntry
+from copilot_remote.models import RepoEntry
 from hermes_state import SessionDB
 from tools.registry import registry
 
@@ -20,9 +20,12 @@ from tools.registry import registry
 COPILOT_REMOTE_SCHEMA = {
     "name": "copilot_remote",
     "description": (
-        "Launch, list, or inspect tracked GitHub Copilot remote jobs. Use this "
+        "Launch, list, or inspect tracked GitHub Copilot remote jobs. This is "
+        "Hermes' default implementation tool for code-writing, file-editing, "
+        "website-building, docs-writing, scripting, refactoring, testing, and "
+        "repository change requests. Use this "
         "when the user asks Hermes to hand work off to Copilot, have Copilot "
-        "build or edit something in a repository, start a Copilot job/session, "
+        "build or edit something in a repository, start a Copilot remote/session, "
         "or otherwise delegate coding, site, docs, build, or file-editing work "
         "as an unattended implementation job. This launches the existing detached "
         "`copilot -i --remote` job flow. Do not run terminal Copilot probes, "
@@ -66,7 +69,7 @@ COPILOT_REMOTE_SCHEMA = {
             },
             "job_id": {
                 "type": "string",
-                "description": "Tracked Copilot job ID for action=show.",
+                "description": "Tracked Copilot remote ID for action=show.",
             },
             "state": {
                 "type": "string",
@@ -121,13 +124,13 @@ def _serialize_job(job: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _discover_repos() -> list[RepoEntry]:
-    from copilot_jobs.router import _discover_repos as discover
+    from copilot_remote.router import _discover_repos as discover
 
     return discover()
 
 
 def _route_repo(prompt: str) -> Optional[RepoEntry]:
-    from copilot_jobs.router import route_repo
+    from copilot_remote.router import route_repo
 
     return route_repo(prompt)
 
@@ -172,7 +175,7 @@ def _resolve_repo(prompt: str, repo: str = "", repo_path: str = "") -> tuple[Opt
 def _finish_job(job_id: str, exit_code: int) -> None:
     db = _get_db()
     try:
-        db.finish_copilot_job(
+        db.finish_copilot_remote(
             job_id,
             state="done" if exit_code == 0 else "failed",
             exit_code=exit_code,
@@ -197,7 +200,7 @@ def _launch(args: Dict[str, Any]) -> str:
     job_id = str(uuid.uuid4())
     db = _get_db()
     try:
-        db.create_copilot_job(
+        db.create_copilot_remote(
             job_id=job_id,
             repo_slug=repo_entry.slug,
             repo_path=repo_entry.path,
@@ -206,7 +209,7 @@ def _launch(args: Dict[str, Any]) -> str:
             signal_ref=str(args.get("signal_ref") or "") or None,
         )
 
-        from copilot_jobs.launcher import launch_copilot
+        from copilot_remote.launcher import launch_copilot
 
         result = launch_copilot(
             repo_entry,
@@ -219,9 +222,9 @@ def _launch(args: Dict[str, Any]) -> str:
 
         connect_handle = result.get("connect_id") or job_id
         if connect_handle != job_id:
-            db.update_copilot_job_signal_ref(job_id, str(connect_handle))
+            db.update_copilot_remote_signal_ref(job_id, str(connect_handle))
 
-        job = db.get_copilot_job(job_id) or {
+        job = db.get_copilot_remote(job_id) or {
             "id": job_id,
             "state": "done" if args.get("dry_run") else "running",
             "repo_slug": repo_entry.slug,
@@ -239,7 +242,7 @@ def _launch(args: Dict[str, Any]) -> str:
         return json.dumps(payload, ensure_ascii=False)
     except Exception as exc:
         try:
-            db.finish_copilot_job(job_id, state="failed", error_text=redact_sensitive_text(str(exc)))
+            db.finish_copilot_remote(job_id, state="failed", error_text=redact_sensitive_text(str(exc)))
         except Exception:
             pass
         return _error(f"Failed to launch Copilot remote job: {exc}")
@@ -257,7 +260,7 @@ def _list(args: Dict[str, Any]) -> str:
 
     db = _get_db()
     try:
-        jobs = [_serialize_job(job) for job in db.list_copilot_jobs(state=state, limit=limit)]
+        jobs = [_serialize_job(job) for job in db.list_copilot_remote(state=state, limit=limit)]
         return json.dumps({"success": True, "action": "list", "jobs": jobs}, ensure_ascii=False)
     finally:
         db.close()
@@ -270,9 +273,9 @@ def _show(args: Dict[str, Any]) -> str:
 
     db = _get_db()
     try:
-        job = db.get_copilot_job(job_id)
+        job = db.get_copilot_remote(job_id)
         if not job:
-            return _error(f"Copilot job not found: {job_id}")
+            return _error(f"Copilot remote not found: {job_id}")
         return json.dumps({"success": True, "action": "show", "job": _serialize_job(job)}, ensure_ascii=False)
     finally:
         db.close()

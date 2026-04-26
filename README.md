@@ -78,7 +78,7 @@ Hermes has two entry points: start the terminal UI with `hermes`, or run the gat
 | Retry or undo the last turn | `/retry`, `/undo` | `/retry`, `/undo` |
 | Compress context / check usage | `/compress`, `/usage`, `/insights [--days N]` | `/compress`, `/usage`, `/insights [days]` |
 | Browse skills | `/skills` or `/<skill-name>` | `/skills` or `/<skill-name>` |
-| Launch tracked Copilot job | `/copilot launch <prompt>` | `/copilot launch <prompt>` |
+| Launch tracked Copilot remote | `/copilot_remote launch <prompt>` | `/copilot_remote launch <prompt>` |
 | Interrupt current work | `Ctrl+C` or send a new message | `/stop` or send a new message |
 | Platform-specific status | `/platforms` | `/status`, `/sethome` |
 
@@ -94,7 +94,7 @@ All documentation lives at **[hermes-agent.nousresearch.com/docs](https://hermes
 |---------|---------------|
 | [Quickstart](https://hermes-agent.nousresearch.com/docs/getting-started/quickstart) | Install → setup → first conversation in 2 minutes |
 | [CLI Usage](https://hermes-agent.nousresearch.com/docs/user-guide/cli) | Commands, keybindings, personalities, sessions |
-| [Copilot Remote Jobs](https://hermes-agent.nousresearch.com/docs/user-guide/features/copilot-jobs) | Launch, route, inspect, and reconnect GitHub Copilot remote sessions |
+| [Copilot Remote Jobs](https://hermes-agent.nousresearch.com/docs/user-guide/features/copilot-remote) | Launch, route, inspect, and reconnect GitHub Copilot remote sessions |
 | [Configuration](https://hermes-agent.nousresearch.com/docs/user-guide/configuration) | Config file, providers, models, all options |
 | [Messaging Gateway](https://hermes-agent.nousresearch.com/docs/user-guide/messaging) | Telegram, Discord, Slack, WhatsApp, Signal, Home Assistant |
 | [Security](https://hermes-agent.nousresearch.com/docs/user-guide/security) | Command approval, DM pairing, container isolation |

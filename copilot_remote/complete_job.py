@@ -1,4 +1,4 @@
-"""Update copilot job state after the copilot process exits.
+"""Update copilot remote state after the copilot process exits.
 
 Called by the shell wrapper that ``launcher.py`` spawns.  Runs outside
 the original hermes process, so it must bootstrap its own DB connection.
@@ -23,7 +23,7 @@ def finish(session_id: str, exit_code: int) -> None:
     state = "done" if exit_code == 0 else "failed"
     db = SessionDB()
     try:
-        db.finish_copilot_job(session_id, state=state, exit_code=exit_code)
+        db.finish_copilot_remote(session_id, state=state, exit_code=exit_code)
     finally:
         db.close()
 

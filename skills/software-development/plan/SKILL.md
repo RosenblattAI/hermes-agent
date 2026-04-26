@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Plan mode for Hermes — inspect context, write a markdown plan into the active workspace's `.hermes/plans/` directory, do not execute the work, and hand off software implementation to `/copilot` by default.
+description: Plan mode for Hermes — inspect context, write a markdown plan into the active workspace's `.hermes/plans/` directory, do not execute the work, and hand off software implementation to `/copilot_remote` by default.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -18,14 +18,14 @@ Use this skill when the user wants a plan instead of execution.
 
 This skill is the planning exception. Stay read-only while producing the plan itself.
 When the user wants to execute software-development work after planning, hand off to
-`/copilot` by default unless they explicitly ask for a different path.
+`/copilot_remote` by default unless they explicitly ask for a different path.
 
 Before planning any software-development work, inspect the current workspace for a
 `repos/` directory and identify which repo the task belongs to. In this environment,
-`/copilot` must launch inside a specific repo to run reliably. If the repo is obvious,
+`/copilot_remote` must launch inside a specific repo to run reliably. If the repo is obvious,
 name it explicitly in the plan and treat that repo root as the active workspace for any
 future execution. If the repo cannot be inferred from the current working directory,
-launch `/copilot` with `--repo <name>` or `--repo-path <absolute-path>` instead of
+launch `/copilot_remote` with `--repo <name>` or `--repo-path <absolute-path>` instead of
 starting from the wrapper workspace root.
 
 ## Core behavior

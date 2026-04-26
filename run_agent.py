@@ -127,6 +127,66 @@ from agent.trajectory import (
 from utils import atomic_json_write, base_url_host_matches, base_url_hostname, env_var_enabled, normalize_proxy_url
 
 
+_COPILOT_REMOTE_AUTO_DELEGATION_VERBS = (
+    "add",
+    "build",
+    "change",
+    "create",
+    "debug",
+    "edit",
+    "fix",
+    "implement",
+    "make",
+    "patch",
+    "refactor",
+    "repair",
+    "test",
+    "update",
+    "write",
+)
+
+_COPILOT_REMOTE_AUTO_DELEGATION_TARGETS = (
+    "app",
+    "bug",
+    "code",
+    "component",
+    "config",
+    "configuration",
+    "docs",
+    "documentation",
+    "file",
+    "feature",
+    "frontend",
+    "html",
+    "implementation",
+    "page",
+    "repo",
+    "repository",
+    "script",
+    "site",
+    "static page",
+    "static webpage",
+    "test",
+    "web page",
+    "webpage",
+    "website",
+)
+
+_COPILOT_REMOTE_AUTO_DELEGATION_SKIP_PATTERNS = (
+    "do it yourself",
+    "don't use copilot",
+    "dont use copilot",
+    "explain",
+    "how do i",
+    "how would",
+    "plan",
+    "review",
+    "tell me",
+    "without copilot",
+    "why",
+)
+
+
 
 class _SafeWriter:
     """Transparent stdio wrapper that catches OSError/ValueError from broken pipes.
@@ -4034,6 +4094,10 @@ class AIAgent:
         nous_subscription_prompt = build_nous_subscription_prompt(self.valid_tool_names)
         if nous_subscription_prompt:
             prompt_parts.append(nous_subscription_prompt)
+
+        if "copilot_remote" in self.valid_tool_names:
+            prompt_parts.append(COPILOT_REMOTE_DELEGATION_GUIDANCE)
+
         # Tool-use enforcement: tells the model to actually call tools instead
         # of describing intended actions.  Controlled by config.yaml
         # agent.tool_use_enforcement:
@@ -4066,9 +4130,6 @@ class AIAgent:
                 # prerequisite checks, verification, anti-hallucination).
                 if "gpt" in _model_lower or "codex" in _model_lower:
                     prompt_parts.append(OPENAI_MODEL_EXECUTION_GUIDANCE)
-
-        if "copilot_remote" in self.valid_tool_names:
-            prompt_parts.append(COPILOT_REMOTE_DELEGATION_GUIDANCE)
 
         # so it can refer the user to them rather than reinventing answers.
 
@@ -8733,6 +8794,20 @@ class AIAgent:
         messages.append(user_msg)
         current_turn_user_idx = len(messages) - 1
         self._persist_user_message_idx = current_turn_user_idx
+
+        if self._should_auto_delegate_to_copilot_remote(user_message):
+            logger.info(
+                "Auto-delegating implementation request to copilot_remote: session=%s platform=%s",
+                self.session_id or "none",
+                self.platform or "unknown",
+            )
+            return self._auto_delegate_to_copilot_remote(
+                user_message=user_message,
+                messages=messages,
+                conversation_history=conversation_history,
+                effective_task_id=effective_task_id,
+                original_user_message=original_user_message,
+            )
         
         if not self.quiet_mode:
             _print_preview = _summarize_user_message_for_log(user_message)
@@ -11947,6 +12022,238 @@ class AIAgent:
         """
         result = self.run_conversation(message, stream_callback=stream_callback)
         return result["final_response"]
+
+    def _should_auto_delegate_to_copilot_remote(self, user_message: Any) -> bool:
+        """Return True when an implementation request should bypass local execution."""
+        if "copilot_remote" not in self.valid_tool_names:
+            return False
+        if not isinstance(user_message, str):
+            return False
+
+        # Strip platform-injected envelopes that contain prior conversation
+        # text — these otherwise contaminate skip-pattern matching.
+        # 1) Slack thread-context block:
+        #    "[Thread context — prior messages in this thread (not yet in
+        #     conversation history):]\n...content...\n[End of thread context]\n\n"
+        # 2) Slack/Discord-style bot mentions like <@U12345>.
+        cleaned = re.sub(
+            r"\[Thread context.*?\[End of thread context\]\s*",
+            " ",
+            user_message,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        cleaned = re.sub(r"<@[A-Z0-9]+>", " ", cleaned)
+        text = re.sub(r"\s+", " ", cleaned.strip().lower())
+        if not text or text.startswith("/"):
+            return False
+
+        if any(pattern in text for pattern in _COPILOT_REMOTE_AUTO_DELEGATION_SKIP_PATTERNS):
+            return False
+
+        explicit_copilot_request = "copilot" in text and any(
+            phrase in text
+            for phrase in (
+                "use copilot",
+                "launch copilot",
+                "copilot remote",
+                "copilot_remote",
+                "ask copilot",
+                "have copilot",
+            )
+        )
+        if explicit_copilot_request:
+            return True
+
+        has_implementation_verb = any(
+            re.search(rf"\b{re.escape(verb)}\b", text)
+            for verb in _COPILOT_REMOTE_AUTO_DELEGATION_VERBS
+        )
+        has_implementation_target = any(
+            re.search(rf"\b{re.escape(target)}\b", text)
+            for target in _COPILOT_REMOTE_AUTO_DELEGATION_TARGETS
+        )
+        return has_implementation_verb and has_implementation_target
+
+    def _format_copilot_remote_auto_response(self, tool_result: str) -> str:
+        """Build a concise user-facing response from a copilot_remote result."""
+        try:
+            payload = json.loads(tool_result)
+        except (TypeError, json.JSONDecodeError):
+            return f"I tried to launch Copilot remote, but got an unreadable result: {tool_result[:500]}"
+
+        if not payload.get("success"):
+            error = payload.get("error") or "unknown error"
+            return f"I tried to launch Copilot remote for this implementation request, but it failed: {error}"
+
+        job = payload.get("job") or {}
+        job_id = (
+            job.get("job_id")
+            or job.get("id")
+            or payload.get("job_id")
+            or "unknown"
+        )
+        repo_slug = (
+            job.get("repo")
+            or job.get("repo_slug")
+            or payload.get("repo")
+            or "auto-routed repo"
+        )
+        state = job.get("state") or payload.get("state") or "running"
+        connect_command = job.get("connect_command") or payload.get("connect_command") or ""
+
+        response = (
+            "Launched this as a Copilot remote job.\n"
+            f"Job ID: {job_id}\n"
+            f"Repo: {repo_slug}\n"
+            f"State: {state}"
+        )
+        if connect_command:
+            response += f"\nConnect: `{connect_command}`"
+        return response
+
+    def _auto_delegate_to_copilot_remote(
+        self,
+        user_message: str,
+        messages: List[Dict[str, Any]],
+        conversation_history: List[Dict[str, Any]] = None,
+        effective_task_id: str = None,
+        original_user_message: str = None,
+    ) -> Dict[str, Any]:
+        """Launch copilot_remote directly for implementation requests."""
+        tool_args = {
+            "action": "launch",
+            "prompt": user_message,
+            "signal_source": self.platform or "agent",
+            "signal_ref": self.session_id or "",
+        }
+        tool_call_id = f"call_{uuid.uuid4().hex[:12]}"
+        assistant_tool_call = {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": tool_call_id,
+                    "type": "function",
+                    "function": {
+                        "name": "copilot_remote",
+                        "arguments": json.dumps(tool_args, ensure_ascii=False),
+                    },
+                }
+            ],
+        }
+        messages.append(assistant_tool_call)
+
+        self._current_tool = "copilot_remote"
+        self._touch_activity("executing tool: copilot_remote")
+        if self.tool_start_callback:
+            try:
+                self.tool_start_callback(tool_call_id, "copilot_remote", tool_args)
+            except Exception as cb_err:
+                logging.debug(f"Tool start callback error: {cb_err}")
+
+        tool_start_time = time.time()
+        tool_result = handle_function_call(
+            "copilot_remote",
+            tool_args,
+            effective_task_id,
+            tool_call_id=tool_call_id,
+            session_id=self.session_id or "",
+            enabled_tools=list(self.valid_tool_names) if self.valid_tool_names else None,
+        )
+        tool_duration = time.time() - tool_start_time
+        self._current_tool = None
+        self._touch_activity(f"tool completed: copilot_remote ({tool_duration:.1f}s)")
+        logger.info(
+            "tool copilot_remote completed (%.2fs, %d chars) via auto-delegation",
+            tool_duration,
+            len(tool_result),
+        )
+        if self.tool_complete_callback:
+            try:
+                self.tool_complete_callback(tool_call_id, "copilot_remote", tool_args, tool_result)
+            except Exception as cb_err:
+                logging.debug(f"Tool complete callback error: {cb_err}")
+
+        messages.append({
+            "role": "tool",
+            "content": tool_result,
+            "tool_call_id": tool_call_id,
+        })
+        final_response = self._format_copilot_remote_auto_response(tool_result)
+        messages.append({"role": "assistant", "content": final_response})
+
+        completed = True
+        self._save_trajectory(
+            messages,
+            _summarize_user_message_for_log(user_message),
+            completed,
+        )
+        self._cleanup_task_resources(effective_task_id)
+        self._persist_session(messages, conversation_history)
+        logger.info(
+            "Turn ended: reason=copilot_remote_auto_delegate model=%s api_calls=0/%d "
+            "budget=0/%d tool_turns=1 last_msg_role=assistant response_len=%d session=%s",
+            self.model,
+            self.max_iterations,
+            self.iteration_budget.max_total if self.iteration_budget else self.max_iterations,
+            len(final_response),
+            self.session_id or "none",
+        )
+
+        if final_response:
+            try:
+                from hermes_cli.plugins import invoke_hook as _invoke_hook
+                _invoke_hook(
+                    "post_llm_call",
+                    session_id=self.session_id,
+                    user_message=original_user_message or user_message,
+                    assistant_response=final_response,
+                    conversation_history=list(messages),
+                    model=self.model,
+                    platform=getattr(self, "platform", None) or "",
+                )
+            except Exception as exc:
+                logger.warning("post_llm_call hook failed: %s", exc)
+
+        try:
+            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            _invoke_hook(
+                "on_session_end",
+                session_id=self.session_id,
+                completed=completed,
+                interrupted=False,
+                model=self.model,
+                platform=getattr(self, "platform", None) or "",
+            )
+        except Exception as exc:
+            logger.warning("on_session_end hook failed: %s", exc)
+
+        self._stream_callback = None
+        return {
+            "final_response": final_response,
+            "last_reasoning": None,
+            "messages": messages,
+            "api_calls": 0,
+            "completed": completed,
+            "partial": False,
+            "interrupted": False,
+            "response_previewed": False,
+            "model": self.model,
+            "provider": self.provider,
+            "base_url": self.base_url,
+            "input_tokens": self.session_input_tokens,
+            "output_tokens": self.session_output_tokens,
+            "cache_read_tokens": self.session_cache_read_tokens,
+            "cache_write_tokens": self.session_cache_write_tokens,
+            "reasoning_tokens": self.session_reasoning_tokens,
+            "prompt_tokens": self.session_prompt_tokens,
+            "completion_tokens": self.session_completion_tokens,
+            "total_tokens": self.session_total_tokens,
+            "last_prompt_tokens": getattr(self.context_compressor, "last_prompt_tokens", 0) or 0,
+            "estimated_cost_usd": self.session_estimated_cost_usd,
+            "cost_status": self.session_cost_status,
+            "cost_source": self.session_cost_source,
+        }
 
 
 def main(

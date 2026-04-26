@@ -1794,23 +1794,23 @@ class TestConcurrentWriteSafety:
 
 
 # =========================================================================
-# Copilot job lifecycle
+# Copilot remote lifecycle
 # =========================================================================
 
-class TestCopilotJobLifecycle:
-    def test_schema_version_is_9(self, db):
+class TestCopilotRemoteLifecycle:
+    def test_schema_version_is_10(self, db):
         cursor = db._conn.execute("SELECT version FROM schema_version")
-        assert cursor.fetchone()[0] == 9
+        assert cursor.fetchone()[0] == 10
 
     def test_copilot_tables_exist(self, db):
         cursor = db._conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
         )
         tables = {row[0] for row in cursor.fetchall()}
-        assert "copilot_jobs" in tables
+        assert "copilot_remote" in tables
 
     def test_create_and_get_job(self, db):
-        job_id = db.create_copilot_job(
+        job_id = db.create_copilot_remote(
             job_id="cj_test_001",
             repo_slug="test",
             repo_path="/repos/test",
@@ -1819,63 +1819,63 @@ class TestCopilotJobLifecycle:
         )
         assert job_id == "cj_test_001"
 
-        job = db.get_copilot_job("cj_test_001")
+        job = db.get_copilot_remote("cj_test_001")
         assert job is not None
         assert job["repo_slug"] == "test"
         assert job["state"] == "running"
         assert job["prompt"] == "Fix the login bug"
 
     def test_get_nonexistent_job(self, db):
-        assert db.get_copilot_job("nonexistent") is None
+        assert db.get_copilot_remote("nonexistent") is None
 
     def test_list_jobs(self, db):
-        db.create_copilot_job(
+        db.create_copilot_remote(
             job_id="cj_a", repo_slug="repo-a", repo_path="/a"
         )
-        db.create_copilot_job(
+        db.create_copilot_remote(
             job_id="cj_b", repo_slug="repo-b", repo_path="/b"
         )
-        jobs = db.list_copilot_jobs()
+        jobs = db.list_copilot_remote()
         assert len(jobs) == 2
 
     def test_list_jobs_by_state(self, db):
-        db.create_copilot_job(
+        db.create_copilot_remote(
             job_id="cj_a", repo_slug="repo-a", repo_path="/a"
         )
-        db.create_copilot_job(
+        db.create_copilot_remote(
             job_id="cj_b", repo_slug="repo-b", repo_path="/b"
         )
-        db.finish_copilot_job("cj_a", state="done", exit_code=0)
-        running = db.list_copilot_jobs(state="running")
-        done = db.list_copilot_jobs(state="done")
+        db.finish_copilot_remote("cj_a", state="done", exit_code=0)
+        running = db.list_copilot_remote(state="running")
+        done = db.list_copilot_remote(state="done")
         assert len(running) == 1
         assert running[0]["id"] == "cj_b"
         assert len(done) == 1
         assert done[0]["id"] == "cj_a"
 
     def test_finish_job_done(self, db):
-        db.create_copilot_job(
+        db.create_copilot_remote(
             job_id="cj_1", repo_slug="repo", repo_path="/r"
         )
-        db.finish_copilot_job(
+        db.finish_copilot_remote(
             "cj_1", state="done",
             exit_code=0,
         )
-        job = db.get_copilot_job("cj_1")
+        job = db.get_copilot_remote("cj_1")
         assert job["state"] == "done"
         assert job["exit_code"] == 0
         assert job["finished_at"] is not None
 
     def test_finish_job_failed(self, db):
-        db.create_copilot_job(
+        db.create_copilot_remote(
             job_id="cj_1", repo_slug="repo", repo_path="/r"
         )
-        db.finish_copilot_job(
+        db.finish_copilot_remote(
             "cj_1", state="failed",
             exit_code=1,
             error_text="subprocess died",
         )
-        job = db.get_copilot_job("cj_1")
+        job = db.get_copilot_remote("cj_1")
         assert job["state"] == "failed"
         assert job["exit_code"] == 1
         assert job["error_text"] == "subprocess died"
@@ -1883,14 +1883,14 @@ class TestCopilotJobLifecycle:
 
     def test_list_limit(self, db):
         for i in range(5):
-            db.create_copilot_job(
+            db.create_copilot_remote(
                 job_id=f"cj_{i}", repo_slug="repo", repo_path="/r"
             )
-        jobs = db.list_copilot_jobs(limit=3)
+        jobs = db.list_copilot_remote(limit=3)
         assert len(jobs) == 3
 
 
-class TestCopilotJobMigrationFromV6:
+class TestCopilotRemoteMigrationFromV6:
     def test_migration_from_v6(self, tmp_path):
         """Simulate a v6 database and verify migration to the current schema adds copilot tables."""
         import sqlite3
@@ -1953,22 +1953,121 @@ class TestCopilotJobMigrationFromV6:
         migrated_db = SessionDB(db_path=db_path)
 
         cursor = migrated_db._conn.execute("SELECT version FROM schema_version")
-        assert cursor.fetchone()[0] == 9
+        assert cursor.fetchone()[0] == 10
 
         # Verify copilot tables exist
         cursor = migrated_db._conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
         )
         tables = {row[0] for row in cursor.fetchall()}
-        assert "copilot_jobs" in tables
+        assert "copilot_remote" in tables
 
         # Verify we can create a job on the migrated DB
-        job_id = migrated_db.create_copilot_job(
+        job_id = migrated_db.create_copilot_remote(
             job_id="cj_migrated",
             repo_slug="test-repo",
             repo_path="/test",
         )
-        assert migrated_db.get_copilot_job(job_id) is not None
+        assert migrated_db.get_copilot_remote(job_id) is not None
+        migrated_db.close()
+
+    def test_migration_from_legacy_v9_preserves_existing_records(self, tmp_path):
+        """Simulate a v9 database and verify legacy Copilot records are renamed."""
+        import sqlite3
+
+        legacy_table = "copilot_" + "jobs"
+        db_path = tmp_path / "migrate_v9_test.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.executescript(f"""
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            INSERT INTO schema_version (version) VALUES (9);
+
+            CREATE TABLE sessions (
+                id TEXT PRIMARY KEY,
+                source TEXT NOT NULL,
+                user_id TEXT,
+                model TEXT,
+                model_config TEXT,
+                system_prompt TEXT,
+                parent_session_id TEXT,
+                started_at REAL NOT NULL,
+                ended_at REAL,
+                end_reason TEXT,
+                message_count INTEGER DEFAULT 0,
+                tool_call_count INTEGER DEFAULT 0,
+                input_tokens INTEGER DEFAULT 0,
+                output_tokens INTEGER DEFAULT 0,
+                cache_read_tokens INTEGER DEFAULT 0,
+                cache_write_tokens INTEGER DEFAULT 0,
+                reasoning_tokens INTEGER DEFAULT 0,
+                billing_provider TEXT,
+                billing_base_url TEXT,
+                billing_mode TEXT,
+                estimated_cost_usd REAL,
+                actual_cost_usd REAL,
+                cost_status TEXT,
+                cost_source TEXT,
+                pricing_version TEXT,
+                title TEXT,
+                api_call_count INTEGER DEFAULT 0
+            );
+
+            CREATE TABLE messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT,
+                tool_call_id TEXT,
+                tool_calls TEXT,
+                tool_name TEXT,
+                timestamp REAL NOT NULL,
+                token_count INTEGER,
+                finish_reason TEXT,
+                reasoning TEXT,
+                reasoning_content TEXT,
+                reasoning_details TEXT,
+                codex_reasoning_items TEXT
+            );
+
+            CREATE TABLE {legacy_table} (
+                id TEXT PRIMARY KEY,
+                hermes_session_id TEXT,
+                repo_slug TEXT NOT NULL,
+                repo_path TEXT NOT NULL,
+                prompt TEXT,
+                signal_source TEXT,
+                signal_ref TEXT,
+                state TEXT NOT NULL DEFAULT 'running',
+                exit_code INTEGER,
+                created_at REAL NOT NULL,
+                finished_at REAL,
+                error_text TEXT
+            );
+            INSERT INTO {legacy_table}
+                (id, repo_slug, repo_path, prompt, signal_source, signal_ref,
+                 state, exit_code, created_at, finished_at, error_text)
+            VALUES
+                ('legacy-1', 'repo', '/repo', 'Fix it', 'cli', 'task-1',
+                 'running', NULL, 123.0, NULL, NULL);
+        """)
+        conn.commit()
+        conn.close()
+
+        migrated_db = SessionDB(db_path=db_path)
+        cursor = migrated_db._conn.execute("SELECT version FROM schema_version")
+        assert cursor.fetchone()[0] == 10
+
+        cursor = migrated_db._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
+        tables = {row[0] for row in cursor.fetchall()}
+        assert legacy_table not in tables
+        assert "copilot_remote" in tables
+
+        record = migrated_db.get_copilot_remote("legacy-1")
+        assert record is not None
+        assert record["repo_slug"] == "repo"
+        assert record["signal_ref"] == "task-1"
         migrated_db.close()
 
 # Auto-maintenance: state_meta + vacuum + maybe_auto_prune_and_vacuum

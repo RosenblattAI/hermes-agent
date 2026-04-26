@@ -194,6 +194,12 @@ TOOLSETS = {
         "includes": []
     },
 
+    "copilot": {
+        "description": "Default implementation tool — delegate code-writing, file-editing, refactoring, and repository changes to a remote Copilot job",
+        "tools": ["copilot_remote"],
+        "includes": []
+    },
+
     # "honcho" toolset removed — Honcho is now a memory provider plugin.
     # Tools are injected via MemoryManager, not the toolset system.
 

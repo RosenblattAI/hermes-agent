@@ -12,7 +12,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional
 
-from copilot_jobs.models import RepoEntry
+from copilot_remote.models import RepoEntry
 
 logger = logging.getLogger(__name__)
 

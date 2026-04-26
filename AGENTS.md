@@ -16,8 +16,8 @@ hermes-agent/
 ├── model_tools.py        # Tool orchestration, discover_builtin_tools(), handle_function_call()
 ├── toolsets.py           # Toolset definitions, _HERMES_CORE_TOOLS list
 ├── cli.py                # HermesCLI class — interactive CLI orchestrator
-├── hermes_state.py       # SessionDB — SQLite session store (FTS5 search + copilot job tracking)
-├── copilot_jobs/         # Repo router + detached GitHub Copilot remote session lifecycle
+├── hermes_state.py       # SessionDB — SQLite session store (FTS5 search + copilot remote tracking)
+├── copilot_remote/         # Repo router + detached GitHub Copilot remote session lifecycle
 ├── agent/                # Agent internals
 │   ├── prompt_builder.py     # System prompt assembly
 │   ├── context_compressor.py # Auto context compression
@@ -32,7 +32,7 @@ hermes-agent/
 │   ├── main.py           # Entry point — all `hermes` subcommands
 │   ├── config.py         # DEFAULT_CONFIG, OPTIONAL_ENV_VARS, migration
 │   ├── commands.py       # Slash command definitions + SlashCommandCompleter
-│   ├── copilot_cmd.py    # `hermes copilot` + `/copilot` remote job commands
+│   ├── copilot_cmd.py    # `hermes copilot` + `/copilot_remote` remote job commands
 │   ├── callbacks.py      # Terminal callbacks (clarify, sudo, approval)
 │   ├── setup.py          # Interactive setup wizard
 │   ├── skin_engine.py    # Skin/theme engine — CLI visual customization
@@ -148,7 +148,7 @@ Messages follow OpenAI format: `{"role": "system/user/assistant/tool", ...}`. Re
 - **Skin engine** (`hermes_cli/skin_engine.py`) — data-driven CLI theming; initialized from `display.skin` config key at startup; skins customize banner colors, spinner faces/verbs/wings, tool prefix, response box, branding text
 - `process_command()` is a method on `HermesCLI` — dispatches on canonical command name resolved via `resolve_command()` from the central registry
 - Skill slash commands: `agent/skill_commands.py` scans `~/.hermes/skills/`, injects as **user message** (not system prompt) to preserve prompt caching
-- Copilot remote jobs: `hermes_cli/copilot_cmd.py` exposes both `hermes copilot` and `/copilot`, backed by `copilot_jobs/` for repo routing, detached launches, and DB completion updates
+- Copilot remote jobs: `hermes_cli/copilot_cmd.py` exposes both `hermes copilot` and `/copilot_remote`, backed by `copilot_remote/` for repo routing, detached launches, and DB completion updates
 
 ### Slash Command Registry (`hermes_cli/commands.py`)
 

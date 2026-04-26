@@ -57,7 +57,7 @@ hermes-agent/
 ├── model_tools.py            # Tool discovery, schema collection, dispatch
 ├── toolsets.py               # Tool groupings and platform presets
 ├── hermes_state.py           # SQLite session/state database with FTS5
-├── copilot_jobs/             # Repo router, detached launcher, and completion hooks for Copilot remote jobs
+├── copilot_remote/             # Repo router, detached launcher, and completion hooks for Copilot remote jobs
 ├── hermes_constants.py       # HERMES_HOME, profile-aware paths
 ├── batch_runner.py           # Batch trajectory generation
 │
@@ -80,7 +80,7 @@ hermes-agent/
 │   ├── main.py               # Entry point — all `hermes` subcommands (~6,000 lines)
 │   ├── config.py             # DEFAULT_CONFIG, OPTIONAL_ENV_VARS, migration
 │   ├── commands.py           # COMMAND_REGISTRY — central slash command definitions
-│   ├── copilot_cmd.py        # `hermes copilot` + `/copilot` remote job lifecycle
+│   ├── copilot_cmd.py        # `hermes copilot` + `/copilot_remote` remote job lifecycle
 │   ├── auth.py               # PROVIDER_REGISTRY, credential resolution
 │   ├── runtime_provider.py   # Provider → api_mode + credentials
 │   ├── models.py             # Model catalog, provider model lists
@@ -164,9 +164,9 @@ Platform event → Adapter.on_message() → MessageEvent
 ### Copilot Remote Job
 
 ```text
-CLI subcommand or /copilot launch
-  → optional repo routing via copilot_jobs/router.py
-  → SessionDB.create_copilot_job()
+CLI subcommand or /copilot_remote launch
+  → optional repo routing via copilot_remote/router.py
+  → SessionDB.create_copilot_remote()
   → launch_copilot() spawns detached `copilot -i --remote`
   → best-effort remote task ID + prompt verification
   → complete_job.py marks the job done or failed on exit
@@ -231,7 +231,7 @@ Central tool registry (`tools/registry.py`) with 47 registered tools across 19 t
 
 ### Session Persistence
 
-SQLite-based session storage with FTS5 full-text search. Sessions have lineage tracking (parent/child across compressions), per-platform isolation, and atomic writes with contention handling. The same database also stores `copilot_jobs` rows for detached GitHub Copilot session lifecycle metadata.
+SQLite-based session storage with FTS5 full-text search. Sessions have lineage tracking (parent/child across compressions), per-platform isolation, and atomic writes with contention handling. The same database also stores `copilot_remote` rows for detached GitHub Copilot session lifecycle metadata.
 
 → [Session Storage](./session-storage.md)
 
@@ -249,7 +249,7 @@ Three discovery sources: `~/.hermes/plugins/` (user), `.hermes/plugins/` (projec
 
 ### Copilot Remote Jobs
 
-`copilot_jobs/` manages repo routing, detached `copilot -i --remote` launches under a PTY, remote task handle extraction, prompt steering, and completion updates via `complete_job.py`. User entry points live in `hermes_cli/copilot_cmd.py` and surface as both `hermes copilot ...` and `/copilot ...`.
+`copilot_remote/` manages repo routing, detached `copilot -i --remote` launches under a PTY, remote task handle extraction, prompt steering, and completion updates via `complete_job.py`. User entry points live in `hermes_cli/copilot_cmd.py` and surface as both `hermes copilot ...` and `/copilot_remote ...`.
 
 ### Cron
 

@@ -23,6 +23,7 @@ from agent.prompt_builder import (
     DEFAULT_AGENT_IDENTITY,
     TOOL_USE_ENFORCEMENT_GUIDANCE,
     TOOL_USE_ENFORCEMENT_MODELS,
+    COPILOT_REMOTE_DELEGATION_GUIDANCE,
     OPENAI_MODEL_EXECUTION_GUIDANCE,
     MEMORY_GUIDANCE,
     SESSION_SEARCH_GUIDANCE,
@@ -1028,6 +1029,20 @@ class TestToolUseEnforcementGuidance:
 
     def test_enforcement_models_is_tuple(self):
         assert isinstance(TOOL_USE_ENFORCEMENT_MODELS, tuple)
+
+
+class TestCopilotRemoteDelegationGuidance:
+    def test_guidance_defaults_code_writing_to_copilot_remote(self):
+        text = COPILOT_REMOTE_DELEGATION_GUIDANCE.lower()
+        assert "default execution" in text
+        assert "code" in text
+        assert "copilot_remote(action=\"launch\")" in text
+
+    def test_guidance_discourages_local_implementation_first(self):
+        text = COPILOT_REMOTE_DELEGATION_GUIDANCE.lower()
+        assert "do not implement locally" in text
+        assert "terminal" in text
+        assert "patch" in text
 
 
 class TestOpenAIModelExecutionGuidance:

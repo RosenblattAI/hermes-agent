@@ -76,7 +76,7 @@ def copilot_launch(args):
         if not prompt:
             print("Error: --repo or a prompt is required.", file=sys.stderr)
             sys.exit(1)
-        from copilot_jobs.router import route_repo
+        from copilot_remote.router import route_repo
         entry = route_repo(prompt)
         if not entry:
             print(
@@ -97,7 +97,7 @@ def copilot_launch(args):
     job_id = str(uuid.uuid4())
 
     # Create job record
-    db.create_copilot_job(
+    db.create_copilot_remote(
         job_id=job_id,
         repo_slug=repo,
         repo_path=repo_path,
@@ -106,7 +106,7 @@ def copilot_launch(args):
         signal_ref=getattr(args, "signal_ref", None),
     )
 
-    print(f"Launching copilot job: {job_id}")
+    print(f"Launching copilot remote: {job_id}")
     print(f"  Repo: {repo}")
     if prompt:
         preview = prompt[:80] + ("..." if len(prompt) > 80 else "")
@@ -118,7 +118,7 @@ def copilot_launch(args):
         try:
             state = "done" if exit_code == 0 else "failed"
             finish_db = _get_db()
-            finish_db.finish_copilot_job(
+            finish_db.finish_copilot_remote(
                 job_id,
                 state=state,
                 exit_code=exit_code,
@@ -128,8 +128,8 @@ def copilot_launch(args):
             pass  # Best-effort — don't crash the daemon thread
 
     # Launch copilot
-    from copilot_jobs.launcher import launch_copilot
-    from copilot_jobs.models import RepoEntry as _RE
+    from copilot_remote.launcher import launch_copilot
+    from copilot_remote.models import RepoEntry as _RE
 
     repo_entry = _RE(slug=repo, path=repo_path)
     try:
@@ -141,13 +141,13 @@ def copilot_launch(args):
             on_complete=_on_complete,
         )
     except Exception as exc:
-        db.finish_copilot_job(job_id, state="failed", error_text=str(exc))
+        db.finish_copilot_remote(job_id, state="failed", error_text=str(exc))
         db.close()
         raise
 
     connect_handle = result.get("connect_id") or job_id
     if connect_handle != job_id:
-        db.update_copilot_job_signal_ref(job_id, connect_handle)
+        db.update_copilot_remote_signal_ref(job_id, connect_handle)
 
     prompt_delivery_warning = result.get("prompt_delivery_warning")
 
@@ -167,15 +167,15 @@ def copilot_launch(args):
 
 
 def copilot_list(args):
-    """List copilot jobs."""
+    """List copilot remote jobs."""
     state = getattr(args, "state", None)
     limit = getattr(args, "limit", 20)
 
     db = _get_db()
     try:
-        jobs = db.list_copilot_jobs(state=state, limit=limit)
+        jobs = db.list_copilot_remote(state=state, limit=limit)
         if not jobs:
-            print("No copilot jobs found.")
+            print("No copilot remote jobs found.")
             return
 
         fmt = "{:<38s} {:<20s} {:<12s} {:<21s}"
@@ -193,12 +193,12 @@ def copilot_list(args):
 
 
 def copilot_show(args):
-    """Show details of a copilot job."""
+    """Show details of a copilot remote."""
     job_id = args.job_id
 
     db = _get_db()
     try:
-        job = db.get_copilot_job(job_id)
+        job = db.get_copilot_remote(job_id)
         if not job:
             print(f"Error: Job not found: {job_id}", file=sys.stderr)
             sys.exit(1)
@@ -252,11 +252,11 @@ def copilot_command(args):
 
 
 # ---------------------------------------------------------------------------
-# Slash command handler (interactive session: /copilot ...)
+# Slash command handler (interactive session: /copilot_remote ...)
 # ---------------------------------------------------------------------------
 
-def handle_copilot_slash(raw_command: str) -> None:
-    """Handle /copilot slash command from an interactive Hermes session.
+def handle_copilot_remote_slash(raw_command: str) -> None:
+    """Handle /copilot_remote slash command from an interactive Hermes session.
 
     Parses the raw command text and dispatches to the appropriate handler.
     """
@@ -306,13 +306,13 @@ def handle_copilot_slash(raw_command: str) -> None:
             copilot_show(ns)
 
         else:
-            print("Usage: /copilot [launch|list|show]")
+            print("Usage: /copilot_remote [launch|list|show]")
             print()
-            print("  /copilot list                        List all jobs")
-            print("  /copilot launch <prompt>             Route prompt → repo, launch copilot")
-            print("  /copilot launch --model <m> <prompt> Use specific model")
-            print("  /copilot launch --repo <slug> <msg>  Launch for specific repo")
-            print("  /copilot show <job_id>               Show job details + connect command")
+            print("  /copilot_remote list                        List all jobs")
+            print("  /copilot_remote launch <prompt>             Route prompt → repo, launch copilot")
+            print("  /copilot_remote launch --model <m> <prompt> Use specific model")
+            print("  /copilot_remote launch --repo <slug> <msg>  Launch for specific repo")
+            print("  /copilot_remote show <job_id>               Show job details + connect command")
 
     except SystemExit:
         pass

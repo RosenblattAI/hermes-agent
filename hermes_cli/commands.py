@@ -139,7 +139,7 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("cron", "Manage scheduled tasks", "Tools & Skills",
                cli_only=True, args_hint="[subcommand]",
                subcommands=("list", "add", "create", "edit", "pause", "resume", "run", "remove")),
-    CommandDef("copilot", "Manage Copilot remote sessions", "Tools & Skills",
+    CommandDef("copilot_remote", "Manage Copilot remote sessions", "Tools & Skills",
                args_hint="[launch|list|show]",
                subcommands=("launch", "list", "show")),
     CommandDef("reload", "Reload .env variables into the running session", "Tools & Skills"),

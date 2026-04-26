@@ -119,8 +119,8 @@ hermes-agent/
 ├── cli.py                    # HermesCLI class — interactive TUI, prompt_toolkit integration
 ├── model_tools.py            # Tool orchestration (thin layer over tools/registry.py)
 ├── toolsets.py               # Tool groupings and presets (hermes-cli, hermes-telegram, etc.)
-├── hermes_state.py           # SQLite session database with FTS5 full-text search, session titles, copilot jobs
-├── copilot_jobs/             # Repo router + detached GitHub Copilot remote session lifecycle
+├── hermes_state.py           # SQLite session database with FTS5 full-text search, session titles, copilot remote jobs
+├── copilot_remote/             # Repo router + detached GitHub Copilot remote session lifecycle
 ├── batch_runner.py           # Parallel batch processing for trajectory generation
 │
 ├── agent/                    # Agent internals (extracted modules)
@@ -139,7 +139,7 @@ hermes-agent/
 │   ├── models.py                 # OpenRouter model selection lists
 │   ├── banner.py                 # Welcome banner, ASCII art
 │   ├── commands.py               # Central slash command registry (CommandDef), autocomplete, gateway helpers
-│   ├── copilot_cmd.py            # `hermes copilot` + `/copilot` command handlers
+│   ├── copilot_cmd.py            # `hermes copilot` + `/copilot_remote` command handlers
 │   ├── callbacks.py              # Interactive callbacks (clarify, sudo, approval)
 │   ├── doctor.py                 # Diagnostics
 │   ├── skills_hub.py             # Skills Hub CLI + /skills slash command
@@ -192,7 +192,7 @@ hermes-agent/
 | `~/.hermes/auth.json` | OAuth credentials (Nous Portal) |
 | `~/.hermes/skills/` | All active skills (bundled + hub-installed + agent-created) |
 | `~/.hermes/memories/` | Persistent memory (MEMORY.md, USER.md) |
-| `~/.hermes/state.db` | SQLite session database + Copilot job records |
+| `~/.hermes/state.db` | SQLite session database + Copilot remote records |
 | `~/.hermes/logs/` | Runtime logs, including `copilot-<job_id>.log` PTY captures for detached Copilot sessions |
 | `~/.hermes/sessions/` | JSON session logs |
 | `~/.hermes/cron/` | Scheduled job data |

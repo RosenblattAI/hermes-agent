@@ -115,7 +115,7 @@ hermes tools enable NAME    Enable a toolset
 hermes tools disable NAME   Disable a toolset
 
 hermes copilot launch PROMPT          Route to repo and launch Copilot remote session
-hermes copilot list [--state STATE]   List tracked Copilot jobs
+hermes copilot list [--state STATE]   List tracked Copilot remotes
 hermes copilot show JOB_ID            Show reconnect details for one job
 
 hermes skills list          List installed skills
@@ -267,7 +267,7 @@ Type these during an interactive chat session.
 ```
 /tools               Manage tools (CLI)
 /toolsets            List toolsets (CLI)
-/copilot [subcommand] Manage Copilot remote jobs (launch|list|show)
+/copilot_remote [subcommand] Manage Copilot remote jobs (launch|list|show)
 /skills              Search/install skills (CLI)
 /skill <name>        Load a skill into session
 /cron                Manage cron jobs (CLI)
@@ -320,7 +320,7 @@ Type these during an interactive chat session.
 ~/.hermes/config.yaml       Main configuration
 ~/.hermes/.env              API keys and secrets
 $HERMES_HOME/skills/        Installed skills
-~/.hermes/state.db          Session database and Copilot job records
+~/.hermes/state.db          Session database and Copilot remote records
 ~/.hermes/sessions/         Session transcripts
 ~/.hermes/logs/             Gateway, error, and Copilot PTY logs
 ~/.hermes/auth.json         OAuth tokens and credential pools

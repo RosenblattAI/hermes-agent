@@ -191,9 +191,33 @@ TOOL_USE_ENFORCEMENT_GUIDANCE = (
     "without acting are not acceptable."
 )
 
+COPILOT_REMOTE_DELEGATION_GUIDANCE = (
+    "# Copilot remote delegation\n"
+    "When the copilot_remote tool is available, it is the default execution "
+    "path for user requests that ask Hermes to write, create, build, edit, "
+    "fix, implement, refactor, test, or otherwise change code, websites, "
+    "documentation files, configuration, scripts, or repository files.\n"
+    "For these implementation requests, call copilot_remote(action=\"launch\") "
+    "as the first implementation action after only the minimum context needed "
+    "to write a complete prompt. Do not implement locally with terminal, "
+    "read_file, write_file, patch, execute_code, or delegate_task first unless "
+    "the user explicitly asks Hermes to do the work itself instead of Copilot.\n"
+    "If the target repository is clear, pass repo or repo_path. If it is not "
+    "clear, omit repo fields and let Hermes route from the prompt. Ask a "
+    "clarifying question only when the task itself is too ambiguous to describe.\n"
+    "Do not run terminal Copilot probes such as `copilot --help`, `copilot "
+    "version`, login checks, smoke tests, or ACP checks before launching; "
+    "copilot_remote owns launch validation and returns an error if Copilot is "
+    "unavailable.\n"
+    "Use normal tools directly for explanation, planning, code review without "
+    "edits, diagnostics/status checks, or non-code tasks. After launching, "
+    "report the job_id, repo, state, and connect_command. For follow-up status, "
+    "use copilot_remote(action=\"list\") or copilot_remote(action=\"show\")."
+)
+
 # Model name substrings that trigger tool-use enforcement guidance.
 # Add new patterns here when a model family needs explicit steering.
-TOOL_USE_ENFORCEMENT_MODELS = ("gpt", "gemini", "gemma", "grok")
+TOOL_USE_ENFORCEMENT_MODELS = ("gpt", "codex", "gemini", "gemma", "grok")
 
 # OpenAI GPT-family execution guidance.  Addresses known failure modes
 # where GPT models abandon work on partial results, skip prerequisite lookups,
@@ -256,25 +280,6 @@ OPENAI_MODEL_EXECUTION_GUIDANCE = (
     "- Ask a clarifying question only when the information cannot be retrieved by tools.\n"
     "- If you must proceed with incomplete information, label assumptions explicitly.\n"
     "</missing_context>"
-)
-
-COPILOT_REMOTE_DELEGATION_GUIDANCE = (
-    "# Copilot remote delegation\n"
-    "When the copilot_remote tool is available, treat it as the authoritative "
-    "interface for GitHub Copilot remote jobs. For requests to use, ask, have, "
-    "or launch Copilot, or to delegate coding, build, site, docs, or file-editing "
-    "work as an unattended implementation job, call copilot_remote(action=\"launch\") "
-    "after only the minimum context needed to write a complete prompt.\n"
-    "Do not run terminal probes such as `copilot --help`, `copilot version`, "
-    "`copilot -p`, login checks, smoke tests, or ACP checks before launching; "
-    "copilot_remote owns launch validation and returns an error if Copilot is "
-    "unavailable.\n"
-    "If the target repository is clear, pass repo or repo_path. If it is not "
-    "clear, omit repo fields and let Hermes route from the prompt. Ask a "
-    "clarifying question only when the task itself is too ambiguous to describe.\n"
-    "After launching, report the job_id, repo, state, and connect_command. For "
-    "follow-up status, use copilot_remote(action=\"list\") or "
-    "copilot_remote(action=\"show\")."
 )
 
 # Gemini/Gemma-specific operational guidance, adapted from OpenCode's gemini.txt.

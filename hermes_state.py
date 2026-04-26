@@ -31,7 +31,7 @@ T = TypeVar("T")
 
 DEFAULT_DB_PATH = get_hermes_home() / "state.db"
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -96,7 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions(parent_session_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, timestamp);
 
-CREATE TABLE IF NOT EXISTS copilot_jobs (
+CREATE TABLE IF NOT EXISTS copilot_remote (
     id TEXT PRIMARY KEY,
     hermes_session_id TEXT REFERENCES sessions(id),
     repo_slug TEXT NOT NULL,
@@ -111,8 +111,8 @@ CREATE TABLE IF NOT EXISTS copilot_jobs (
     error_text TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_copilot_jobs_state ON copilot_jobs(state);
-CREATE INDEX IF NOT EXISTS idx_copilot_jobs_repo ON copilot_jobs(repo_slug, state);
+CREATE INDEX IF NOT EXISTS idx_copilot_remote_state ON copilot_remote(state);
+CREATE INDEX IF NOT EXISTS idx_copilot_remote_repo ON copilot_remote(repo_slug, state);
 """
 
 FTS_SQL = """
@@ -356,13 +356,13 @@ class SessionDB:
                 cursor.execute("UPDATE schema_version SET version = 6")
             if current_version < 7:
                 # v7: preserve provider-native reasoning_content separately from
-                # normalized reasoning text, and add initial Copilot job tracking.
+                # normalized reasoning text, and add initial Copilot remote tracking.
                 try:
                     cursor.execute('ALTER TABLE messages ADD COLUMN "reasoning_content" TEXT')
                 except sqlite3.OperationalError:
                     pass  # Column already exists
                 cursor.executescript("""
-                    CREATE TABLE IF NOT EXISTS copilot_jobs (
+                    CREATE TABLE IF NOT EXISTS copilot_remote (
                         id TEXT PRIMARY KEY,
                         hermes_session_id TEXT REFERENCES sessions(id),
                         repo_slug TEXT NOT NULL,
@@ -378,19 +378,19 @@ class SessionDB:
                         error_text TEXT
                     );
 
-                    CREATE INDEX IF NOT EXISTS idx_copilot_jobs_state
-                        ON copilot_jobs(state);
-                    CREATE INDEX IF NOT EXISTS idx_copilot_jobs_repo
-                        ON copilot_jobs(repo_slug, state);
+                    CREATE INDEX IF NOT EXISTS idx_copilot_remote_state
+                        ON copilot_remote(state);
+                    CREATE INDEX IF NOT EXISTS idx_copilot_remote_repo
+                        ON copilot_remote(repo_slug, state);
                 """)
                 cursor.execute("UPDATE schema_version SET version = 7")
             if current_version < 8:
-                # v8: add session API call counts and simplify copilot_jobs.
+                # v8: add session API call counts and simplify copilot_remote.
                 cursor.executescript("""
-                    DROP TABLE IF EXISTS copilot_job_events;
-                    DROP TABLE IF EXISTS copilot_jobs;
+                    DROP TABLE IF EXISTS copilot_remote_events;
+                    DROP TABLE IF EXISTS copilot_remote;
 
-                    CREATE TABLE IF NOT EXISTS copilot_jobs (
+                    CREATE TABLE IF NOT EXISTS copilot_remote (
                         id TEXT PRIMARY KEY,
                         hermes_session_id TEXT REFERENCES sessions(id),
                         repo_slug TEXT NOT NULL,
@@ -406,10 +406,10 @@ class SessionDB:
                         error_text TEXT
                     );
 
-                    CREATE INDEX IF NOT EXISTS idx_copilot_jobs_state
-                        ON copilot_jobs(state);
-                    CREATE INDEX IF NOT EXISTS idx_copilot_jobs_repo
-                        ON copilot_jobs(repo_slug, state);
+                    CREATE INDEX IF NOT EXISTS idx_copilot_remote_state
+                        ON copilot_remote(state);
+                    CREATE INDEX IF NOT EXISTS idx_copilot_remote_repo
+                        ON copilot_remote(repo_slug, state);
                 """)
                 try:
                     cursor.execute(
@@ -421,7 +421,7 @@ class SessionDB:
             if current_version < 9:
                 # v9: drop copilot_session_id — the job id IS the session UUID.
                 cursor.executescript("""
-                    CREATE TABLE IF NOT EXISTS copilot_jobs (
+                    CREATE TABLE IF NOT EXISTS copilot_remote (
                         id TEXT PRIMARY KEY,
                         hermes_session_id TEXT REFERENCES sessions(id),
                         repo_slug TEXT NOT NULL,
@@ -436,7 +436,7 @@ class SessionDB:
                         finished_at REAL,
                         error_text TEXT
                     );
-                    CREATE TABLE IF NOT EXISTS copilot_jobs_v9 (
+                    CREATE TABLE IF NOT EXISTS copilot_remote_v9 (
                         id TEXT PRIMARY KEY,
                         hermes_session_id TEXT REFERENCES sessions(id),
                         repo_slug TEXT NOT NULL,
@@ -450,7 +450,7 @@ class SessionDB:
                         finished_at REAL,
                         error_text TEXT
                     );
-                    INSERT OR IGNORE INTO copilot_jobs_v9
+                    INSERT OR IGNORE INTO copilot_remote_v9
                         (id, hermes_session_id, repo_slug, repo_path, prompt,
                          signal_source, signal_ref, state, exit_code,
                          created_at, finished_at, error_text)
@@ -458,15 +458,61 @@ class SessionDB:
                                hermes_session_id, repo_slug, repo_path, prompt,
                                signal_source, signal_ref, state, exit_code,
                                created_at, finished_at, error_text
-                        FROM copilot_jobs;
-                    DROP TABLE copilot_jobs;
-                    ALTER TABLE copilot_jobs_v9 RENAME TO copilot_jobs;
-                    CREATE INDEX IF NOT EXISTS idx_copilot_jobs_state
-                        ON copilot_jobs(state);
-                    CREATE INDEX IF NOT EXISTS idx_copilot_jobs_repo
-                        ON copilot_jobs(repo_slug, state);
+                        FROM copilot_remote;
+                    DROP TABLE copilot_remote;
+                    ALTER TABLE copilot_remote_v9 RENAME TO copilot_remote;
+                    CREATE INDEX IF NOT EXISTS idx_copilot_remote_state
+                        ON copilot_remote(state);
+                    CREATE INDEX IF NOT EXISTS idx_copilot_remote_repo
+                        ON copilot_remote(repo_slug, state);
                 """)
                 cursor.execute("UPDATE schema_version SET version = 9")
+            if current_version < 10:
+                # v10: rename the storage table to match the public
+                # copilot_remote feature/module naming.
+                legacy_table = "copilot_" + "jobs"
+                legacy_events_table = legacy_table + "_events"
+                legacy_state_index = "idx_copilot_" + "jobs_state"
+                legacy_repo_index = "idx_copilot_" + "jobs_repo"
+
+                cursor.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+                    (legacy_table,),
+                )
+                if cursor.fetchone():
+                    legacy_table_sql = '"' + legacy_table.replace('"', '""') + '"'
+                    legacy_columns = {
+                        row[1]
+                        for row in cursor.execute(f"PRAGMA table_info({legacy_table_sql})")
+                    }
+                    id_expr = "COALESCE(copilot_session_id, id)" if "copilot_session_id" in legacy_columns else "id"
+                    cursor.execute(
+                        f"""INSERT OR IGNORE INTO copilot_remote
+                            (id, hermes_session_id, repo_slug, repo_path, prompt,
+                             signal_source, signal_ref, state, exit_code,
+                             created_at, finished_at, error_text)
+                           SELECT {id_expr}, hermes_session_id, repo_slug, repo_path,
+                                  prompt, signal_source, signal_ref, state, exit_code,
+                                  created_at, finished_at, error_text
+                           FROM {legacy_table_sql}"""
+                    )
+                    cursor.execute(f"DROP TABLE {legacy_table_sql}")
+
+                legacy_events_table_sql = '"' + legacy_events_table.replace('"', '""') + '"'
+                cursor.execute(f"DROP TABLE IF EXISTS {legacy_events_table_sql}")
+
+                for index_name in (legacy_state_index, legacy_repo_index):
+                    safe_index = index_name.replace('"', '""')
+                    cursor.execute(f'DROP INDEX IF EXISTS "{safe_index}"')
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_copilot_remote_state "
+                    "ON copilot_remote(state)"
+                )
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_copilot_remote_repo "
+                    "ON copilot_remote(repo_slug, state)"
+                )
+                cursor.execute("UPDATE schema_version SET version = 10")
 
         # Unique title index — always ensure it exists (safe to run after migrations
         # since the title column is guaranteed to exist at this point)
@@ -1589,10 +1635,10 @@ class SessionDB:
         return self._execute_write(_do)
 
     # =========================================================================
-    # Copilot job lifecycle
+    # Copilot remote lifecycle
     # =========================================================================
 
-    def create_copilot_job(
+    def create_copilot_remote(
         self,
         job_id: str,
         repo_slug: str,
@@ -1602,11 +1648,11 @@ class SessionDB:
         signal_ref: str = None,
         hermes_session_id: str = None,
     ) -> str:
-        """Create a new copilot job in 'running' state. Returns the job_id."""
+        """Create a new copilot remote in 'running' state. Returns the job_id."""
         now = time.time()
         def _do(conn):
             conn.execute(
-                """INSERT INTO copilot_jobs
+                """INSERT INTO copilot_remote
                    (id, hermes_session_id, repo_slug, repo_path, prompt,
                     signal_source, signal_ref, state, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?)""",
@@ -1616,18 +1662,18 @@ class SessionDB:
         self._execute_write(_do)
         return job_id
 
-    def finish_copilot_job(
+    def finish_copilot_remote(
         self,
         job_id: str,
         state: str,
         exit_code: int = None,
         error_text: str = None,
     ) -> None:
-        """Mark a copilot job as done or failed with results."""
+        """Mark a copilot remote as done or failed with results."""
         now = time.time()
         def _do(conn):
             conn.execute(
-                """UPDATE copilot_jobs
+                """UPDATE copilot_remote
                    SET state = ?, exit_code = ?,
                        finished_at = ?, error_text = ?
                    WHERE id = ?""",
@@ -1635,44 +1681,44 @@ class SessionDB:
             )
         self._execute_write(_do)
 
-    def update_copilot_job_signal_ref(
+    def update_copilot_remote_signal_ref(
         self,
         job_id: str,
         signal_ref: str,
     ) -> None:
-        """Update the external connect/resume handle for a copilot job."""
+        """Update the external connect/resume handle for a copilot remote."""
         def _do(conn):
             conn.execute(
-                "UPDATE copilot_jobs SET signal_ref = ? WHERE id = ?",
+                "UPDATE copilot_remote SET signal_ref = ? WHERE id = ?",
                 (signal_ref, job_id),
             )
         self._execute_write(_do)
 
-    def get_copilot_job(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Get a copilot job by ID."""
+    def get_copilot_remote(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Get a copilot remote by ID."""
         with self._lock:
             cursor = self._conn.execute(
-                "SELECT * FROM copilot_jobs WHERE id = ?", (job_id,)
+                "SELECT * FROM copilot_remote WHERE id = ?", (job_id,)
             )
             row = cursor.fetchone()
         return dict(row) if row else None
 
-    def list_copilot_jobs(
+    def list_copilot_remote(
         self,
         state: str = None,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
-        """List copilot jobs, optionally filtered by state."""
+        """List copilot remote jobs, optionally filtered by state."""
         with self._lock:
             if state:
                 cursor = self._conn.execute(
-                    "SELECT * FROM copilot_jobs WHERE state = ? "
+                    "SELECT * FROM copilot_remote WHERE state = ? "
                     "ORDER BY created_at DESC LIMIT ?",
                     (state, limit),
                 )
             else:
                 cursor = self._conn.execute(
-                    "SELECT * FROM copilot_jobs ORDER BY created_at DESC LIMIT ?",
+                    "SELECT * FROM copilot_remote ORDER BY created_at DESC LIMIT ?",
                     (limit,),
                 )
             return [dict(row) for row in cursor.fetchall()]

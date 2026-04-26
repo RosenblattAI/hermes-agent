@@ -1,4 +1,4 @@
-"""Tests for copilot_jobs.launcher — command building, output parsing, and launch."""
+"""Tests for copilot_remote.launcher — command building, output parsing, and launch."""
 
 import json
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from copilot_jobs.launcher import (
+from copilot_remote.launcher import (
     _attempt_initial_prompt_delivery,
     _ensure_initial_prompt_delivered,
     _parse_remote_task_id,
@@ -18,7 +18,7 @@ from copilot_jobs.launcher import (
     launch_copilot,
     parse_copilot_output,
 )
-from copilot_jobs.models import RepoEntry
+from copilot_remote.models import RepoEntry
 
 
 # ---------------------------------------------------------------------------
@@ -132,19 +132,19 @@ class TestBuildCopilotCommand:
 
 class TestResolveCopilotBin:
     def test_prefers_which_result(self, monkeypatch):
-        monkeypatch.setattr("copilot_jobs.launcher.shutil.which", lambda name: "/custom/bin/copilot")
+        monkeypatch.setattr("copilot_remote.launcher.shutil.which", lambda name: "/custom/bin/copilot")
         assert _resolve_copilot_bin("copilot") == "/custom/bin/copilot"
 
     def test_returns_explicit_path_when_missing(self, monkeypatch):
-        monkeypatch.setattr("copilot_jobs.launcher.shutil.which", lambda name: None)
+        monkeypatch.setattr("copilot_remote.launcher.shutil.which", lambda name: None)
         assert _resolve_copilot_bin("/opt/copilot/bin/copilot") == "/opt/copilot/bin/copilot"
 
     def test_falls_back_to_known_install_location(self, monkeypatch, tmp_path):
         candidate = tmp_path / "copilot"
         candidate.write_text("#!/bin/sh\n", encoding="utf-8")
 
-        monkeypatch.setattr("copilot_jobs.launcher.shutil.which", lambda name: None)
-        monkeypatch.setattr("copilot_jobs.launcher._DEFAULT_COPILOT_PATHS", [str(candidate)])
+        monkeypatch.setattr("copilot_remote.launcher.shutil.which", lambda name: None)
+        monkeypatch.setattr("copilot_remote.launcher._DEFAULT_COPILOT_PATHS", [str(candidate)])
 
         assert _resolve_copilot_bin("copilot") == str(candidate)
 
@@ -175,17 +175,17 @@ class TestInitialPromptDelivery:
 
     def test_skips_steering_when_prompt_is_already_present(self, monkeypatch):
         monkeypatch.setattr(
-            "copilot_jobs.launcher._resolve_github_auth_token",
+            "copilot_remote.launcher._resolve_github_auth_token",
             lambda: "token",
         )
         monkeypatch.setattr(
-            "copilot_jobs.launcher._list_remote_task_events",
+            "copilot_remote.launcher._list_remote_task_events",
             lambda task_id, token: [{"type": "user.message"}],
         )
 
         steered = []
         monkeypatch.setattr(
-            "copilot_jobs.launcher._steer_remote_task",
+            "copilot_remote.launcher._steer_remote_task",
             lambda task_id, prompt, token: steered.append((task_id, prompt, token)),
         )
 
@@ -196,17 +196,17 @@ class TestInitialPromptDelivery:
 
     def test_steers_when_no_user_message_is_observed(self, monkeypatch):
         monkeypatch.setattr(
-            "copilot_jobs.launcher._resolve_github_auth_token",
+            "copilot_remote.launcher._resolve_github_auth_token",
             lambda: "token",
         )
         monkeypatch.setattr(
-            "copilot_jobs.launcher._list_remote_task_events",
+            "copilot_remote.launcher._list_remote_task_events",
             lambda task_id, token: [],
         )
 
         steered = []
         monkeypatch.setattr(
-            "copilot_jobs.launcher._steer_remote_task",
+            "copilot_remote.launcher._steer_remote_task",
             lambda task_id, prompt, token: steered.append((task_id, prompt, token)),
         )
 
@@ -223,7 +223,7 @@ class TestInitialPromptDelivery:
 
     def test_attempt_warns_when_steering_fails(self, monkeypatch):
         monkeypatch.setattr(
-            "copilot_jobs.launcher._ensure_initial_prompt_delivered",
+            "copilot_remote.launcher._ensure_initial_prompt_delivered",
             lambda task_id, prompt: (_ for _ in ()).throw(
                 RuntimeError("Unable to resolve a GitHub auth token")
             ),
@@ -343,13 +343,13 @@ class TestLaunchCopilot:
             captured["kwargs"] = kwargs
             return DummyProc()
 
-        monkeypatch.setattr("copilot_jobs.launcher._log_dir", lambda: tmp_path)
-        monkeypatch.setattr("copilot_jobs.launcher._snapshot_process_logs", lambda: {})
-        monkeypatch.setattr("copilot_jobs.launcher.subprocess.Popen", fake_popen)
-        monkeypatch.setattr("copilot_jobs.launcher.shutil.which", lambda name: "/resolved/copilot")
-        monkeypatch.setattr("copilot_jobs.launcher._wait_for_remote_task_id", lambda **kwargs: "task-123")
+        monkeypatch.setattr("copilot_remote.launcher._log_dir", lambda: tmp_path)
+        monkeypatch.setattr("copilot_remote.launcher._snapshot_process_logs", lambda: {})
+        monkeypatch.setattr("copilot_remote.launcher.subprocess.Popen", fake_popen)
+        monkeypatch.setattr("copilot_remote.launcher.shutil.which", lambda name: "/resolved/copilot")
+        monkeypatch.setattr("copilot_remote.launcher._wait_for_remote_task_id", lambda **kwargs: "task-123")
         monkeypatch.setattr(
-            "copilot_jobs.launcher._ensure_initial_prompt_delivered",
+            "copilot_remote.launcher._ensure_initial_prompt_delivered",
             lambda task_id, prompt: "steered",
         )
 
@@ -369,16 +369,16 @@ class TestLaunchCopilot:
         class DummyProc:
             pid = 4242
 
-        monkeypatch.setattr("copilot_jobs.launcher._log_dir", lambda: tmp_path)
-        monkeypatch.setattr("copilot_jobs.launcher._snapshot_process_logs", lambda: {})
+        monkeypatch.setattr("copilot_remote.launcher._log_dir", lambda: tmp_path)
+        monkeypatch.setattr("copilot_remote.launcher._snapshot_process_logs", lambda: {})
         monkeypatch.setattr(
-            "copilot_jobs.launcher.subprocess.Popen",
+            "copilot_remote.launcher.subprocess.Popen",
             lambda *args, **kwargs: DummyProc(),
         )
-        monkeypatch.setattr("copilot_jobs.launcher.shutil.which", lambda name: "/resolved/copilot")
-        monkeypatch.setattr("copilot_jobs.launcher._wait_for_remote_task_id", lambda **kwargs: "task-123")
+        monkeypatch.setattr("copilot_remote.launcher.shutil.which", lambda name: "/resolved/copilot")
+        monkeypatch.setattr("copilot_remote.launcher._wait_for_remote_task_id", lambda **kwargs: "task-123")
         monkeypatch.setattr(
-            "copilot_jobs.launcher._ensure_initial_prompt_delivered",
+            "copilot_remote.launcher._ensure_initial_prompt_delivered",
             lambda task_id, prompt: (_ for _ in ()).throw(RuntimeError("steer failed")),
         )
 

@@ -28,7 +28,7 @@ It's not a coding copilot tethered to an IDE or a chatbot wrapper around a singl
 | 📖 **[Quickstart Tutorial](/docs/getting-started/quickstart)** | Your first conversation and key features to try |
 | 🗺️ **[Learning Path](/docs/getting-started/learning-path)** | Find the right docs for your experience level |
 | ⚙️ **[Configuration](/docs/user-guide/configuration)** | Config file, providers, models, and options |
-| 🤖 **[Copilot Remote Jobs](/docs/user-guide/features/copilot-jobs)** | Route work to repos, launch tracked GitHub Copilot remote sessions, and reconnect later |
+| 🤖 **[Copilot Remote Jobs](/docs/user-guide/features/copilot-remote)** | Route work to repos, launch tracked GitHub Copilot remote sessions, and reconnect later |
 | 💬 **[Messaging Gateway](/docs/user-guide/messaging)** | Set up Telegram, Discord, Slack, or WhatsApp |
 | 🔧 **[Tools & Toolsets](/docs/user-guide/features/tools)** | 47 built-in tools and how to configure them |
 | 🧠 **[Memory System](/docs/user-guide/features/memory)** | Persistent memory that grows across sessions |

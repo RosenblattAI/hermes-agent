@@ -22,11 +22,11 @@ Random fixes waste time and create new bugs. Quick patches mask underlying issue
 
 ## Copilot-First Routing
 
-This skill assumes `/copilot` is the default execution path for software-development
-debugging in Hermes. Do not let that shortcut the process: `/copilot` should help
+This skill assumes `/copilot_remote` is the default execution path for software-development
+debugging in Hermes. Do not let that shortcut the process: `/copilot_remote` should help
 execute the investigation, not replace root-cause analysis.
 
-Before opening a `/copilot` debugging context, inspect the current workspace for a
+Before opening a `/copilot_remote` debugging context, inspect the current workspace for a
 `repos/` directory and identify the repo that owns the failing code. Hermes Copilot
 must start inside one of those repos to work reliably. If the repo is clear, launch
 from that repo root. If it is not clear, pass `--repo <name>` or `--repo-path <absolute-path>`
@@ -337,12 +337,12 @@ Use these Hermes tools during Phase 1:
 - **`terminal`** — Run tests, check git history, reproduce bugs
 - **`web_search`/`web_extract`** — Research error messages, library docs
 
-### With `/copilot`
+### With `/copilot_remote`
 
-For complex multi-component debugging, prefer a fresh `/copilot` investigation context:
+For complex multi-component debugging, prefer a fresh `/copilot_remote` investigation context:
 
 ```text
-/copilot Investigate why [specific test/behavior] fails.
+/copilot_remote Investigate why [specific test/behavior] fails.
 
 Follow systematic-debugging skill:
 1. Read the error message carefully
@@ -355,7 +355,7 @@ File: [path to failing code]
 Test command: [exact command]
 ```
 
-If `/copilot` is unavailable in the current runtime, fall back to `delegate_task` with the same prompt.
+If `/copilot_remote` is unavailable in the current runtime, fall back to `delegate_task` with the same prompt.
 
 ### With test-driven-development
 

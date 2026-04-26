@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from copilot_jobs.models import RepoEntry
+from copilot_remote.models import RepoEntry
 from hermes_state import SessionDB
 from tools.copilot_remote_tool import COPILOT_REMOTE_SCHEMA, copilot_remote
 
@@ -41,7 +41,7 @@ def test_launch_explicit_repo_dry_run(db):
     assert result["job"]["state"] == "done"
     assert result["job"]["connect_command"].startswith("copilot --connect=")
 
-    jobs = db.list_copilot_jobs(state="done")
+    jobs = db.list_copilot_remote(state="done")
     assert len(jobs) == 1
     assert jobs[0]["repo_slug"] == "static-pages"
 
@@ -66,7 +66,7 @@ def test_launch_routes_repo_and_stores_connect_handle(db, monkeypatch):
             "prompt_delivery_warning": None,
         }
 
-    monkeypatch.setattr("copilot_jobs.launcher.launch_copilot", fake_launch)
+    monkeypatch.setattr("copilot_remote.launcher.launch_copilot", fake_launch)
 
     result = json.loads(
         copilot_remote(
@@ -83,7 +83,7 @@ def test_launch_routes_repo_and_stores_connect_handle(db, monkeypatch):
     assert result["job"]["connect_handle"] == "task-123"
     assert result["job"]["connect_command"] == "copilot --connect=task-123"
 
-    jobs = db.list_copilot_jobs(state="running")
+    jobs = db.list_copilot_remote(state="running")
     assert len(jobs) == 1
     assert jobs[0]["signal_ref"] == "task-123"
 
@@ -96,7 +96,7 @@ def test_launch_requires_prompt(db):
 
 
 def test_list_and_show(db):
-    db.create_copilot_job(
+    db.create_copilot_remote(
         job_id="job-1",
         repo_slug="static-pages",
         repo_path="/workspace/repos/corp_it/static-pages",
@@ -124,3 +124,11 @@ def test_schema_discourages_terminal_copilot_probes():
 
     assert "terminal Copilot probes" in description
     assert "call this tool directly" in description
+
+
+def test_schema_marks_copilot_remote_as_default_implementation_tool():
+    description = COPILOT_REMOTE_SCHEMA["description"]
+
+    assert "default implementation tool" in description
+    assert "code-writing" in description
+    assert "website-building" in description

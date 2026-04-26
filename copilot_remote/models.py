@@ -1,4 +1,4 @@
-"""State enums and dataclasses for copilot jobs."""
+"""State enums and dataclasses for copilot remote jobs."""
 
 from enum import Enum
 from dataclasses import dataclass
@@ -6,7 +6,7 @@ from typing import Optional
 
 
 class JobState(str, Enum):
-    """Valid states for a copilot job.
+    """Valid states for a copilot remote.
 
     Simplified: copilot sessions are cloud-managed via --remote/--connect,
     so we only track whether we've launched and whether it finished.

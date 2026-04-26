@@ -63,6 +63,7 @@ CONFIGURABLE_TOOLSETS = [
     ("session_search",  "🔎 Session Search",            "search past conversations"),
     ("clarify",         "❓ Clarifying Questions",      "clarify"),
     ("delegation",      "👥 Task Delegation",           "delegate_task"),
+    ("copilot",         "🤖 Copilot Remote (default impl)", "copilot_remote — default tool for writing/editing code, files, sites"),
     ("cronjob",         "⏰ Cron Jobs",                 "create/list/update/pause/resume/run, with optional attached skills"),
     ("messaging",       "📨 Cross-Platform Messaging",  "send_message"),
     ("rl",              "🧪 RL Training",               "Tinker-Atropos training tools"),
@@ -573,6 +574,12 @@ def _get_platform_tools(
 
     if has_explicit_config:
         enabled_toolsets = {ts for ts in toolset_names if ts in configurable_keys}
+        # `copilot` is Hermes' default implementation toolset (copilot_remote).
+        # It was added after some users had already saved an explicit toolset
+        # selection, so back-compat: include it unless explicitly opted out
+        # via the "no_copilot" sentinel in platform_toolsets.
+        if "copilot" in configurable_keys and "no_copilot" not in toolset_names:
+            enabled_toolsets.add("copilot")
     else:
         # No explicit config — fall back to resolving composite toolset names
         # (e.g. "hermes-cli") to individual tool names and reverse-mapping.

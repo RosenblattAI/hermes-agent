@@ -11,7 +11,7 @@ Because interactive mode renders a TUI, copilot is wrapped in
 file. Hermes keeps its own pre-generated job ID for bookkeeping, but it
 does not force that UUID into Copilot via ``--resume``. Recent Copilot
 CLI builds treat ``--resume`` as a resume path where startup prompts do
-not auto-run, which would make ``/copilot launch <prompt>`` open a
+not auto-run, which would make ``/copilot_remote launch <prompt>`` open a
 remote session without executing the requested work.
 
 When launched for real (not via ``_spawn`` or ``dry_run``), the wrapper
@@ -38,7 +38,7 @@ from typing import Any, Callable, Dict, List, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from copilot_jobs.models import RepoEntry
+from copilot_remote.models import RepoEntry
 
 logger = logging.getLogger(__name__)
 

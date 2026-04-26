@@ -3,7 +3,7 @@ name: requesting-code-review
 description: >
   Pre-commit verification pipeline — static security scan, baseline-aware
   quality gates, fresh independent review contexts, and an auto-fix loop. Use
-  after `/copilot`-driven or manual code changes and before committing,
+  after `/copilot_remote`-driven or manual code changes and before committing,
   pushing, or opening a PR.
 version: 2.0.0
 author: Hermes Agent (adapted from obra/superpowers + MorAlekss)
@@ -23,12 +23,12 @@ quality gates, an independent reviewer subagent, and an auto-fix loop.
 
 ## Copilot-First Routing
 
-This skill assumes `/copilot` is the default execution path for software-development
+This skill assumes `/copilot_remote` is the default execution path for software-development
 work in Hermes. Keep the independent-review separation in this skill even when
-`/copilot` is doing the main execution; the reviewer and fixer should still use
+`/copilot_remote` is doing the main execution; the reviewer and fixer should still use
 fresh contexts.
 
-Before any `/copilot` launch in this workflow, inspect the current workspace for a
+Before any `/copilot_remote` launch in this workflow, inspect the current workspace for a
 `repos/` directory and resolve which repo contains the code under review. Hermes
 Copilot must run inside one of those repos to work reliably. If the repo is obvious,
 launch from that repo root. If not, pass `--repo <name>` or `--repo-path <absolute-path>`
@@ -141,7 +141,7 @@ Quick scan before dispatching the reviewer:
 
 ## Step 5 — Independent reviewer subagent
 
-Open a fresh review context via `/copilot` by default. If `/copilot` is unavailable, fall back to `delegate_task` directly — it is NOT available inside execute_code or scripts.
+Open a fresh review context via `/copilot_remote` by default. If `/copilot_remote` is unavailable, fall back to `delegate_task` directly — it is NOT available inside execute_code or scripts.
 
 The reviewer gets ONLY the diff and static scan results. No shared context with
 the implementer. Fail-closed: unparseable response = fail.

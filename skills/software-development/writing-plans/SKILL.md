@@ -22,15 +22,15 @@ Assume the implementer is a skilled developer but knows almost nothing about the
 
 ## Copilot-First Routing
 
-This skill is planning, not implementation. Do not use `/copilot` while writing the
-plan itself. Instead, write plans that assume `/copilot` is the default execution
+This skill is planning, not implementation. Do not use `/copilot_remote` while writing the
+plan itself. Instead, write plans that assume `/copilot_remote` is the default execution
 path once implementation begins, unless the user explicitly asks for another route.
 
 Before writing a software-development plan, inspect the current workspace for a
 `repos/` directory and identify the repo the work should happen in. Hermes Copilot
 must launch inside one of those repos to run successfully. If the target repo is
 obvious, anchor the plan to that repo root and name it explicitly. If it is not
-obvious, include instructions to launch `/copilot` with `--repo <name>` or
+obvious, include instructions to launch `/copilot_remote` with `--repo <name>` or
 `--repo-path <absolute-path>` so execution lands in a valid repository.
 
 ## When to Use
@@ -83,7 +83,7 @@ Every plan MUST start with:
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Hermes:** Use `/copilot` as the default execution path for this plan, following the subagent-driven-development skill for task boundaries and review discipline.
+> **For Hermes:** Use `/copilot_remote` as the default execution path for this plan, following the subagent-driven-development skill for task boundaries and review discipline.
 
 **Goal:** [One sentence describing what this builds]
 

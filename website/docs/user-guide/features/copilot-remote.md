@@ -10,7 +10,7 @@ Hermes can start standalone GitHub Copilot remote sessions, record them in the H
 :::info This is separate from Hermes' Copilot providers
 - `provider: copilot` means Hermes uses Copilot-hosted models for Hermes turns.
 - `provider: copilot-acp` means Hermes delegates Hermes turns to `copilot --acp`.
-- `hermes copilot` and `/copilot` launch separate Copilot remote sessions that Hermes tracks as jobs.
+- `hermes copilot` and `/copilot_remote` launch separate Copilot remote sessions that Hermes tracks as jobs.
 :::
 
 ## What Hermes Tracks
@@ -22,7 +22,7 @@ Hermes can start standalone GitHub Copilot remote sessions, record them in the H
 - An external reconnect handle when Hermes can extract Copilot's remote task ID
 - A PTY log file at `~/.hermes/logs/copilot-<job_id>.log`
 
-Job records live in the `copilot_jobs` table inside `~/.hermes/state.db`.
+Job records live in the `copilot_remote` table inside `~/.hermes/state.db`.
 
 ## Requirements
 
@@ -81,12 +81,12 @@ hermes copilot show <job-id>
 The same capability is available inside Hermes chats in both the CLI and the messaging gateway:
 
 ```text
-/copilot launch Review the failing Slack notification path and fix it
-/copilot list
-/copilot show <job-id>
+/copilot_remote launch Review the failing Slack notification path and fix it
+/copilot_remote list
+/copilot_remote show <job-id>
 ```
 
-A bare `/copilot` defaults to `list`.
+A bare `/copilot_remote` defaults to `list`.
 
 Hermes also exposes this workflow to the agent as the `copilot_remote` tool. In Slack or another gateway chat, plain requests such as "use Copilot to build a static webpage" can be handled as a tracked Copilot remote job without requiring slash-command syntax. If the target repo is not explicit, Hermes uses the same repo router as `hermes copilot launch`.
 

@@ -268,7 +268,7 @@ hermes cron <list|create|edit|pause|resume|run|remove|status|tick>
 hermes copilot <launch|list|show>
 ```
 
-Launch and inspect GitHub Copilot remote sessions that Hermes tracks as jobs. See [Copilot Remote Jobs](/docs/user-guide/features/copilot-jobs) for the full workflow and troubleshooting.
+Launch and inspect GitHub Copilot remote sessions that Hermes tracks as jobs. See [Copilot Remote Jobs](/docs/user-guide/features/copilot-remote) for the full workflow and troubleshooting.
 
 ### `hermes copilot launch`
 

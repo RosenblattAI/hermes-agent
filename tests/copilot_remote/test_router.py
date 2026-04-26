@@ -1,4 +1,4 @@
-"""Tests for copilot_jobs.router — LLM-powered repo routing."""
+"""Tests for copilot_remote.router — LLM-powered repo routing."""
 
 import json
 import pytest
@@ -6,14 +6,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from copilot_jobs.router import (
+from copilot_remote.router import (
     route_repo,
     _discover_repos,
     _build_repo_context,
     _build_routing_messages,
     _parse_routing_response,
 )
-from copilot_jobs.models import RepoEntry
+from copilot_remote.models import RepoEntry
 
 
 # =========================================================================

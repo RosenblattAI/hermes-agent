@@ -768,6 +768,36 @@ class TestBuildSystemPrompt:
         assert mock_skills.call_args.kwargs["available_tools"] == set(toolset_map)
         assert mock_skills.call_args.kwargs["available_toolsets"] == {"web", "skills"}
 
+    def test_includes_copilot_remote_delegation_when_tool_loaded(self):
+        from agent.prompt_builder import COPILOT_REMOTE_DELEGATION_GUIDANCE
+
+        with (
+            patch(
+                "run_agent.get_tool_definitions",
+                return_value=_make_tool_defs("web_search", "copilot_remote"),
+            ),
+            patch("run_agent.check_toolset_requirements", return_value={}),
+            patch("run_agent.OpenAI"),
+        ):
+            agent = AIAgent(
+                api_key="test-k...7890",
+                base_url="https://openrouter.ai/api/v1",
+                quiet_mode=True,
+                skip_context_files=True,
+                skip_memory=True,
+            )
+            prompt = agent._build_system_prompt()
+
+        assert COPILOT_REMOTE_DELEGATION_GUIDANCE in prompt
+        assert "copilot_remote(action=\"launch\")" in prompt
+
+    def test_skips_copilot_remote_delegation_without_tool(self, agent):
+        from agent.prompt_builder import COPILOT_REMOTE_DELEGATION_GUIDANCE
+
+        prompt = agent._build_system_prompt()
+
+        assert COPILOT_REMOTE_DELEGATION_GUIDANCE not in prompt
+
 
 class TestToolUseEnforcementConfig:
     """Tests for the agent.tool_use_enforcement config option."""
@@ -1980,6 +2010,97 @@ class TestRunConversation:
         assert result["api_calls"] == 2
         assert mock_handle_function_call.call_args.kwargs["tool_call_id"] == "c1"
         assert mock_handle_function_call.call_args.kwargs["session_id"] == agent.session_id
+
+    def test_implementation_request_auto_delegates_to_copilot_remote(self, agent):
+        self._setup_agent(agent)
+        agent.valid_tool_names.add("copilot_remote")
+        agent.client.chat.completions.create.side_effect = AssertionError(
+            "implementation request should not reach the model first"
+        )
+        fake_tool_result = json.dumps({
+            "success": True,
+            "job": {
+                "id": "job-1",
+                "repo_slug": "static-pages",
+                "state": "running",
+                "connect_command": "copilot --connect=task-1",
+            },
+        })
+
+        with (
+            patch("run_agent.handle_function_call", return_value=fake_tool_result) as mock_handle_function_call,
+            patch.object(agent, "_persist_session"),
+            patch.object(agent, "_save_trajectory"),
+            patch.object(agent, "_cleanup_task_resources"),
+        ):
+            result = agent.run_conversation(
+                "create a static webpage that displays a short bio on the Macy Conferences"
+            )
+
+        assert result["api_calls"] == 0
+        assert result["completed"] is True
+        assert "Launched this as a Copilot remote job" in result["final_response"]
+        assert "static-pages" in result["final_response"]
+        assert mock_handle_function_call.call_args.args[0] == "copilot_remote"
+        tool_args = mock_handle_function_call.call_args.args[1]
+        assert tool_args["action"] == "launch"
+        assert "Macy Conferences" in tool_args["prompt"]
+
+    def test_explanation_request_does_not_auto_delegate_to_copilot_remote(self, agent):
+        self._setup_agent(agent)
+        agent.valid_tool_names.add("copilot_remote")
+        resp = _mock_response(content="Because it was not selected.", finish_reason="stop")
+        agent.client.chat.completions.create.return_value = resp
+
+        with (
+            patch("run_agent.handle_function_call", side_effect=AssertionError("should not auto-delegate")),
+            patch.object(agent, "_persist_session"),
+            patch.object(agent, "_save_trajectory"),
+            patch.object(agent, "_cleanup_task_resources"),
+        ):
+            result = agent.run_conversation("why didn't you use copilot?")
+
+        assert result["final_response"] == "Because it was not selected."
+        assert result["api_calls"] == 1
+
+    def test_thread_context_prefix_does_not_block_auto_delegate(self, agent):
+        """Slack injects a thread-context envelope with prior messages.
+
+        Words like "explain", "why", "tell me" inside that envelope must not
+        trip the skip-pattern check on the user's actual implementation
+        request.
+        """
+        self._setup_agent(agent)
+        agent.valid_tool_names.add("copilot_remote")
+        fake_tool_result = json.dumps({
+            "success": True,
+            "job": {
+                "id": "JOB-XYZ",
+                "repo_slug": "RosenblattAI/static-pages",
+                "state": "running",
+                "connect_command": "hermes copilot connect JOB-XYZ",
+            },
+        })
+        threaded_message = (
+            "[Thread context — prior messages in this thread (not yet in conversation history):]\n"
+            "[thread parent] ryan: tell me about why this works\n"
+            "ryan: explain how copilot works\n"
+            "[End of thread context]\n\n"
+            "<@U12345> create a static webpage that displays a short bio on the Macy Conferences"
+        )
+
+        with (
+            patch("run_agent.handle_function_call", return_value=fake_tool_result) as mock_handle_function_call,
+            patch.object(agent, "_persist_session"),
+            patch.object(agent, "_save_trajectory"),
+            patch.object(agent, "_cleanup_task_resources"),
+        ):
+            result = agent.run_conversation(threaded_message)
+
+        assert result["api_calls"] == 0
+        assert result["completed"] is True
+        assert "Launched this as a Copilot remote job" in result["final_response"]
+        assert mock_handle_function_call.call_args.args[0] == "copilot_remote"
 
     def test_request_scoped_api_hooks_fire_for_each_api_call(self, agent):
         self._setup_agent(agent)

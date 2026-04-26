@@ -7254,12 +7254,12 @@ For more help on a command:
     cop_launch.add_argument("--signal-ref", dest="signal_ref", help="Signal reference (e.g. Jira ticket ID)")
 
     # copilot list
-    cop_list = copilot_subparsers.add_parser("list", aliases=["ls"], help="List copilot jobs")
+    cop_list = copilot_subparsers.add_parser("list", aliases=["ls"], help="List copilot remote jobs")
     cop_list.add_argument("--state", help="Filter by state (running, done, failed)")
     cop_list.add_argument("--limit", type=int, default=20, help="Max results (default: 20)")
 
     # copilot show
-    cop_show = copilot_subparsers.add_parser("show", help="Show details of a copilot job")
+    cop_show = copilot_subparsers.add_parser("show", help="Show details of a copilot remote")
     cop_show.add_argument("job_id", help="Job ID to inspect")
 
     copilot_parser.set_defaults(func=cmd_copilot)

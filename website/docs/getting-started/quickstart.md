@@ -165,7 +165,7 @@ Type `/` to see an autocomplete dropdown of all commands:
 | `/help` | Show all available commands |
 | `/tools` | List available tools |
 | `/model` | Switch models interactively |
-| `/copilot launch <prompt>` | Launch and track a GitHub Copilot remote session |
+| `/copilot_remote launch <prompt>` | Launch and track a GitHub Copilot remote session |
 | `/personality pirate` | Try a fun personality |
 | `/save` | Save the conversation |
 
@@ -201,7 +201,7 @@ Connect [Telegram](/docs/user-guide/messaging/telegram), [Discord](/docs/user-gu
 hermes copilot launch "Investigate the failing GitHub Actions workflow in fridai-backend"
 ```
 
-Use this when you want Hermes to route a task to a repo, start a detached GitHub Copilot remote session, and hand you a reconnect command. See [Copilot Remote Jobs](/docs/user-guide/features/copilot-jobs).
+Use this when you want Hermes to route a task to a repo, start a detached GitHub Copilot remote session, and hand you a reconnect command. See [Copilot Remote Jobs](/docs/user-guide/features/copilot-remote).
 
 ### Sandboxed terminal
 
