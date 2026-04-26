@@ -21,6 +21,7 @@ What makes Hermes different:
 - **Persistent memory across sessions** — remembers who you are, your preferences, environment details, and lessons learned. Pluggable memory backends (built-in, Honcho, Mem0, and more) let you choose how memory works.
 - **Multi-platform gateway** — the same agent runs on Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Email, and 10+ other platforms with full tool access, not just chat.
 - **Provider-agnostic** — swap models and providers mid-workflow without changing anything else. Credential pools rotate across multiple API keys automatically.
+- **Tracked Copilot remote jobs** — route a task to a repo, launch a detached GitHub Copilot remote session, and reconnect later with stored job metadata and reconnect handles.
 - **Profiles** — run multiple independent Hermes instances with isolated configs, sessions, skills, and memory.
 - **Extensible** — plugins, MCP servers, custom tools, webhook triggers, cron scheduling, and the full Python ecosystem.
 
@@ -112,6 +113,10 @@ hermes tools                Interactive tool enable/disable (curses UI)
 hermes tools list           Show all tools and status
 hermes tools enable NAME    Enable a toolset
 hermes tools disable NAME   Disable a toolset
+
+hermes copilot launch PROMPT          Route to repo and launch Copilot remote session
+hermes copilot list [--state STATE]   List tracked Copilot jobs
+hermes copilot show JOB_ID            Show reconnect details for one job
 
 hermes skills list          List installed skills
 hermes skills search QUERY  Search the skills hub
@@ -262,6 +267,7 @@ Type these during an interactive chat session.
 ```
 /tools               Manage tools (CLI)
 /toolsets            List toolsets (CLI)
+/copilot [subcommand] Manage Copilot remote jobs (launch|list|show)
 /skills              Search/install skills (CLI)
 /skill <name>        Load a skill into session
 /cron                Manage cron jobs (CLI)
@@ -314,8 +320,9 @@ Type these during an interactive chat session.
 ~/.hermes/config.yaml       Main configuration
 ~/.hermes/.env              API keys and secrets
 $HERMES_HOME/skills/        Installed skills
+~/.hermes/state.db          Session database and Copilot job records
 ~/.hermes/sessions/         Session transcripts
-~/.hermes/logs/             Gateway and error logs
+~/.hermes/logs/             Gateway, error, and Copilot PTY logs
 ~/.hermes/auth.json         OAuth tokens and credential pools
 ~/.hermes/hermes-agent/     Source code (if git-installed)
 ```
