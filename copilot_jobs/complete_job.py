@@ -16,12 +16,15 @@ _AGENT_ROOT = str(Path(__file__).resolve().parent.parent)
 if _AGENT_ROOT not in sys.path:
     sys.path.insert(0, _AGENT_ROOT)
 
+from hermes_constants import get_hermes_home  # noqa: E402
 from hermes_state import SessionDB  # noqa: E402
 
 
 def finish(session_id: str, exit_code: int) -> None:
     state = "done" if exit_code == 0 else "failed"
-    db = SessionDB()
+    # Construct db_path at call time from get_hermes_home() so the correct
+    # profile/isolation path is used even when DEFAULT_DB_PATH is stale.
+    db = SessionDB(db_path=get_hermes_home() / "state.db")
     try:
         db.finish_copilot_job(session_id, state=state, exit_code=exit_code)
     finally:
