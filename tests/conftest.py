@@ -396,6 +396,28 @@ def _reset_module_state():
     except Exception:
         pass
 
+    # --- tools.terminal_tool — active terminal environments ---
+    # _active_environments maps task_id → live env object (with a .cwd attr).
+    # _get_live_tracking_cwd() reads this dict to override TERMINAL_CWD. If
+    # an entry from a prior test survives, path-resolution tests that rely on
+    # TERMINAL_CWD get the stale live-cwd instead and fail.
+    try:
+        from tools import terminal_tool as _tt_mod
+        with _tt_mod._env_lock:
+            _tt_mod._active_environments.clear()
+    except Exception:
+        pass
+
+    # --- hermes_constants — WSL detection cache ---
+    # is_wsl() caches its result in _wsl_detected. On a non-WSL CI runner the
+    # value is False; if that persists into TestIsWsl the mock inside the test
+    # body is never reached because the cache short-circuits the file read.
+    try:
+        import hermes_constants as _hc_mod
+        _hc_mod._wsl_detected = None
+    except Exception:
+        pass
+
     yield
 
 

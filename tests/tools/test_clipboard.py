@@ -204,34 +204,40 @@ class TestMacosOsascript:
 # ── WSL detection ────────────────────────────────────────────────────────
 
 class TestIsWsl:
-    def setup_method(self):
-        # _is_wsl is now hermes_constants.is_wsl — reset its cache
+    @pytest.fixture(autouse=True)
+    def _reset_wsl_cache(self, monkeypatch):
+        """Reset the module-level WSL-detection cache before each test.
+
+        Uses monkeypatch so the reset is undone after the test (pytest
+        lifecycle), and targets hermes_constants directly rather than relying
+        on setup_method ordering relative to autouse fixtures.
+        """
         import hermes_constants
-        hermes_constants._wsl_detected = None
+        monkeypatch.setattr(hermes_constants, "_wsl_detected", None)
 
     def test_wsl2_detected(self):
         content = "Linux version 5.15.0 (microsoft-standard-WSL2)"
-        with patch("builtins.open", mock_open(read_data=content)):
+        with patch("hermes_constants.open", mock_open(read_data=content), create=True):
             assert _is_wsl() is True
 
     def test_wsl1_detected(self):
         content = "Linux version 4.4.0-microsoft-standard"
-        with patch("builtins.open", mock_open(read_data=content)):
+        with patch("hermes_constants.open", mock_open(read_data=content), create=True):
             assert _is_wsl() is True
 
     def test_regular_linux(self):
         content = "Linux version 6.14.0-37-generic (buildd@lcy02-amd64-049)"
-        with patch("builtins.open", mock_open(read_data=content)):
+        with patch("hermes_constants.open", mock_open(read_data=content), create=True):
             assert _is_wsl() is False
 
     def test_proc_version_missing(self):
-        with patch("builtins.open", side_effect=FileNotFoundError):
+        with patch("hermes_constants.open", side_effect=FileNotFoundError, create=True):
             assert _is_wsl() is False
 
     def test_result_is_cached(self):
         import hermes_constants
         content = "Linux version 5.15.0 (microsoft-standard-WSL2)"
-        with patch("builtins.open", mock_open(read_data=content)) as m:
+        with patch("hermes_constants.open", mock_open(read_data=content), create=True) as m:
             assert _is_wsl() is True
             assert _is_wsl() is True
             m.assert_called_once()  # only read once

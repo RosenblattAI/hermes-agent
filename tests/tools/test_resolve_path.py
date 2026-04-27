@@ -11,11 +11,18 @@ class TestResolvePath:
     """Verify _resolve_path respects TERMINAL_CWD for worktree isolation."""
 
     def test_relative_path_uses_terminal_cwd(self, monkeypatch, tmp_path):
-        """Relative paths resolve against TERMINAL_CWD, not process CWD."""
-        monkeypatch.setenv("TERMINAL_CWD", str(tmp_path))
-        from tools.file_tools import _resolve_path
+        """Relative paths resolve against TERMINAL_CWD, not process CWD.
 
-        result = _resolve_path("foo/bar.py")
+        Patches _get_live_tracking_cwd to None so this test exercises only the
+        TERMINAL_CWD fallback path, isolated from any live terminal-env state
+        that other tests in the same xdist worker may have left in
+        _active_environments.
+        """
+        monkeypatch.setenv("TERMINAL_CWD", str(tmp_path))
+        from tools import file_tools
+        monkeypatch.setattr(file_tools, "_get_live_tracking_cwd", lambda *a, **kw: None)
+
+        result = file_tools._resolve_path("foo/bar.py")
         assert result == (tmp_path / "foo" / "bar.py")
 
     def test_absolute_path_ignores_terminal_cwd(self, monkeypatch, tmp_path):
@@ -45,11 +52,18 @@ class TestResolvePath:
         assert result == Path.home() / "notes.txt"
 
     def test_result_is_resolved(self, monkeypatch, tmp_path):
-        """Output path has no '..' components."""
-        monkeypatch.setenv("TERMINAL_CWD", str(tmp_path))
-        from tools.file_tools import _resolve_path
+        """Output path has no '..' components.
 
-        result = _resolve_path("a/../b/file.txt")
+        Patches _get_live_tracking_cwd to None so this test exercises only the
+        TERMINAL_CWD fallback path, isolated from any live terminal-env state
+        that other tests in the same xdist worker may have left in
+        _active_environments.
+        """
+        monkeypatch.setenv("TERMINAL_CWD", str(tmp_path))
+        from tools import file_tools
+        monkeypatch.setattr(file_tools, "_get_live_tracking_cwd", lambda *a, **kw: None)
+
+        result = file_tools._resolve_path("a/../b/file.txt")
         assert ".." not in str(result)
         assert result == (tmp_path / "b" / "file.txt")
 
