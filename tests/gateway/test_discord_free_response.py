@@ -108,6 +108,7 @@ def make_message(*, channel, content: str, mentions=None, msg_type=None):
         channel=channel,
         author=author,
         type=msg_type if msg_type is not None else discord_platform.discord.MessageType.default,
+        guild=None,
     )
 
 

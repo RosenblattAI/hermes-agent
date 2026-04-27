@@ -102,6 +102,7 @@ class TestPtyBridgeResize:
             ["/bin/sh", "-c", "sleep 0.1; tput cols; tput lines"],
             cols=80,
             rows=24,
+            env={**os.environ, "TERM": "xterm-256color"},
         )
         try:
             bridge.resize(cols=123, rows=45)

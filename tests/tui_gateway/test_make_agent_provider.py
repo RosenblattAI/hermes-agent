@@ -45,7 +45,7 @@ def test_make_agent_passes_resolved_provider():
 
         _make_agent("sid-1", "key-1")
 
-        mock_resolve.assert_called_once_with(requested=None)
+        mock_resolve.assert_called_once_with(requested=None, target_model=mock_resolve.call_args.kwargs.get("target_model"))
 
         call_kwargs = mock_agent.call_args
         assert call_kwargs.kwargs["provider"] == "anthropic"

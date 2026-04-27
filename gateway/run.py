@@ -4031,6 +4031,20 @@ class GatewayRunner:
 
             return await asyncio.to_thread(_run_copilot_remote_command, event.text)
 
+        if canonical == "copilot":
+            from hermes_cli.copilot_cmd import handle_copilot_slash
+            import io, contextlib
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                try:
+                    handle_copilot_slash(event.text)
+                except SystemExit:
+                    pass
+            return buf.getvalue().strip() or "Done."
+
+        if canonical == "btw":
+            return await self._handle_btw_command(event)
+
         if canonical == "steer":
             # No active agent — /steer has no tool call to inject into.
             # Strip the prefix so downstream treats it as a normal user

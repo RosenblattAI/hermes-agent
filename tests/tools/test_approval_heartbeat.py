@@ -148,9 +148,14 @@ class TestApprovalHeartbeat:
         thread = threading.Thread(target=_run_check, daemon=True)
         thread.start()
 
-        # Resolve almost immediately — the wait loop should return within
-        # its current 1s poll slice.
-        time.sleep(0.1)
+        # Resolve almost immediately — wait for the approval to be registered
+        # first to avoid the race where resolve() fires before the entry exists.
+        from tools.approval import has_blocking_approval
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            if has_blocking_approval(self.SESSION_KEY):
+                break
+            time.sleep(0.05)
         resolve_gateway_approval(self.SESSION_KEY, "once")
         thread.join(timeout=5)
         elapsed = time.monotonic() - start_time
@@ -191,7 +196,15 @@ class TestApprovalHeartbeat:
         thread = threading.Thread(target=_run_check, daemon=True)
         thread.start()
 
-        time.sleep(0.2)
+        # Wait until check_all_command_guards has registered its approval
+        # entry before calling resolve — avoids a race where resolve() fires
+        # before the entry exists and the thread then waits forever.
+        from tools.approval import has_blocking_approval
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            if has_blocking_approval(self.SESSION_KEY):
+                break
+            time.sleep(0.05)
         resolve_gateway_approval(self.SESSION_KEY, "once")
         thread.join(timeout=5)
 

@@ -217,11 +217,22 @@ class FileToolsIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         file_state.get_registry().clear()
         self._tmpdir = tempfile.mkdtemp(prefix="hermes_file_state_int_")
+        # Guard against TERMINAL_ENV being set to a remote backend (e.g.
+        # "modal") by a test running earlier in the same xdist worker — that
+        # would make _get_file_ops() try to create a Modal/Docker environment
+        # and fail with a credentials error.
+        self._orig_terminal_env = os.environ.get("TERMINAL_ENV")
+        os.environ.pop("TERMINAL_ENV", None)
 
     def tearDown(self) -> None:
         import shutil
         shutil.rmtree(self._tmpdir, ignore_errors=True)
         file_state.get_registry().clear()
+        # Restore TERMINAL_ENV to its original state.
+        if self._orig_terminal_env is None:
+            os.environ.pop("TERMINAL_ENV", None)
+        else:
+            os.environ["TERMINAL_ENV"] = self._orig_terminal_env
 
     def _write_seed(self, name: str, content: str = "seed\n") -> str:
         p = os.path.join(self._tmpdir, name)
