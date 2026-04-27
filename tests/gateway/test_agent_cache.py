@@ -760,7 +760,10 @@ class TestAgentCacheSpilloverLive:
 
         def worker(tid: int):
             for j in range(PER_THREAD):
-                a = self._real_agent()
+                # Use a lightweight mock — this test exercises the lock and
+                # eviction mechanics, not agent functionality.  Creating 160
+                # real AIAgent objects would exceed the 30 s join timeout.
+                a = MagicMock()
                 key = f"t{tid}-s{j}"
                 with runner._agent_cache_lock:
                     runner._agent_cache[key] = (a, "sig")

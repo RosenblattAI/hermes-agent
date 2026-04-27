@@ -260,6 +260,14 @@ async def test_run_agent_progress_uses_event_message_id_for_slack_dm(monkeypatch
     fake_run_agent.AIAgent = FakeAgent
     monkeypatch.setitem(sys.modules, "run_agent", fake_run_agent)
 
+    import yaml
+
+    # Override the Slack platform default (tool_progress: "off") so the env var
+    # HERMES_TOOL_PROGRESS_MODE=all is not shadowed by the built-in platform default.
+    (tmp_path / "config.yaml").write_text(
+        yaml.dump({"display": {"platforms": {"slack": {"tool_progress": "all"}}}})
+    )
+
     adapter = ProgressCaptureAdapter(platform=Platform.SLACK)
     runner = _make_runner(adapter)
     gateway_run = importlib.import_module("gateway.run")

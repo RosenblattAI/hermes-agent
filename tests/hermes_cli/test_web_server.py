@@ -1747,6 +1747,9 @@ class TestPtyWebSocket:
         # its own fake argv via ``ws._resolve_chat_argv``.
         self.ws_module = ws
         monkeypatch.setattr(ws, "_DASHBOARD_EMBEDDED_CHAT_ENABLED", True)
+        # Reset module-level pubsub state so stale subscriptions from earlier
+        # tests in the same worker process don't bleed into this test.
+        ws._event_channels.clear()
         self.token = ws._SESSION_TOKEN
         self.client = TestClient(ws.app)
 
@@ -1847,6 +1850,7 @@ class TestPtyWebSocket:
     def test_resize_escape_is_forwarded(self, monkeypatch):
         # Resize escape gets intercepted and applied via TIOCSWINSZ,
         # then ``tput cols/lines`` reports the new dimensions back.
+        monkeypatch.setenv("TERM", "xterm-256color")
         monkeypatch.setattr(
             self.ws_module,
             "_resolve_chat_argv",
