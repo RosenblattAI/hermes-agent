@@ -2050,7 +2050,7 @@ class TestCopilotJobMigrationFromV6:
         conn.commit()
         conn.close()
 
-        # Open with SessionDB — should migrate to v8
+        # Open with SessionDB — should migrate to current SCHEMA_VERSION
         migrated_db = SessionDB(db_path=db_path)
 
         cursor = migrated_db._conn.execute("SELECT version FROM schema_version")

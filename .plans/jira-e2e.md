@@ -21,9 +21,9 @@ architectural primitives needed for a reliable end-to-end Jira-driven workflow:
 
 ---
 
-## Architecture: POC Implementation Slice
+## Architecture: POC Implementation Slice (landed in Schema v13)
 
-### Schema v10 (`hermes_state.py`, migration `if current_version < 10`)
+### Schema v13 (`hermes_state.py`, migrations v10–v13)
 
 New columns on `copilot_jobs`:
 | Column | Type | Purpose |
@@ -39,7 +39,8 @@ New table: `copilot_job_hooks`
 
 ### `copilot_jobs/models.py`
 
-- `JobState.TIMED_OUT`, `JobState.CANCELLED` added; `is_terminal` property
+- `JobState.TIMED_OUT`, `JobState.STOPPED` added; `is_terminal` property
+  *(Note: the DB stores these as the lowercase strings `"timed_out"` and `"cancelled"`.)*
 - `HookType` enum (`MERGE_GATE`, `POST_TASK`)
 - `HookState` enum (`PENDING`, `FIRED`, `FAILED`, `SKIPPED`)
 

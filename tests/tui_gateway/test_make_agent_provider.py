@@ -34,6 +34,7 @@ def test_make_agent_passes_resolved_provider():
         patch("tui_gateway.server._load_reasoning_config", return_value=None),
         patch("tui_gateway.server._load_service_tier", return_value=None),
         patch("tui_gateway.server._load_enabled_toolsets", return_value=None),
+        patch("tui_gateway.server._resolve_startup_runtime", return_value=("claude-opus-4-6", None)),
         patch(
             "hermes_cli.runtime_provider.resolve_runtime_provider",
             return_value=fake_runtime,
@@ -45,7 +46,9 @@ def test_make_agent_passes_resolved_provider():
 
         _make_agent("sid-1", "key-1")
 
-        mock_resolve.assert_called_once_with(requested=None, target_model=mock_resolve.call_args.kwargs.get("target_model"))
+        # requested=None because no HERMES_TUI_PROVIDER/HERMES_MODEL env vars are set;
+        # target_model comes from fake_cfg["model"]["default"].
+        mock_resolve.assert_called_once_with(requested=None, target_model="claude-opus-4-6")
 
         call_kwargs = mock_agent.call_args
         assert call_kwargs.kwargs["provider"] == "anthropic"

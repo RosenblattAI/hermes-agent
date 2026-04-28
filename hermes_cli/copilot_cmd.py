@@ -24,9 +24,21 @@ def _get_db() -> SessionDB:
     return SessionDB()
 
 
+def _sanitize_for_log(value) -> str:
+    """Strip control characters before storing/logging untrusted strings (CWE-117)."""
+    if value is None:
+        return ""
+    return "".join(" " if (ord(c) < 0x20 or ord(c) == 0x7F) else c for c in str(value))
+
+
 def _connect_handle(job: dict) -> str:
-    """Return the best external handle for connect/resume."""
-    return job.get("signal_ref") or job["id"]
+    """Return the best external handle for connect/resume.
+
+    Prefers the dedicated ``connect_id`` column (the cloud-relay task ID)
+    over the job UUID.  ``signal_ref`` is caller metadata (e.g. a Jira key)
+    and must not be used as a Copilot handle.
+    """
+    return job.get("connect_id") or job["id"]
 
 
 def _relative_time(ts) -> str:
@@ -143,15 +155,19 @@ def copilot_launch(args):
             model=model,
             dry_run=getattr(args, "dry_run", False),
             on_complete=_on_complete,
+            db=db,
         )
     except Exception as exc:
-        db.finish_copilot_job(job_id, state="failed", error_text=str(exc))
+        error_text = _sanitize_for_log(
+            __import__("agent.redact", fromlist=["redact_sensitive_text"]).redact_sensitive_text(str(exc))
+        )
+        db.finish_copilot_job(job_id, state="failed", error_text=error_text)
         db.close()
         raise
 
+    # launch_copilot already persisted connect_id via db.update_copilot_job_connect_id
+    # when a cloud-relay handle was resolved; fall back to the job UUID.
     connect_handle = result.get("connect_id") or job_id
-    if connect_handle != job_id:
-        db.update_copilot_job_signal_ref(job_id, connect_handle)
 
     # For dry-run, the process already completed synchronously.
     if getattr(args, "dry_run", False):
@@ -406,8 +422,13 @@ def handle_copilot_slash(raw_command: str) -> None:
     Parses the raw command text and dispatches to the appropriate handler.
     """
     from types import SimpleNamespace
+    import shlex
 
-    parts = raw_command.strip().split()
+    try:
+        parts = shlex.split(raw_command.strip())
+    except ValueError as e:
+        print(f"Error: could not parse /copilot command: {e}", file=sys.stderr)
+        return
     subcmd = parts[1] if len(parts) > 1 else "list"
     args_rest = parts[2:]
 

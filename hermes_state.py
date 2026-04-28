@@ -2359,7 +2359,9 @@ class SessionDB:
 
         expired_ids = self._execute_write(_do)
         if expired_ids:
-            logger.info("Expired %d timed-out copilot job(s): %s", len(expired_ids), expired_ids)
+            # Sanitize IDs before logging to prevent CWE-117 log injection.
+            safe_ids = ["".join(c for c in str(jid) if c.isprintable() and c not in "\r\n") for jid in expired_ids]
+            logger.info("Expired %d timed-out copilot job(s): %s", len(safe_ids), safe_ids)
         return expired_ids
 
     def retry_copilot_job(
