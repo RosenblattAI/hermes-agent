@@ -1,10 +1,10 @@
 """``hermes copilot`` CLI subcommand — launch and list Copilot sessions.
 
 Simplified interface: launch routes a prompt to a repo, spawns copilot
-with ``--remote``, captures the session ID, and logs it.  Sessions are
-cloud-managed — use ``copilot --connect=<session_id>`` from any
-authenticated terminal to attach, and ``copilot --resume=<session_id>``
-to resume a completed session.
+with ``--remote``, and persists the session.  Use
+``copilot --resume=<job_id>`` to resume via the pre-generated session UUID,
+or ``copilot --connect=<task_id>`` to re-attach using the cloud relay task
+ID printed after a successful launch.
 """
 
 import os
@@ -30,14 +30,6 @@ def _sanitize_for_log(value) -> str:
     return "".join(" " if (ord(c) < 0x20 or ord(c) == 0x7F) else c for c in str(value))
 
 
-def _connect_handle(job: dict) -> str:
-    """Return the best external handle for connect/resume.
-
-    Prefers the dedicated ``connect_id`` column (the cloud-relay task ID)
-    over the job UUID.  ``signal_ref`` is caller metadata (e.g. a Jira key)
-    and must not be used as a Copilot handle.
-    """
-    return job.get("connect_id") or job["id"]
 
 
 def _relative_time(ts) -> str:
@@ -165,8 +157,8 @@ def copilot_launch(args):
         raise
 
     # launch_copilot already persisted connect_id via db.update_copilot_job_connect_id
-    # when a cloud-relay handle was resolved; fall back to the job UUID.
-    connect_handle = result.get("connect_id") or job_id
+    # when a cloud-relay handle was resolved.
+    connect_id = result.get("connect_id")
 
     # For dry-run, the process already completed synchronously.
     if getattr(args, "dry_run", False):
@@ -174,8 +166,9 @@ def copilot_launch(args):
     else:
         print(f"  State: 🟢 running")
 
-    print(f"\n  Connect: copilot --connect={connect_handle}")
-    print(f"  Resume:  copilot --resume={connect_handle}")
+    if connect_id:
+        print(f"\n  Connect: copilot --connect={connect_id}")
+    print(f"  Resume:  copilot --resume={job_id}")
 
     db.close()
 
@@ -366,6 +359,7 @@ def copilot_stop(args):
             exit_code=-1,
             error_text="stopped by user",
         )
+        db.skip_job_hooks(job_id)
 
         if killed:
             print(f"  Process tree terminated.")

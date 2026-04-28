@@ -2078,8 +2078,8 @@ class TestCopilotJobMigrationFromV6:
 # Schema v13 — new copilot_jobs fields and copilot_job_hooks
 # =========================================================================
 
-class TestCopilotJobV10Fields:
-    """Tests for the new fields added in schema v10."""
+class TestCopilotJobV13Fields:
+    """Tests for the new fields added in schema v13."""
 
     @pytest.fixture()
     def db(self, tmp_path):
@@ -2103,21 +2103,19 @@ class TestCopilotJobV10Fields:
 
     def test_create_job_with_all_new_fields(self, db):
         db.create_copilot_job(
-            job_id="cj_v10",
+            job_id="cj_v13",
             repo_slug="my-repo",
             repo_path="/repos/my-repo",
             connect_id="task-abc-123",
             jira_issue_key="PROJ-42",
             deadline_at=9999999999.0,
         )
-        job = db.get_copilot_job("cj_v10")
+        job = db.get_copilot_job("cj_v13")
         assert job["connect_id"] == "task-abc-123"
         assert job["jira_issue_key"] == "PROJ-42"
         assert job["deadline_at"] == 9999999999.0
         assert job["retry_of"] is None
         assert job["retry_count"] == 0
-
-    def test_update_connect_id(self, db):
         db.create_copilot_job(job_id="cj_trace", repo_slug="r", repo_path="/r")
         db.update_copilot_job_connect_id("cj_trace", "task-xyz-456")
         job = db.get_copilot_job("cj_trace")
