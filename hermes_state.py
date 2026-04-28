@@ -34,7 +34,7 @@ T = TypeVar("T")
 
 DEFAULT_DB_PATH = get_hermes_home() / "state.db"
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -141,7 +141,10 @@ CREATE TABLE IF NOT EXISTS copilot_jobs (
     exit_code INTEGER,
     created_at REAL NOT NULL,
     finished_at REAL,
-    error_text TEXT
+    error_text TEXT,
+    -- OS PID of the launched copilot process (AZ-30). Used by hermes copilot
+    -- stop for reliable signalling; NULL for jobs created before schema v14.
+    pid INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_copilot_jobs_state ON copilot_jobs(state);
@@ -680,6 +683,18 @@ class SessionDB:
                 except sqlite3.OperationalError:
                     pass
                 cursor.execute("UPDATE schema_version SET version = 13")
+
+            if current_version < 14:
+                # v14: add pid column to copilot_jobs so hermes copilot stop
+                # can signal the correct process directly instead of scanning
+                # ps ax by UUID string (AZ-30).
+                try:
+                    cursor.execute(
+                        "ALTER TABLE copilot_jobs ADD COLUMN pid INTEGER"
+                    )
+                except sqlite3.OperationalError:
+                    pass  # Column already exists (idempotent)
+                cursor.execute("UPDATE schema_version SET version = 14")
 
         # Unique title index — always ensure it exists (safe to run after migrations
         # since the title column is guaranteed to exist at this point)
@@ -2321,6 +2336,20 @@ class SessionDB:
             conn.execute(
                 "UPDATE copilot_jobs SET connect_id = ? WHERE id = ?",
                 (connect_id, job_id),
+            )
+        self._execute_write(_do)
+
+    def update_copilot_job_pid(self, job_id: str, pid: int) -> None:
+        """Store the OS PID of the launched Copilot process (AZ-30).
+
+        Persisted immediately after ``subprocess.Popen()`` so that
+        ``hermes copilot stop`` can send signals to the exact process
+        without relying on a fragile ``ps ax`` scan.
+        """
+        def _do(conn):
+            conn.execute(
+                "UPDATE copilot_jobs SET pid = ? WHERE id = ?",
+                (pid, job_id),
             )
         self._execute_write(_do)
 
