@@ -7,7 +7,6 @@ authenticated terminal to attach, and ``copilot --resume=<session_id>``
 to resume a completed session.
 """
 
-import json
 import os
 import signal
 import subprocess
@@ -228,9 +227,10 @@ def copilot_show(args):
             preview = job["prompt"][:120] + ("..." if len(job["prompt"]) > 120 else "")
             print(f"Prompt:   {preview}")
 
-        sid = _connect_handle(job)
-        print(f"Connect:  copilot --connect={sid}")
-        print(f"Resume:   copilot --resume={sid}")
+        sid = job.get("connect_id")
+        if sid:
+            print(f"Connect:  copilot --connect={sid}")
+        print(f"Resume:   copilot --resume={job['id']}")
 
         if job.get("exit_code") is not None:
             print(f"Exit:     {job['exit_code']}")

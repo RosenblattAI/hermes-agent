@@ -17,6 +17,11 @@ from copilot_jobs.models import RepoEntry
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_log(value: str) -> str:
+    """Strip newlines and control characters to prevent log injection."""
+    return value.replace("\n", "\\n").replace("\r", "\\r")
+
+
 def _get_default_branch(repo_path: Path) -> str:
     """Detect default branch from git remote HEAD. Falls back to 'main'."""
     try:
@@ -46,7 +51,7 @@ def _discover_repos(workspace_path: Path = None) -> List[RepoEntry]:
 
     repos_dir = workspace_path / "repos"
     if not repos_dir.is_dir():
-        logger.warning("Repos directory not found: %s", repos_dir)
+        logger.warning("Repos directory not found: %s", _sanitize_log(str(repos_dir)))
         return []
 
     entries = []
@@ -119,7 +124,7 @@ def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[Rep
     try:
         data = json.loads(text)
     except (json.JSONDecodeError, TypeError):
-        logger.warning("Router LLM returned non-JSON: %s", text[:200])
+        logger.warning("Router LLM returned non-JSON: %s", _sanitize_log(text[:200]))
         return None
 
     slug = data.get("slug")
@@ -131,7 +136,7 @@ def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[Rep
         if entry.slug.lower() == slug_lower:
             return entry
 
-    logger.warning("Router LLM returned unknown slug: %s", slug)
+    logger.warning("Router LLM returned unknown slug: %s", _sanitize_log(slug))
     return None
 
 

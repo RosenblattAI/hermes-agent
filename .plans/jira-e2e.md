@@ -40,7 +40,7 @@ New table: `copilot_job_hooks`
 ### `copilot_jobs/models.py`
 
 - `JobState.TIMED_OUT`, `JobState.STOPPED` added; `is_terminal` property
-  *(Note: the DB stores these as the lowercase strings `"timed_out"` and `"cancelled"`.)*
+  *(Note: the DB stores these as the lowercase strings `"timed_out"` and `"stopped"`.)*
 - `HookType` enum (`MERGE_GATE`, `POST_TASK`)
 - `HookState` enum (`PENDING`, `FIRED`, `FAILED`, `SKIPPED`)
 

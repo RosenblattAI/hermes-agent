@@ -28,7 +28,6 @@ import subprocess
 import sys
 import threading
 import time
-import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -113,6 +112,14 @@ def _resolve_copilot_bin(copilot_bin: str) -> str:
     return copilot_bin
 
 
+def _log_mtime(p: Path) -> float:
+    """Return mtime for sorting; 0.0 if the file was removed during rotation."""
+    try:
+        return p.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
 def _wait_for_remote_task_id(
     requested_session_id: str,
     *,
@@ -124,7 +131,11 @@ def _wait_for_remote_task_id(
     deadline = time.time() + timeout
 
     while time.time() < deadline:
-        for path in sorted(logs_dir.glob("process-*.log"), key=lambda item: item.stat().st_mtime, reverse=True):
+        for path in sorted(
+            logs_dir.glob("process-*.log"),
+            key=_log_mtime,
+            reverse=True,
+        ):
             try:
                 task_id = _parse_remote_task_id(
                     path.read_text(encoding="utf-8", errors="ignore"),

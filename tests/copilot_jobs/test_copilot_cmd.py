@@ -117,7 +117,7 @@ class TestSlashShow:
         out = _capture_slash("/copilot show dddddddd-0000-0000-0000-000000000001")
         assert "dddddddd-0000-0000-0000-000000000001" in out
         assert "show-repo" in out
-        assert "connect" in out.lower()
+        assert "resume" in out.lower()
 
     def test_show_prefers_external_connect_handle(self, db):
         db.create_copilot_job(
@@ -270,3 +270,4 @@ class TestStopCommand:
         # — so it reported "already stopped" before even trying to kill.
         assert "already stopped" in out.lower()
         assert db.get_copilot_job(self.JOB_ID)["state"] == "done"
+

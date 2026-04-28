@@ -8367,7 +8367,7 @@ For more help on a command:
 
     # copilot list
     cop_list = copilot_subparsers.add_parser("list", aliases=["ls"], help="List copilot jobs")
-    cop_list.add_argument("--state", help="Filter by state (running, done, failed)")
+    cop_list.add_argument("--state", help="Filter by state (running, done, failed, timed_out, stopped)")
     cop_list.add_argument("--limit", type=int, default=20, help="Max results (default: 20)")
 
     # copilot show

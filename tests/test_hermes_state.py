@@ -1993,7 +1993,7 @@ class TestCopilotJobLifecycle:
 
 class TestCopilotJobMigrationFromV6:
     def test_migration_from_v6(self, tmp_path):
-        """Simulate a v6 database and verify migration to v7 adds copilot tables."""
+        """Simulate a v6 database and verify migration to current schema adds copilot tables."""
         import sqlite3
 
         db_path = tmp_path / "migrate_v6_test.db"
@@ -2075,7 +2075,7 @@ class TestCopilotJobMigrationFromV6:
 
 
 # =========================================================================
-# Schema v10 — new copilot_jobs fields and copilot_job_hooks
+# Schema v13 — new copilot_jobs fields and copilot_job_hooks
 # =========================================================================
 
 class TestCopilotJobV10Fields:
@@ -2546,3 +2546,5 @@ class TestAutoMaintenance:
         assert count == 1
         assert not (sessions_dir / "old.jsonl").exists()
         assert (sessions_dir / "active.jsonl").exists()
+
+

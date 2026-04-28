@@ -143,6 +143,9 @@ CREATE TABLE IF NOT EXISTS copilot_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_copilot_jobs_state ON copilot_jobs(state);
 CREATE INDEX IF NOT EXISTS idx_copilot_jobs_repo ON copilot_jobs(repo_slug, state);
+CREATE INDEX IF NOT EXISTS idx_copilot_jobs_deadline
+    ON copilot_jobs(deadline_at)
+    WHERE deadline_at IS NOT NULL AND state = 'running';
 
 -- Lifecycle hooks: merge-gate and post-task callbacks registered per job.
 CREATE TABLE IF NOT EXISTS copilot_job_hooks (
@@ -2272,7 +2275,12 @@ class SessionDB:
         job_id: str,
         signal_ref: str,
     ) -> None:
-        """Update the external connect/resume handle for a copilot job."""
+        """Store caller-supplied metadata (e.g. a Jira key or webhook ID) for a copilot job.
+
+        ``signal_ref`` is opaque trigger metadata — it is NOT a Copilot
+        connect/resume handle.  Use :meth:`update_copilot_job_connect_id`
+        for the reconnect handle stored in ``connect_id``.
+        """
         def _do(conn):
             conn.execute(
                 "UPDATE copilot_jobs SET signal_ref = ? WHERE id = ?",
