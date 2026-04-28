@@ -466,10 +466,9 @@ def copilot_expire(args):
     ``timed_out`` and skips its pending hooks.  Useful for one-off
     enforcement or cron invocation when the gateway is not running.
     """
-    from copilot_jobs.timeout_enforcer import run_once
     db = _get_db()
     try:
-        expired = run_once(db=db)
+        expired = db.expire_timed_out_jobs()
     finally:
         db.close()
 
