@@ -42,7 +42,7 @@ def _synthesize_peer_responses(question: str, responses: list[dict[str, str]], t
         tags={"peer_count": str(len(responses))},
     ) as span:
         if span is not None:
-            span.set_data("peers", peer_names)
+            span.set_data("peers", _sanitize(peer_names, limit=500) if _sanitize else peer_names)
         if span is not None and _sanitize:
             span.set_data("input", _sanitize(synthesis_question, limit=3000))
         try:

@@ -6722,12 +6722,13 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             if _cmd_def_inner and _cmd_def_inner.name == "agents":
                 return await self._handle_agents_command(event)
 
-            # /background must bypass the running-agent guard — it starts a
-            # parallel task and must never interrupt the active conversation.
-            # /btw is an alias of /background and resolves to the same canonical
-            # name, so this branch handles both commands.
+            # /background and /btw must bypass the running-agent guard —
+            # they start parallel tasks and must never interrupt the active
+            # conversation.
             if _cmd_def_inner and _cmd_def_inner.name == "background":
                 return await self._handle_background_command(event)
+            if _cmd_def_inner and _cmd_def_inner.name == "btw":
+                return await self._handle_btw_command(event)
 
             # /kanban must bypass the guard. It writes to a profile-agnostic
             # DB (kanban.db), not to the running agent's state. In fact
@@ -7169,6 +7170,8 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         if canonical == "background":
             return await self._handle_background_command(event)
 
+        if canonical == "btw":
+            return await self._handle_btw_command(event)
         if canonical == "steer":
             # No active agent — /steer has no tool call to inject into.
             # Strip the prefix so downstream treats it as a normal user
