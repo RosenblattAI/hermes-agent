@@ -2308,11 +2308,13 @@ class SessionDB:
         job_id: str,
         signal_ref: str,
     ) -> None:
-        """Store caller-supplied metadata (e.g. a Jira key or webhook ID) for a copilot job.
+        """Update the caller-provided signal metadata for a copilot job.
 
-        ``signal_ref`` is opaque trigger metadata — it is NOT a Copilot
-        connect/resume handle.  Use :meth:`update_copilot_job_connect_id`
-        for the reconnect handle stored in ``connect_id``.
+        ``signal_ref`` is opaque caller metadata (e.g. a Jira webhook
+        delivery ID or an inbound message ID) that identifies the event
+        which triggered this job.  It is **not** the Copilot cloud relay
+        reconnect handle — that is stored in ``connect_id`` via
+        :meth:`update_copilot_job_connect_id`.
         """
         def _do(conn):
             conn.execute(
