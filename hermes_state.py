@@ -743,6 +743,18 @@ class SessionDB:
                     pass
                 cursor.execute("UPDATE schema_version SET version = 14")
 
+            if current_version < 14:
+                # v14: add pid column to copilot_jobs so hermes copilot stop
+                # can signal the correct process directly instead of scanning
+                # ps ax by UUID string (AZ-30).
+                try:
+                    cursor.execute(
+                        "ALTER TABLE copilot_jobs ADD COLUMN pid INTEGER"
+                    )
+                except sqlite3.OperationalError:
+                    pass  # Column already exists (idempotent)
+                cursor.execute("UPDATE schema_version SET version = 14")
+
         # Unique title index — always ensure it exists (safe to run after migrations
         # since the title column is guaranteed to exist at this point)
         try:

@@ -232,6 +232,8 @@ def copilot_show(args):
 
         if job.get("exit_code") is not None:
             print(f"Exit:     {job['exit_code']}")
+        if job.get("pid"):
+            print(f"PID:      {job['pid']}")
         if job.get("error_text"):
             print(f"Error:    {job['error_text']}")
         if job.get("signal_source"):
@@ -294,12 +296,15 @@ def _find_copilot_pids(job_id: str) -> list:
     return pids
 
 
-def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
+def _kill_copilot_procs(job_id: str, *, pid: int = None, timeout: float = 5.0) -> bool:
     """Kill the process tree associated with a copilot job.
 
-    Sends SIGTERM to every process group that contains processes matching
-    the job_id string, waits up to *timeout* seconds for them to exit,
-    then sends SIGKILL to any survivors.
+    Prefers a direct kill via the stored *pid* (AZ-30).  Falls back to
+    scanning ``ps ax`` for the job UUID string only when *pid* is None
+    (legacy rows created before schema v14).
+
+    Sends SIGTERM to every matching process group, waits up to *timeout*
+    seconds for them to exit, then sends SIGKILL to any survivors.
 
     Returns:
         ``True``  — at least one process was found and signaled.
@@ -310,7 +315,10 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
             delivery attempt failed (e.g. PermissionError), meaning the
             job is still running and the caller must *not* mark it stopped.
     """
-    pids = _find_copilot_pids(job_id)
+    if pid is not None and _pid_exists(pid):
+        pids = [pid]
+    else:
+        pids = _find_copilot_pids(job_id)
     if not pids:
         return False
 
@@ -451,6 +459,28 @@ def copilot_stop(args):
         db.close()
 
 
+def copilot_expire(args):
+    """Manually run the timeout enforcer sweep (AZ-31).
+
+    Marks any ``running`` job whose ``deadline_at`` is in the past as
+    ``timed_out`` and skips its pending hooks.  Useful for one-off
+    enforcement or cron invocation when the gateway is not running.
+    """
+    from copilot_jobs.timeout_enforcer import run_once
+    db = _get_db()
+    try:
+        expired = run_once(db=db)
+    finally:
+        db.close()
+
+    if expired:
+        print(f"Swept {len(expired)} timed-out job(s):")
+        for job_id in expired:
+            print(f"  {job_id}  →  {_state_badge('timed_out')}")
+    else:
+        print("No timed-out jobs found.")
+
+
 def copilot_command(args):
     """Route copilot subcommands."""
     subcmd = getattr(args, "copilot_action", None)
@@ -463,6 +493,7 @@ def copilot_command(args):
         "launch": copilot_launch,
         "show": copilot_show,
         "stop": copilot_stop,
+        "expire": copilot_expire,
     }
 
     handler = handlers.get(subcmd)
@@ -470,7 +501,7 @@ def copilot_command(args):
         handler(args)
     else:
         print(f"Unknown copilot command: {subcmd}")
-        print("Usage: hermes copilot [launch|list|show|stop]")
+        print("Usage: hermes copilot [launch|list|show|stop|expire]")
         sys.exit(1)
 
 
@@ -553,8 +584,11 @@ def handle_copilot_slash(raw_command: str) -> None:
             ns = SimpleNamespace(job_id=args_rest[0])
             copilot_stop(ns)
 
+        elif subcmd == "expire":
+            copilot_expire(SimpleNamespace())
+
         else:
-            print("Usage: /copilot [launch|list|show|stop]")
+            print("Usage: /copilot [launch|list|show|stop|expire]")
             print()
             print("  /copilot list                        List all jobs")
             print("  /copilot launch <prompt>             Route prompt → repo, launch copilot")
@@ -562,6 +596,7 @@ def handle_copilot_slash(raw_command: str) -> None:
             print("  /copilot launch --repo <slug> <msg>  Launch for specific repo")
             print("  /copilot show <job_id>               Show job details + connect command")
             print("  /copilot stop <job_id>               Stop a running job")
+            print("  /copilot expire                      Sweep timed-out jobs")
 
     except SystemExit:
         pass
