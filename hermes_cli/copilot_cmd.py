@@ -249,14 +249,14 @@ def _find_copilot_pids(job_id: str) -> list:
         for line in result.stdout.splitlines():
             if job_id not in line:
                 continue
+            parts = line.split(None, 1)
+            args_part = parts[1] if len(parts) == 2 else ""
             # Only match known copilot process patterns to avoid false positives.
-            args_part = line.split(None, 1)[1] if " " in line else ""
             if (f"--resume {job_id}" not in args_part
                     and f"--resume={job_id}" not in args_part
                     and f"complete_job.py" not in args_part):
                 continue
-            parts = line.split(None, 1)
-            if not parts:
+            if not parts[0].strip():
                 continue
             try:
                 found_pid = int(parts[0].strip())
