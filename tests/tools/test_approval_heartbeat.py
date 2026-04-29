@@ -156,6 +156,9 @@ class TestApprovalHeartbeat:
             if has_blocking_approval(self.SESSION_KEY):
                 break
             time.sleep(0.05)
+        assert has_blocking_approval(self.SESSION_KEY), (
+            "approval entry was never registered — test would race"
+        )
         resolve_gateway_approval(self.SESSION_KEY, "once")
         thread.join(timeout=5)
         elapsed = time.monotonic() - start_time
@@ -205,6 +208,9 @@ class TestApprovalHeartbeat:
             if has_blocking_approval(self.SESSION_KEY):
                 break
             time.sleep(0.05)
+        assert has_blocking_approval(self.SESSION_KEY), (
+            "approval entry was never registered — test would race"
+        )
         resolve_gateway_approval(self.SESSION_KEY, "once")
         thread.join(timeout=5)
 

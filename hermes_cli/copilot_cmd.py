@@ -313,13 +313,15 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
             if _pid_exists(pid)
         ]
 
-    # Force-kill anything still alive.
-    for pid in surviving:
-        try:
-            os.kill(pid, signal.SIGKILL)
-            any_signaled = True
-        except OSError:
-            pass
+    # Force-kill entire process groups for any survivors so that child
+    # processes that don't match the ps filter are also terminated.
+    if surviving:
+        for pgid in pgids:
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+                any_signaled = True
+            except OSError:
+                pass
 
     return any_signaled
 
