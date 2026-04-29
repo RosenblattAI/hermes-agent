@@ -253,7 +253,7 @@ def _find_copilot_pids(job_id: str) -> list:
         raise RuntimeError(f"ps invocation failed: {exc}") from exc
 
     if result.returncode != 0:
-        stderr_snippet = result.stderr.strip()[:200]
+        stderr_snippet = _sanitize_for_log(result.stderr.strip()[:200])
         raise RuntimeError(
             f"ps exited with code {result.returncode}: {stderr_snippet}"
         )

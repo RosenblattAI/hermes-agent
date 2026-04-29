@@ -88,6 +88,22 @@ def _log_mtime(p: Path) -> float:
         return 0.0
 
 
+_LOG_TAIL_BYTES = 32_768  # 32 KiB — ample for task-ID export lines without reading full logs
+
+
+def _read_log_tail(path: Path) -> str:
+    """Read only the last _LOG_TAIL_BYTES bytes of a log file.
+
+    Avoids loading the entire file into memory on every poll tick; large
+    Copilot process logs can grow to tens of MB.
+    """
+    with path.open("rb") as fh:
+        fh.seek(0, 2)
+        size = fh.tell()
+        fh.seek(max(0, size - _LOG_TAIL_BYTES))
+        return fh.read().decode("utf-8", errors="ignore")
+
+
 def _wait_for_remote_task_id(
     requested_session_id: str,
     *,
@@ -106,7 +122,7 @@ def _wait_for_remote_task_id(
         ):
             try:
                 task_id = _parse_remote_task_id(
-                    path.read_text(encoding="utf-8", errors="ignore"),
+                    _read_log_tail(path),
                     requested_session_id,
                 )
             except OSError:
