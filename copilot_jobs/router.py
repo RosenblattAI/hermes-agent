@@ -61,7 +61,8 @@ def _discover_repos(workspace_path: Path = None) -> List[RepoEntry]:
             readme_text = ""
             if readme_path.exists():
                 try:
-                    readme_text = readme_path.read_text(encoding="utf-8", errors="replace")
+                    with readme_path.open("r", encoding="utf-8", errors="replace") as f:
+                        readme_text = f.read(2000)
                 except OSError:
                     pass
 

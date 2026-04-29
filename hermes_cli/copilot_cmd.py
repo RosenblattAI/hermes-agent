@@ -231,12 +231,13 @@ def copilot_show(args):
 
 
 def _find_copilot_pids(job_id: str) -> list:
-    """Return PIDs of all processes whose cmdline contains the job_id.
+    """Return PIDs of processes that are part of the copilot job.
 
-    The job_id appears as ``--resume <job_id>`` in the copilot invocation
-    and as an argument to ``complete_job.py``, so a single string match
-    catches the entire process tree spawned by the launcher.
+    Matches lines containing ``--resume <job_id>`` (the copilot process) or
+    ``complete_job.py`` with the job_id (the watcher process).  The current
+    process is always excluded so ``copilot stop`` never signals itself.
     """
+    own_pid = os.getpid()
     try:
         result = subprocess.run(
             ["ps", "ax", "-o", "pid=,args="],
@@ -248,13 +249,20 @@ def _find_copilot_pids(job_id: str) -> list:
         for line in result.stdout.splitlines():
             if job_id not in line:
                 continue
+            # Only match known copilot process patterns to avoid false positives.
+            args_part = line.split(None, 1)[1] if " " in line else ""
+            if f"--resume {job_id}" not in args_part and f"complete_job.py" not in args_part:
+                continue
             parts = line.split(None, 1)
             if not parts:
                 continue
             try:
-                pids.append(int(parts[0].strip()))
+                found_pid = int(parts[0].strip())
             except ValueError:
                 continue
+            if found_pid == own_pid:
+                continue  # never kill ourselves
+            pids.append(found_pid)
         return pids
     except Exception:
         return []
@@ -281,10 +289,15 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
         except OSError:
             pass
 
+    if not pgids:
+        return False
+
     # Graceful shutdown first.
+    any_signaled = False
     for pgid in pgids:
         try:
             os.killpg(pgid, signal.SIGTERM)
+            any_signaled = True
         except OSError:
             pass
 
@@ -302,10 +315,11 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
     for pid in surviving:
         try:
             os.kill(pid, signal.SIGKILL)
+            any_signaled = True
         except OSError:
             pass
 
-    return True
+    return any_signaled
 
 
 def _pid_exists(pid: int) -> bool:
