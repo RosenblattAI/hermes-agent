@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from copilot_jobs.models import RepoEntry
+from copilot_remote.router import _sanitize_for_log
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +317,8 @@ def launch_copilot(
                 except Exception:
                     logger.warning(
                         "Failed to persist connect_id %s for job %s",
-                        connect_id, session_id, exc_info=True,
+                        _sanitize_for_log(connect_id), _sanitize_for_log(session_id),
+                        exc_info=True,
                     )
 
         return {

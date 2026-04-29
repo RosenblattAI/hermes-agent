@@ -1,16 +1,17 @@
 # Jira E2E Architecture — POC Plan
 
-## Problem
+## Problem (pre-v13 gaps that this POC addresses)
 
-The `copilot_jobs` subsystem can launch and track Copilot remote sessions, but lacks the
-architectural primitives needed for a reliable end-to-end Jira-driven workflow:
+The `copilot_jobs` subsystem before schema v13 could launch and track Copilot remote
+sessions, but lacked the architectural primitives needed for a reliable end-to-end
+Jira-driven workflow:
 
-- No wall-clock timeout on running jobs (a stuck session runs forever)
-- `connect_id` (the Copilot cloud relay task ID) is resolved but not persisted in the DB
+- No wall-clock timeout on running jobs (a stuck session ran forever)
+- `connect_id` (the Copilot cloud relay task ID) was resolved but not persisted in the DB
 - No Jira issue linkage on jobs
 - No retry/resumability provenance tracking
 - No lifecycle hook slots for merge-gate and post-task validation callbacks
-- `JobState` enum has no `timed_out` or `cancelled` states
+- `JobState` enum lacked `timed_out` and `stopped` states
 
 ## Deferred
 
