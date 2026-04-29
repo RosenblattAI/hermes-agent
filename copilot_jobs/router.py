@@ -60,7 +60,10 @@ def _discover_repos(workspace_path: Path = None) -> List[RepoEntry]:
             readme_path = repo_dir / "README.md"
             readme_text = ""
             if readme_path.exists():
-                readme_text = readme_path.read_text(errors="replace")
+                try:
+                    readme_text = readme_path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    pass
 
             slug = repo_dir.name
             default_branch = _get_default_branch(repo_dir)

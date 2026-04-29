@@ -15,20 +15,13 @@ import time
 import uuid
 from datetime import datetime, timezone
 
+from copilot_remote.router import _sanitize_for_log
 from hermes_state import SessionDB
 
 
 def _get_db() -> SessionDB:
     """Get a SessionDB instance using the standard Hermes home."""
     return SessionDB()
-
-
-def _sanitize_for_log(value) -> str:
-    """Strip control characters before storing/logging untrusted strings (CWE-117)."""
-    if value is None:
-        return ""
-    return "".join(" " if (ord(c) < 0x20 or ord(c) == 0x7F) else c for c in str(value))
-
 
 
 
@@ -62,6 +55,7 @@ def _state_badge(state: str) -> str:
         "done": "✅ done",
         "failed": "🔴 failed",
         "stopped": "🛑 stopped",
+        "timed_out": "⏱️ timed_out",
     }
     return badges.get(state, state)
 
@@ -149,9 +143,8 @@ def copilot_launch(args):
             db=db,
         )
     except Exception as exc:
-        error_text = _sanitize_for_log(
-            __import__("agent.redact", fromlist=["redact_sensitive_text"]).redact_sensitive_text(str(exc))
-        )
+        from agent.redact import redact_sensitive_text
+        error_text = _sanitize_for_log(redact_sensitive_text(str(exc)))
         db.finish_copilot_job(job_id, state="failed", error_text=error_text)
         db.close()
         raise
@@ -359,7 +352,8 @@ def copilot_stop(args):
             exit_code=-1,
             error_text="stopped by user",
         )
-        db.skip_job_hooks(job_id)
+        if updated:
+            db.skip_job_hooks(job_id)
 
         if killed:
             print(f"  Process tree terminated.")
@@ -429,9 +423,25 @@ def handle_copilot_slash(raw_command: str) -> None:
     try:
         if subcmd == "list":
             ns = SimpleNamespace(state=None, limit=20)
-            for i, a in enumerate(args_rest):
+            i = 0
+            while i < len(args_rest):
+                a = args_rest[i]
                 if a == "--state" and i + 1 < len(args_rest):
                     ns.state = args_rest[i + 1]
+                    i += 2
+                elif a == "--limit" and i + 1 < len(args_rest):
+                    raw = args_rest[i + 1]
+                    try:
+                        ns.limit = max(1, min(int(raw), 1000))
+                    except ValueError:
+                        print(
+                            f"Error: --limit requires an integer (got {raw!r})",
+                            file=sys.stderr,
+                        )
+                        return
+                    i += 2
+                else:
+                    i += 1
             copilot_list(ns)
 
         elif subcmd == "launch":

@@ -4034,13 +4034,18 @@ class GatewayRunner:
         if canonical == "copilot":
             from hermes_cli.copilot_cmd import handle_copilot_slash
             import io, contextlib
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
-                try:
-                    handle_copilot_slash(event.text)
-                except SystemExit:
-                    pass
-            return buf.getvalue().strip() or "Done."
+            # handle_copilot_slash() can do filesystem scans, subprocess spawning,
+            # and LLM calls; run in a thread to avoid blocking the asyncio loop.
+            def _run_copilot_command(command_text: str) -> str:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                    try:
+                        handle_copilot_slash(command_text)
+                    except SystemExit:
+                        pass
+                return buf.getvalue().strip() or "Done."
+
+            return await asyncio.to_thread(_run_copilot_command, event.text)
 
         if canonical == "btw":
             return await self._handle_btw_command(event)

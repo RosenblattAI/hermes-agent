@@ -64,8 +64,8 @@ class TestCoerceNumber:
     def test_scientific_notation(self):
         assert _coerce_number("1e5") == 100000
 
-    def test_inf_stays_string_for_integer_only(self):
-        """Infinity should not be converted to int."""
+    def test_inf_stays_string(self):
+        """inf/nan strings should not be converted to float (infinity is not a useful number)."""
         result = _coerce_number("inf")
         assert result == "inf"
 
