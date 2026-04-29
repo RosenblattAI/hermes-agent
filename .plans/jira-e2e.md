@@ -2,9 +2,10 @@
 
 ## Problem (pre-v13 gaps that this POC addresses)
 
-The `copilot_jobs` subsystem before schema v13 could launch and track Copilot remote
-sessions, but lacked the architectural primitives needed for a reliable end-to-end
-Jira-driven workflow:
+The `copilot_remote` subsystem (introduced before this PR) could launch and
+track Copilot remote sessions, but lacked the architectural primitives needed
+for a reliable end-to-end Jira-driven workflow.  This PR introduces the
+`copilot_jobs/` package and schema v13 to fill those gaps:
 
 - No wall-clock timeout on running jobs (a stuck session ran forever)
 - `connect_id` (the Copilot cloud relay task ID) was resolved but not persisted in the DB
