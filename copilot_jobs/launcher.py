@@ -309,17 +309,6 @@ def launch_copilot(
                 start_new_session=True,
             )
 
-            # Persist the PID immediately so `hermes copilot stop` can
-            # signal the right process without a fragile ps-scan (AZ-30).
-            if db is not None:
-                try:
-                    db.update_copilot_job_pid(session_id, proc.pid)
-                except Exception:
-                    logger.warning(
-                        "Failed to persist pid %d for job %s",
-                        proc.pid, session_id, exc_info=True,
-                    )
-
             connect_id = _wait_for_remote_task_id(session_id)
             if connect_id and db is not None:
                 try:
@@ -333,7 +322,6 @@ def launch_copilot(
         return {
             "session_id": session_id,
             "connect_id": connect_id if not _spawn else None,
-            "pid": proc.pid if not _spawn else None,
             "cmd": cmd,
             "proc": proc,
         }

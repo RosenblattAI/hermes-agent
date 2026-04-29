@@ -274,7 +274,7 @@ class TestLaunchCopilot:
 
         assert result["cmd"][0] == "/resolved/copilot"
         assert result["connect_id"] == "task-123"
-        assert captured["args"][0] == "bash"
+        assert captured["args"][0] == "/resolved/copilot"  # shutil.which is patched globally
         assert captured["args"][1] == "-c"
         assert "script -eqfc" in captured["args"][2]
         assert captured["kwargs"]["cwd"] == "/test"

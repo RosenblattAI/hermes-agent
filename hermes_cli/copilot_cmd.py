@@ -147,7 +147,7 @@ def copilot_launch(args):
         error_text = _sanitize_for_log(redact_sensitive_text(str(exc)))
         db.finish_copilot_job(job_id, state="failed", error_text=error_text)
         db.close()
-        raise
+        raise exc.__class__(error_text).with_traceback(exc.__traceback__) from None
 
     # launch_copilot already persisted connect_id via db.update_copilot_job_connect_id
     # when a cloud-relay handle was resolved.
