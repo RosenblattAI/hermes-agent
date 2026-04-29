@@ -13,19 +13,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from copilot_jobs.models import RepoEntry
+from copilot_remote.router import _sanitize_for_log as _sanitize_log
 
 logger = logging.getLogger(__name__)
-
-
-def _sanitize_log(value) -> str:
-    """Strip control characters from untrusted strings before logging (CWE-117).
-
-    Drops all ASCII control characters (0x00-0x1F) and DEL (0x7F), which
-    matches the behaviour of ``_sanitize_for_log`` in ``copilot_remote.router``.
-    """
-    if value is None:
-        return ""
-    return "".join(" " if (ord(c) < 0x20 or ord(c) == 0x7F) else c for c in str(value))
 
 
 def _get_default_branch(repo_path: Path) -> str:
