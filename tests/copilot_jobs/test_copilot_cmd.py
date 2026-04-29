@@ -271,3 +271,38 @@ class TestStopCommand:
         assert "already stopped" in out.lower()
         assert db.get_copilot_job(self.JOB_ID)["state"] == "done"
 
+    def test_stop_passes_pid_kwarg_to_kill(self, db):
+        """copilot_stop forwards job['pid'] to _kill_copilot_procs as the pid kwarg.
+
+        Guards against the TypeError that would occur if the call site passed
+        pid=... but the function signature did not accept it (or vice-versa).
+        """
+        self._make_running_job(db)
+
+        with patch(
+            "hermes_cli.copilot_cmd._kill_copilot_procs", return_value=True
+        ) as mock_kill:
+            _capture_slash(f"/copilot stop {self.JOB_ID}")
+
+        mock_kill.assert_called_once()
+        _, kwargs = mock_kill.call_args
+        # The pid kwarg must be present (value is None for rows without a stored pid).
+        assert "pid" in kwargs
+
+    def test_stop_aborts_db_write_on_ps_failure(self, db):
+        """copilot_stop does NOT mark the job stopped when _kill_copilot_procs raises."""
+        self._make_running_job(db)
+
+        with patch(
+            "hermes_cli.copilot_cmd._kill_copilot_procs",
+            side_effect=RuntimeError("ps exited with code 1: permission denied"),
+        ):
+            out = _capture_fn(
+                __import__("hermes_cli.copilot_cmd", fromlist=["copilot_stop"]).copilot_stop,
+                __import__("types").SimpleNamespace(job_id=self.JOB_ID),
+            )
+
+        assert "process discovery failed" in out
+        # DB state must still be 'running' — we did not transition it.
+        assert db.get_copilot_job(self.JOB_ID)["state"] == "running"
+
