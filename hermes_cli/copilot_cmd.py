@@ -251,7 +251,9 @@ def _find_copilot_pids(job_id: str) -> list:
                 continue
             # Only match known copilot process patterns to avoid false positives.
             args_part = line.split(None, 1)[1] if " " in line else ""
-            if f"--resume {job_id}" not in args_part and f"complete_job.py" not in args_part:
+            if (f"--resume {job_id}" not in args_part
+                    and f"--resume={job_id}" not in args_part
+                    and f"complete_job.py" not in args_part):
                 continue
             parts = line.split(None, 1)
             if not parts:

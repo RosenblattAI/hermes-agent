@@ -2,14 +2,21 @@
 
 Uses the GitHub Copilot CLI in interactive mode (``-i <prompt>``) with
 ``--allow-all --remote``.  Interactive mode is required because
-``--remote`` (and therefore ``copilot --connect=<sid>``) only works
-against a persistent session — the non-interactive ``-p`` flag exits as
-soon as the prompt completes and never registers with the cloud relay.
+``--remote`` only works against a persistent session — the
+non-interactive ``-p`` flag exits as soon as the prompt completes and
+never registers with the cloud relay.
 
 Because interactive mode renders a TUI, copilot is wrapped in
-``script -qfc`` to allocate a PTY, with stdout/stderr captured to a log
-file.  The session ID is pre-generated and passed via
-``--resume=<uuid>`` so it is known immediately — no output parsing.
+``script -eqfc`` to allocate a PTY, with stdout/stderr captured to a log
+file.  The ``-e`` flag propagates the child exit code so ``complete_job.py``
+can record the correct terminal state.  The session ID is pre-generated and passed via
+``--resume=<uuid>`` so it is known immediately, while the remote task ID
+used by ``--connect`` is extracted from copilot output/logs after the
+remote session is registered (see :func:`_wait_for_remote_task_id`).
+
+Reconnecting later via ``copilot --connect=<handle>`` uses the remote
+task ID (``.../tasks/<uuid>`` handle), **not** the pre-generated local
+session ID used for ``--resume``.
 
 When launched for real (not via ``_spawn`` or ``dry_run``), the wrapper
 is fully detached (``start_new_session=True``).  A shell wrapper runs
@@ -268,7 +275,8 @@ def launch_copilot(
             # Real path: fully detached process via shell wrapper.
             # Interactive mode (-i) needs a PTY for its TUI to render and
             # for --remote to register with the cloud relay, so wrap with
-            # ``script -qfc`` which allocates a PTY and captures output.
+            # ``script -eqfc`` which allocates a PTY, captures output, and
+            # propagates the child exit code via ``-e``.
             log_path = _log_dir() / f"copilot-{session_id}.log"
             complete_script = str(
                 Path(__file__).resolve().parent / "complete_job.py"
@@ -292,13 +300,25 @@ def launch_copilot(
                 f'{shlex.quote(session_id)} $_ec'
             )
 
+            bash_bin = shutil.which("bash") or "bash"
             proc = subprocess.Popen(
-                ["bash", "-c", shell_cmd],
+                [bash_bin, "-c", shell_cmd],
                 cwd=repo.path,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
+
+            # Persist the PID immediately so `hermes copilot stop` can
+            # signal the right process without a fragile ps-scan (AZ-30).
+            if db is not None:
+                try:
+                    db.update_copilot_job_pid(session_id, proc.pid)
+                except Exception:
+                    logger.warning(
+                        "Failed to persist pid %d for job %s",
+                        proc.pid, session_id, exc_info=True,
+                    )
 
             connect_id = _wait_for_remote_task_id(session_id)
             if connect_id and db is not None:
@@ -313,6 +333,7 @@ def launch_copilot(
         return {
             "session_id": session_id,
             "connect_id": connect_id if not _spawn else None,
+            "pid": proc.pid if not _spawn else None,
             "cmd": cmd,
             "proc": proc,
         }

@@ -143,9 +143,6 @@ CREATE TABLE IF NOT EXISTS copilot_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_copilot_jobs_state ON copilot_jobs(state);
 CREATE INDEX IF NOT EXISTS idx_copilot_jobs_repo ON copilot_jobs(repo_slug, state);
-CREATE INDEX IF NOT EXISTS idx_copilot_jobs_deadline
-    ON copilot_jobs(deadline_at)
-    WHERE deadline_at IS NOT NULL AND state = 'running';
 
 -- Lifecycle hooks: merge-gate and post-task callbacks registered per job.
 CREATE TABLE IF NOT EXISTS copilot_job_hooks (
@@ -164,8 +161,6 @@ CREATE TABLE IF NOT EXISTS copilot_job_hooks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_copilot_job_hooks_job ON copilot_job_hooks(job_id);
-CREATE INDEX IF NOT EXISTS idx_copilot_job_hooks_pending
-    ON copilot_job_hooks(state) WHERE state = 'pending';
 """
 
 FTS_SQL = """
@@ -332,6 +327,25 @@ class SessionDB:
         cursor = self._conn.cursor()
 
         cursor.executescript(SCHEMA_SQL)
+
+        # Partial indexes (WHERE clause) require SQLite 3.8.9+.  Guard with
+        # try/except so fresh DB creation is as robust as the migration path.
+        _partial_indexes = [
+            (
+                "CREATE INDEX IF NOT EXISTS idx_copilot_jobs_deadline "
+                "ON copilot_jobs(deadline_at) "
+                "WHERE deadline_at IS NOT NULL AND state = 'running'"
+            ),
+            (
+                "CREATE INDEX IF NOT EXISTS idx_copilot_job_hooks_pending "
+                "ON copilot_job_hooks(state) WHERE state = 'pending'"
+            ),
+        ]
+        for ddl in _partial_indexes:
+            try:
+                cursor.execute(ddl)
+            except sqlite3.OperationalError:
+                pass
 
         # Check schema version and run migrations
         cursor.execute("SELECT version FROM schema_version LIMIT 1")
@@ -2368,7 +2382,8 @@ class SessionDB:
         expired_ids = self._execute_write(_do)
         if expired_ids:
             # Sanitize IDs before logging to prevent CWE-117 log injection.
-            safe_ids = ["".join(c for c in str(jid) if c.isprintable() and c not in "\r\n") for jid in expired_ids]
+            from copilot_remote.router import _sanitize_for_log
+            safe_ids = [_sanitize_for_log(jid) for jid in expired_ids]
             logger.info("Expired %d timed-out copilot job(s): %s", len(safe_ids), safe_ids)
         return expired_ids
 
