@@ -374,7 +374,7 @@ def copilot_stop(args):
 
         print(f"Stopping copilot job: {job_id}")
         try:
-            killed = _kill_copilot_procs(job_id, pid=job.get("pid"))
+            killed = _kill_copilot_procs(job_id)
         except RuntimeError as exc:
             print(
                 f"Error: process discovery failed — cannot safely stop job.\n"

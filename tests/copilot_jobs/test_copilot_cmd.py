@@ -271,11 +271,11 @@ class TestStopCommand:
         assert "already stopped" in out.lower()
         assert db.get_copilot_job(self.JOB_ID)["state"] == "done"
 
-    def test_stop_passes_pid_kwarg_to_kill(self, db):
-        """copilot_stop forwards job['pid'] to _kill_copilot_procs as the pid kwarg.
+    def test_stop_calls_kill_with_job_id(self, db):
+        """copilot_stop forwards the job_id to _kill_copilot_procs.
 
-        Guards against the TypeError that would occur if the call site passed
-        pid=... but the function signature did not accept it (or vice-versa).
+        Guards against the call site drifting from the function signature.
+        The pid= kwarg is a PR#15 (schema v14) feature and is not present here.
         """
         self._make_running_job(db)
 
@@ -284,10 +284,7 @@ class TestStopCommand:
         ) as mock_kill:
             _capture_slash(f"/copilot stop {self.JOB_ID}")
 
-        mock_kill.assert_called_once()
-        _, kwargs = mock_kill.call_args
-        # The pid kwarg must be present (value is None for rows without a stored pid).
-        assert "pid" in kwargs
+        mock_kill.assert_called_once_with(self.JOB_ID)
 
     def test_stop_aborts_db_write_on_ps_failure(self, db):
         """copilot_stop does NOT mark the job stopped when _kill_copilot_procs raises."""
