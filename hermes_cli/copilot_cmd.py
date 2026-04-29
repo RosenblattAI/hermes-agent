@@ -236,6 +236,10 @@ def _find_copilot_pids(job_id: str) -> list:
     Matches lines containing ``--resume <job_id>`` (the copilot process) or
     ``complete_job.py`` with the job_id (the watcher process).  The current
     process is always excluded so ``copilot stop`` never signals itself.
+
+    Raises ``RuntimeError`` when the ``ps`` invocation itself fails (non-zero
+    exit, timeout, or binary not found) so callers can distinguish a scan
+    failure from "no matching process".
     """
     own_pid = os.getpid()
     try:
@@ -245,29 +249,36 @@ def _find_copilot_pids(job_id: str) -> list:
             text=True,
             timeout=5,
         )
-        pids = []
-        for line in result.stdout.splitlines():
-            if job_id not in line:
-                continue
-            parts = line.split(None, 1)
-            args_part = parts[1] if len(parts) == 2 else ""
-            # Only match known copilot process patterns to avoid false positives.
-            if (f"--resume {job_id}" not in args_part
-                    and f"--resume={job_id}" not in args_part
-                    and f"complete_job.py" not in args_part):
-                continue
-            if not parts[0].strip():
-                continue
-            try:
-                found_pid = int(parts[0].strip())
-            except ValueError:
-                continue
-            if found_pid == own_pid:
-                continue  # never kill ourselves
-            pids.append(found_pid)
-        return pids
-    except Exception:
-        return []
+    except Exception as exc:
+        raise RuntimeError(f"ps invocation failed: {exc}") from exc
+
+    if result.returncode != 0:
+        stderr_snippet = result.stderr.strip()[:200]
+        raise RuntimeError(
+            f"ps exited with code {result.returncode}: {stderr_snippet}"
+        )
+
+    pids = []
+    for line in result.stdout.splitlines():
+        if job_id not in line:
+            continue
+        parts = line.split(None, 1)
+        args_part = parts[1] if len(parts) == 2 else ""
+        # Only match known copilot process patterns to avoid false positives.
+        if (f"--resume {job_id}" not in args_part
+                and f"--resume={job_id}" not in args_part
+                and f"complete_job.py" not in args_part):
+            continue
+        if not parts[0].strip():
+            continue
+        try:
+            found_pid = int(parts[0].strip())
+        except ValueError:
+            continue
+        if found_pid == own_pid:
+            continue  # never kill ourselves
+        pids.append(found_pid)
+    return pids
 
 
 def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
@@ -362,7 +373,16 @@ def copilot_stop(args):
             return
 
         print(f"Stopping copilot job: {job_id}")
-        killed = _kill_copilot_procs(job_id)
+        try:
+            killed = _kill_copilot_procs(job_id, pid=job.get("pid"))
+        except RuntimeError as exc:
+            print(
+                f"Error: process discovery failed — cannot safely stop job.\n"
+                f"  {exc}\n"
+                f"Aborting without modifying the DB state.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
         updated = db.finish_copilot_job(
             job_id,

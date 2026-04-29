@@ -8,6 +8,7 @@ matching repository for a given prompt.
 import json
 import logging
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import List, Optional
@@ -114,9 +115,10 @@ def _build_routing_messages(prompt: str, repo_context: str) -> list:
 def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[RepoEntry]:
     """Parse the LLM's JSON response into a RepoEntry."""
     text = text.strip()
-    # Strip markdown code fences if present
+    # Strip markdown code fences robustly — handles both multi-line
+    # (```json\n{...}\n```) and single-line (```json {...} ```) forms.
     if text.startswith("```"):
-        text = "\n".join(text.split("\n")[1:])
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
         if text.endswith("```"):
             text = text[:-3]
         text = text.strip()
