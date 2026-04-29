@@ -113,7 +113,12 @@ def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[Rep
         return None
 
     slug = data.get("slug")
-    if not slug:
+    if not slug or not isinstance(slug, str):
+        if slug is not None:
+            logger.warning(
+                "Router LLM returned non-string slug type: %s",
+                _sanitize_log(str(slug)[:100]),
+            )
         return None
 
     slug_lower = slug.lower()

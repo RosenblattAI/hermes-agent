@@ -2213,14 +2213,14 @@ class SessionDB:
         job_id: str,
         repo_slug: str,
         repo_path: str,
-        prompt: str = None,
-        signal_source: str = None,
-        signal_ref: str = None,
-        hermes_session_id: str = None,
-        connect_id: str = None,
-        jira_issue_key: str = None,
-        deadline_at: float = None,
-        retry_of: str = None,
+        prompt: Optional[str] = None,
+        signal_source: Optional[str] = None,
+        signal_ref: Optional[str] = None,
+        hermes_session_id: Optional[str] = None,
+        connect_id: Optional[str] = None,
+        jira_issue_key: Optional[str] = None,
+        deadline_at: Optional[float] = None,
+        retry_of: Optional[str] = None,
     ) -> str:
         """Create a new copilot job in 'running' state. Returns the job_id.
 
