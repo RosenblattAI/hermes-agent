@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import re
-import subprocess
 from pathlib import Path
 from typing import List, Optional
 
@@ -17,20 +16,6 @@ from copilot_jobs.models import RepoEntry
 from copilot_remote.router import _sanitize_for_log as _sanitize_log
 
 logger = logging.getLogger(__name__)
-
-
-def _get_default_branch(repo_path: Path) -> str:
-    """Detect default branch from git remote HEAD. Falls back to 'main'."""
-    try:
-        result = subprocess.run(
-            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
-            capture_output=True, text=True, cwd=repo_path, timeout=5,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip().rsplit("/", 1)[-1]
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        pass
-    return "main"
 
 
 def _discover_repos(workspace_path: Path = None) -> List[RepoEntry]:
@@ -68,14 +53,12 @@ def _discover_repos(workspace_path: Path = None) -> List[RepoEntry]:
                     pass
 
             slug = repo_dir.name
-            default_branch = _get_default_branch(repo_dir)
 
             entries.append(RepoEntry(
                 slug=slug,
                 path=str(repo_dir),
                 readme_summary=readme_text[:2000],
                 description="",
-                default_branch=default_branch,
             ))
 
     return entries

@@ -25,7 +25,6 @@ daemon thread required, so the parent ``hermes`` process can exit
 immediately without killing copilot.
 """
 
-import json
 import logging
 import os
 import re
@@ -49,50 +48,11 @@ _DEFAULT_COPILOT_PATHS = [
     "/usr/bin/copilot",
 ]
 
-# Patterns to extract session info from copilot output (JSONL or plain text).
-SESSION_ID_PATTERN = re.compile(
-    r"session[_\s-]?id[:\s]+([a-zA-Z0-9_-]+)", re.IGNORECASE
-)
+# Pattern to extract the remote task ID from the copilot PTY log.
 REMOTE_TASK_ID_PATTERN = re.compile(
     r"Remote session active \(steerable\): .*?/tasks/([0-9a-f-]+)",
     re.IGNORECASE,
 )
-
-
-def _parse_line_for_session_id(line: str) -> Optional[str]:
-    """Try to extract a session ID from a single output line."""
-    line = line.strip()
-    if not line:
-        return None
-
-    # Try JSON first.
-    try:
-        obj = json.loads(line)
-        if isinstance(obj, dict):
-            sid = obj.get("sessionId") or obj.get("session_id")
-            if sid:
-                return str(sid)
-    except (json.JSONDecodeError, ValueError):
-        pass
-
-    # Regex fallback.
-    m = SESSION_ID_PATTERN.search(line)
-    return m.group(1) if m else None
-
-
-def parse_copilot_output(output: str) -> Dict[str, Optional[str]]:
-    """Parse copilot stdout for session handles.
-
-    Checks JSONL lines first (``--output-format json``), then falls back
-    to regex matching on plain text.
-
-    Returns ``{"session_id": ... or None}``.
-    """
-    for line in output.splitlines():
-        sid = _parse_line_for_session_id(line)
-        if sid:
-            return {"session_id": sid}
-    return {"session_id": None}
 
 
 def _parse_remote_task_id(log_text: str, requested_session_id: str) -> Optional[str]:

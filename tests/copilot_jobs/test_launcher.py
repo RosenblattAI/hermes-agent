@@ -12,7 +12,6 @@ from copilot_jobs.launcher import (
     _resolve_copilot_bin,
     build_copilot_command,
     launch_copilot,
-    parse_copilot_output,
 )
 from copilot_jobs.models import RepoEntry
 
@@ -40,46 +39,6 @@ def _make_fake_proc(stdout_text: str, returncode: int = 0):
             return self.returncode
 
     return FakeProc()
-
-
-# ---------------------------------------------------------------------------
-# parse_copilot_output
-# ---------------------------------------------------------------------------
-
-class TestParseCopilotOutput:
-    def test_parses_session_id_jsonl(self):
-        output = '{"sessionId": "ses_abc123"}\n{"type":"done"}\n'
-        result = parse_copilot_output(output)
-        assert result["session_id"] == "ses_abc123"
-
-    def test_parses_session_id_snake_case_json(self):
-        output = '{"session_id": "ses_xyz"}\n'
-        result = parse_copilot_output(output)
-        assert result["session_id"] == "ses_xyz"
-
-    def test_fallback_regex(self):
-        output = "Starting...\nsession_id: abc123-def456\nReady."
-        result = parse_copilot_output(output)
-        assert result["session_id"] == "abc123-def456"
-
-    def test_no_match_returns_none(self):
-        result = parse_copilot_output("just some random output")
-        assert result["session_id"] is None
-
-    def test_case_insensitive_regex(self):
-        output = "Session_ID: UPPER_CASE_123"
-        result = parse_copilot_output(output)
-        assert result["session_id"] == "UPPER_CASE_123"
-
-    def test_jsonl_takes_precedence(self):
-        """JSONL match should be returned even if regex would also match."""
-        output = '{"sessionId": "from_json"}\nsession_id: from_regex'
-        result = parse_copilot_output(output)
-        assert result["session_id"] == "from_json"
-
-    def test_empty_string(self):
-        result = parse_copilot_output("")
-        assert result["session_id"] is None
 
 
 # ---------------------------------------------------------------------------
