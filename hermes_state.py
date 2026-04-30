@@ -143,7 +143,6 @@ CREATE TABLE IF NOT EXISTS copilot_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_copilot_jobs_state ON copilot_jobs(state);
 CREATE INDEX IF NOT EXISTS idx_copilot_jobs_repo ON copilot_jobs(repo_slug, state);
-CREATE INDEX IF NOT EXISTS idx_copilot_jobs_deadline ON copilot_jobs(deadline_at) WHERE deadline_at IS NOT NULL;
 
 -- Lifecycle hooks: merge-gate and post-task callbacks registered per job.
 CREATE TABLE IF NOT EXISTS copilot_job_hooks (

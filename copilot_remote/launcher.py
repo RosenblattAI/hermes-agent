@@ -192,7 +192,9 @@ def _wait_for_remote_task_id(
                 if previous_size is None:
                     log_text = _read_log_tail(path)
                 else:
-                    log_text = path.read_bytes()[previous_size:].decode("utf-8", errors="ignore")
+                    with path.open("rb") as fh:
+                        fh.seek(previous_size)
+                        log_text = fh.read().decode("utf-8", errors="ignore")
 
                 task_id = _parse_remote_task_id(
                     log_text,
