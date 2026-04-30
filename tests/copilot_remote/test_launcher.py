@@ -387,3 +387,23 @@ class TestLaunchCopilot:
         assert result["connect_id"] == "task-123"
         assert result["prompt_delivery_status"] == "unverified"
         assert "steer failed" in result["prompt_delivery_warning"]
+
+
+class TestReadLogTail:
+    def test_reads_last_bytes(self, tmp_path):
+        from copilot_remote.launcher import _LOG_TAIL_BYTES, _read_log_tail
+        log = tmp_path / "process-abc.log"
+        # Write 3x _LOG_TAIL_BYTES so the head is well outside the tail window.
+        # HEAD_EXCLUDED_MARKER lives in the first half; TAIL_MARKER lives at the very end.
+        head = b"HEAD_EXCLUDED_MARKER" + b"X" * (2 * _LOG_TAIL_BYTES)
+        tail = b"TAIL_MARKER"
+        log.write_bytes(head + tail)
+        content = _read_log_tail(log)
+        assert "TAIL_MARKER" in content
+        assert "HEAD_EXCLUDED_MARKER" not in content  # start of file is excluded
+
+    def test_small_file_reads_fully(self, tmp_path):
+        from copilot_remote.launcher import _read_log_tail
+        log = tmp_path / "process-small.log"
+        log.write_bytes(b"hello world")
+        assert _read_log_tail(log) == "hello world"

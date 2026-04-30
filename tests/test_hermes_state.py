@@ -2336,35 +2336,35 @@ class TestCopilotJobHooks:
 
 
 class TestJobStateEnum:
-    """Tests for the extended JobState enum in copilot_jobs.models."""
+    """Tests for the extended JobState enum in copilot_remote.models."""
 
     def test_timed_out_is_terminal(self):
-        from copilot_jobs.models import JobState
+        from copilot_remote.models import JobState
         assert JobState.TIMED_OUT.is_terminal is True
 
     def test_stopped_is_terminal(self):
-        from copilot_jobs.models import JobState
+        from copilot_remote.models import JobState
         assert JobState.STOPPED.is_terminal is True
 
     def test_running_is_not_terminal(self):
-        from copilot_jobs.models import JobState
+        from copilot_remote.models import JobState
         assert JobState.RUNNING.is_terminal is False
 
     def test_done_is_terminal(self):
-        from copilot_jobs.models import JobState
+        from copilot_remote.models import JobState
         assert JobState.DONE.is_terminal is True
 
     def test_failed_is_terminal(self):
-        from copilot_jobs.models import JobState
+        from copilot_remote.models import JobState
         assert JobState.FAILED.is_terminal is True
 
     def test_hook_type_values(self):
-        from copilot_jobs.models import HookType
+        from copilot_remote.models import HookType
         assert HookType.MERGE_GATE == "merge_gate"
         assert HookType.POST_TASK == "post_task"
 
     def test_hook_state_values(self):
-        from copilot_jobs.models import HookState
+        from copilot_remote.models import HookState
         assert HookState.PENDING == "pending"
         assert HookState.FIRED == "fired"
         assert HookState.FAILED == "failed"

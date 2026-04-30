@@ -617,7 +617,8 @@ class SessionDB:
                 # remote-session tracing, Jira linkage, wall-clock timeout,
                 # retry provenance, and lifecycle hooks (merge-gate / post-task).
                 # copilot_remote (v10-v12) is preserved; copilot_jobs is a
-                # separate parallel table for the new copilot_jobs package.
+                # separate parallel table with extended schema (used by
+                # `hermes copilot` CLI; copilot_remote is used by /copilot_remote).
                 cursor.executescript("""
                     CREATE TABLE IF NOT EXISTS copilot_jobs (
                         id TEXT PRIMARY KEY,

@@ -77,7 +77,7 @@ def copilot_launch(args):
         if not prompt:
             print("Error: --repo or a prompt is required.", file=sys.stderr)
             sys.exit(1)
-        from copilot_jobs.router import route_repo
+        from copilot_remote.router import route_repo
         entry = route_repo(prompt)
         if not entry:
             print(
@@ -129,8 +129,8 @@ def copilot_launch(args):
             pass  # Best-effort — don't crash the daemon thread
 
     # Launch copilot
-    from copilot_jobs.launcher import launch_copilot
-    from copilot_jobs.models import RepoEntry as _RE
+    from copilot_remote.launcher import launch_copilot
+    from copilot_remote.models import RepoEntry as _RE
 
     repo_entry = _RE(slug=repo, path=repo_path)
     try:
@@ -140,7 +140,7 @@ def copilot_launch(args):
             model=model,
             dry_run=getattr(args, "dry_run", False),
             on_complete=_on_complete,
-            db=db,
+            table="copilot_jobs",
         )
     except Exception as exc:
         from agent.redact import redact_sensitive_text
@@ -149,8 +149,8 @@ def copilot_launch(args):
         db.close()
         raise exc.__class__(error_text).with_traceback(exc.__traceback__) from None
 
-    # launch_copilot already persisted connect_id via db.update_copilot_job_connect_id
-    # when a cloud-relay handle was resolved.
+    # connect_id is returned by launch_copilot when a cloud-relay handle was
+    # resolved; it is available for caller use but not yet persisted here.
     connect_id = result.get("connect_id")
 
     # For dry-run, the process already completed synchronously.
