@@ -29,6 +29,15 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+
+def _sanitize_log_value(value) -> str:
+    """Strip ASCII control chars before logging untrusted strings (CWE-117)."""
+    if value is None:
+        return ""
+    return "".join(
+        " " if (ord(c) < 0x20 or ord(c) == 0x7F) else c for c in str(value)
+    )
+
 DEFAULT_DB_PATH = get_hermes_home() / "state.db"
 
 SCHEMA_VERSION = 13
@@ -2383,9 +2392,7 @@ class SessionDB:
 
         expired_ids = self._execute_write(_do)
         if expired_ids:
-            # Sanitize IDs before logging to prevent CWE-117 log injection.
-            from copilot_remote.router import _sanitize_for_log
-            safe_ids = [_sanitize_for_log(jid) for jid in expired_ids]
+            safe_ids = [_sanitize_log_value(jid) for jid in expired_ids]
             logger.info("Expired %d timed-out copilot job(s): %s", len(safe_ids), safe_ids)
         return expired_ids
 
