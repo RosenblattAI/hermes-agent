@@ -128,22 +128,6 @@ def _snapshot_process_logs() -> Dict[Path, int]:
     return snapshot
 
 
-_LOG_TAIL_BYTES = 32_768  # 32 KiB — ample for task-ID export lines without reading full logs
-
-
-def _read_log_tail(path: Path) -> str:
-    """Read only the last _LOG_TAIL_BYTES bytes of a log file.
-
-    Avoids loading the entire file into memory; large Copilot process logs
-    can grow to tens of MB over a long-running session.
-    """
-    with path.open("rb") as fh:
-        fh.seek(0, 2)
-        size = fh.tell()
-        fh.seek(max(0, size - _LOG_TAIL_BYTES))
-        return fh.read().decode("utf-8", errors="ignore")
-
-
 def _resolve_copilot_bin(copilot_bin: str) -> str:
     """Resolve the Copilot executable path with sensible fallbacks."""
     resolved = shutil.which(copilot_bin)
@@ -166,11 +150,13 @@ def _wait_for_remote_task_id(
     timeout: float = 5.0,
     poll_interval: float = 0.1,
     prior_logs: Optional[Dict[Path, int]] = None,
+    logs_dir: Optional[Path] = None,
 ) -> Optional[str]:
     """Poll Copilot process logs for the exported remote task ID."""
-    logs_dir = Path.home() / ".copilot" / "logs"
+    if logs_dir is None:
+        logs_dir = Path.home() / ".copilot" / "logs"
     deadline = time.time() + timeout
-    prior_logs = prior_logs or {}
+    prior_logs = {} if prior_logs is None else prior_logs
 
     while time.time() < deadline:
         # Snapshot (path, mtime) up-front with try/except so a log rotated or

@@ -390,97 +390,47 @@ class TestLaunchCopilot:
         assert "steer failed" in result["prompt_delivery_warning"]
 
 
-class TestReadLogTail:
-    def test_reads_last_bytes(self, tmp_path):
-        from copilot_remote.launcher import _LOG_TAIL_BYTES, _read_log_tail
-        log = tmp_path / "process-abc.log"
-        # Write 3x _LOG_TAIL_BYTES so the head is well outside the tail window.
-        # HEAD_EXCLUDED_MARKER lives in the first half; TAIL_MARKER lives at the very end.
-        head = b"HEAD_EXCLUDED_MARKER" + b"X" * (2 * _LOG_TAIL_BYTES)
-        tail = b"TAIL_MARKER"
-        log.write_bytes(head + tail)
-        content = _read_log_tail(log)
-        assert "TAIL_MARKER" in content
-        assert "HEAD_EXCLUDED_MARKER" not in content  # start of file is excluded
-
-    def test_small_file_reads_fully(self, tmp_path):
-        from copilot_remote.launcher import _read_log_tail
-        log = tmp_path / "process-small.log"
-        log.write_bytes(b"hello world")
-        assert _read_log_tail(log) == "hello world"
-
-
 class TestWaitForRemoteTaskIdPriorLogs:
     """prior_logs must be updated after each read so subsequent polls
-    only fetch new bytes (not re-read from 0 or re-tail every time)."""
+    only fetch new bytes (not re-read from 0 every time)."""
 
-    def test_prior_logs_updated_after_first_read(self, tmp_path, monkeypatch):
+    # Task-line format that satisfies REMOTE_TASK_ID_PATTERN
+    _TASK_LINE = (
+        "Remote session active (steerable): "
+        "https://github.com/copilot/tasks/aabbccdd-1234-5678-abcd-ef0123456789\n"
+    )
+
+    def test_prior_logs_updated_after_first_read(self, tmp_path):
+        """_wait_for_remote_task_id must update prior_logs[path] after reading."""
         from copilot_remote.launcher import _wait_for_remote_task_id
 
         log = tmp_path / "process-test.log"
-        log.write_bytes(b"some content without task line")
-
-        # Redirect logs_dir to tmp_path
-        monkeypatch.setattr(
-            "copilot_remote.launcher.Path",
-            lambda *args: tmp_path if args == (tmp_path,) else __import__("pathlib").Path(*args),
-        )
+        log.write_bytes(b"no task line here")
 
         prior_logs: dict = {}
-
-        # Patch _parse_remote_task_id to always return None (no match)
-        monkeypatch.setattr(
-            "copilot_remote.launcher._parse_remote_task_id",
-            lambda text, sid: None,
-        )
-        # Patch logs_dir inside the function using a simpler approach —
-        # call the function and verify prior_logs was mutated.
-        import copilot_remote.launcher as _launcher
-        original_logs_dir_line = _launcher._wait_for_remote_task_id
-
-        # Use real function but with controlled logs_dir via monkeypatching Path.home
-        monkeypatch.setattr(
-            "copilot_remote.launcher.Path",
-            __import__("pathlib").Path,
+        _wait_for_remote_task_id(
+            logs_dir=tmp_path,
+            timeout=0.15,
+            poll_interval=0.02,
+            prior_logs=prior_logs,
         )
 
-        # Direct unit test: simulate one iteration manually
-        current_size = log.stat().st_size
-        previous_size = prior_logs.get(log, 0)
-        assert previous_size == 0
-        assert current_size > 0
-
-        with log.open("rb") as fh:
-            fh.seek(previous_size)
-            _ = fh.read().decode("utf-8", errors="ignore")
-        prior_logs[log] = current_size
-
-        # After read, prior_logs must reflect current file size
-        assert prior_logs[log] == current_size
-
-        # Second read with no new bytes — should be skipped
-        assert log.stat().st_size <= prior_logs[log]
+        # The file was read; prior_logs must record its size so next poll skips it.
+        assert log in prior_logs
+        assert prior_logs[log] == log.stat().st_size
 
     def test_first_read_starts_from_zero_not_tail(self, tmp_path):
-        """When previous_size is absent (defaults to 0), the full file is read from
-        offset 0 — a task line near the start of the file is not missed."""
-        # Write a task line at the very start (would be outside a tail window)
-        task_line = (
-            "Remote session active "
-            "https://github.com/copilot/tasks/TEST-SESSION-ID-XXXX\n"
-        )
+        """When prior_logs has no entry for a file, offset 0 is used so a task
+        line near the beginning of a large log is not missed."""
+        from copilot_remote.launcher import _wait_for_remote_task_id
+
         log = tmp_path / "process-zero.log"
-        log.write_bytes(task_line.encode())
+        log.write_bytes(self._TASK_LINE.encode())
 
-        prior_logs: dict = {}
+        result = _wait_for_remote_task_id(
+            logs_dir=tmp_path,
+            timeout=1.0,
+            poll_interval=0.02,
+        )
 
-        # Simulate one poll iteration: previous_size defaults to 0, reads full file.
-        previous_size = prior_logs.get(log, 0)
-        assert previous_size == 0
-        with log.open("rb") as fh:
-            fh.seek(previous_size)
-            text = fh.read().decode("utf-8", errors="ignore")
-        prior_logs[log] = log.stat().st_size
-
-        assert "TEST-SESSION-ID-XXXX" in text
-        assert prior_logs[log] == log.stat().st_size
+        assert result == "aabbccdd-1234-5678-abcd-ef0123456789"
