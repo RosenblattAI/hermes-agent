@@ -8349,8 +8349,8 @@ For more help on a command:
         "prompt", nargs="?", default=None,
         help="Task prompt (used for repo routing if --repo is omitted)"
     )
-    cop_launch.add_argument("--repo", help="Repo slug")
-    cop_launch.add_argument("--repo-path", dest="repo_path", help="Absolute path to the repo inside the container")
+    cop_launch.add_argument("--repo", help="Repo slug (e.g. org/repo). If --repo-path is omitted, the path is auto-derived from $HERMES_WORKSPACE_PATH/repos/<slug>.")
+    cop_launch.add_argument("--repo-path", dest="repo_path", help="Absolute path to the repo. Optional when $HERMES_WORKSPACE_PATH is set and the repo exists under its repos/ directory.")
     cop_launch.add_argument("--model", help="Model to use for the session")
     cop_launch.add_argument("--dry-run", dest="dry_run", action="store_true", help="Simulate launch without spawning copilot")
     cop_launch.add_argument("--signal-source", dest="signal_source", default="cli", help="Signal origin (default: cli)")

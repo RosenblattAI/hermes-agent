@@ -12,10 +12,12 @@ the launcher log under ``~/.hermes/logs/copilot-<job_id>.log`` are the
 correct places to look.
 """
 
+import os
 import sys
 import time
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from agent.redact import redact_sensitive_text
@@ -110,6 +112,16 @@ def copilot_launch(args):
         print(f"Router selected: {repo} ({repo_path})")
 
     if not repo_path:
+        # Try to derive the repo path from HERMES_WORKSPACE_PATH when --repo
+        # is given without --repo-path (expected layout:
+        # $HERMES_WORKSPACE_PATH/repos/{slug}).
+        workspace = os.environ.get("HERMES_WORKSPACE_PATH", "")
+        if workspace and repo:
+            derived = Path(workspace) / "repos" / repo
+            if derived.is_dir():
+                repo_path = str(derived)
+
+    if not repo_path:
         print("Error: --repo-path is required when using --repo.", file=sys.stderr)
         sys.exit(1)
 
@@ -157,6 +169,7 @@ def copilot_launch(args):
             repo_entry, prompt,
             session_id=job_id,
             model=model,
+            db=db,
             dry_run=getattr(args, "dry_run", False),
             on_complete=_on_complete,
         )
@@ -176,8 +189,6 @@ def copilot_launch(args):
         raise exc.__class__(redacted).with_traceback(exc.__traceback__) from None
 
     connect_handle = result.get("connect_id")
-    if connect_handle:
-        db.update_copilot_remote_connect_handle(job_id, connect_handle)
 
     prompt_delivery_warning = result.get("prompt_delivery_warning")
 
@@ -388,11 +399,16 @@ def handle_copilot_remote_slash(raw_command: str) -> None:
         else:
             print("Usage: /copilot_remote [launch|list|show]")
             print()
-            print("  /copilot_remote list                        List all jobs")
-            print("  /copilot_remote launch <prompt>             Route prompt → repo, launch copilot")
-            print("  /copilot_remote launch --model <m> <prompt> Use specific model")
-            print("  /copilot_remote launch --repo <slug> <msg>  Launch for specific repo")
-            print("  /copilot_remote show <job_id>               Show job details + connect command")
+            print("  /copilot_remote list                                   List all jobs")
+            print("  /copilot_remote launch <prompt>                        Route prompt → repo, launch copilot")
+            print("  /copilot_remote launch --model <m> <prompt>            Use specific model")
+            print("  /copilot_remote launch --repo <slug> <prompt>          Launch for a specific repo")
+            print("                                                          (--repo-path auto-derived from")
+            print("                                                           $HERMES_WORKSPACE_PATH/repos/<slug>")
+            print("                                                           if --repo-path is omitted)")
+            print("  /copilot_remote launch --repo <slug> --repo-path <p> <prompt>")
+            print("                                                          Explicit repo path")
+            print("  /copilot_remote show <job_id>                          Show job details + connect command")
 
     except SystemExit:
         pass

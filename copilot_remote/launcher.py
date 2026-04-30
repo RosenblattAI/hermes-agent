@@ -414,6 +414,7 @@ def launch_copilot(
     copilot_bin: str = "copilot",
     model: Optional[str] = None,
     dry_run: bool = False,
+    db: Optional[Any] = None,
     on_complete: Optional[Callable[[str, int], None]] = None,
     _spawn: Optional[Callable] = None,
 ) -> Dict[str, Any]:
@@ -431,6 +432,10 @@ def launch_copilot(
     behaviour synchronously.
 
     If *dry_run* is True, skips the subprocess and returns placeholders.
+
+    If *db* is provided and a ``connect_id`` is resolved, it is persisted
+    immediately via ``db.update_copilot_remote_connect_handle(session_id,
+    connect_id)`` so callers do not need a separate update step.
 
     Returns ``{"session_id": str, "cmd": [...], "proc": Popen|None}``.
     """
@@ -515,6 +520,11 @@ def launch_copilot(
             )
 
             connect_id = _wait_for_remote_task_id(prior_logs=prior_logs)
+            if db is not None and connect_id:
+                try:
+                    db.update_copilot_remote_connect_handle(session_id, connect_id)
+                except Exception as db_exc:
+                    logger.warning("Could not persist connect_id to DB: %s", db_exc)
             prompt_delivery = _attempt_initial_prompt_delivery(connect_id, prompt)
             if prompt_delivery["status"]:
                 logger.info(

@@ -363,6 +363,65 @@ class TestLaunchCopilot:
         assert "script -eqfc" in captured["args"][2]
         assert captured["kwargs"]["cwd"] == "/test"
 
+    def test_real_launch_persists_connect_id_via_db(self, monkeypatch, tmp_path):
+        """When db is provided, connect_id is persisted via db.update_copilot_remote_connect_handle."""
+        repo = RepoEntry(slug="test-repo", path="/test")
+        persisted = {}
+
+        class FakeDB:
+            def update_copilot_remote_connect_handle(self, session_id, connect_id):
+                persisted["session_id"] = session_id
+                persisted["connect_id"] = connect_id
+
+        monkeypatch.setattr("copilot_remote.launcher._log_dir", lambda: tmp_path)
+        monkeypatch.setattr("copilot_remote.launcher._snapshot_process_logs", lambda: {})
+        monkeypatch.setattr(
+            "copilot_remote.launcher.subprocess.Popen",
+            lambda *args, **kwargs: object(),
+        )
+        monkeypatch.setattr("copilot_remote.launcher.shutil.which", lambda name: "/resolved/copilot")
+        monkeypatch.setattr(
+            "copilot_remote.launcher._wait_for_remote_task_id", lambda **kwargs: "task-456"
+        )
+        monkeypatch.setattr(
+            "copilot_remote.launcher._ensure_initial_prompt_delivered",
+            lambda task_id, prompt: "steered",
+        )
+
+        result = launch_copilot(repo, "test", session_id=_TEST_SID, db=FakeDB())
+
+        assert result["connect_id"] == "task-456"
+        assert persisted == {"session_id": _TEST_SID, "connect_id": "task-456"}
+
+    def test_real_launch_no_db_persist_when_connect_id_missing(self, monkeypatch, tmp_path):
+        """When connect_id is None, db.update_copilot_remote_connect_handle is not called."""
+        repo = RepoEntry(slug="test-repo", path="/test")
+        persisted = {}
+
+        class FakeDB:
+            def update_copilot_remote_connect_handle(self, session_id, connect_id):
+                persisted["called"] = True
+
+        monkeypatch.setattr("copilot_remote.launcher._log_dir", lambda: tmp_path)
+        monkeypatch.setattr("copilot_remote.launcher._snapshot_process_logs", lambda: {})
+        monkeypatch.setattr(
+            "copilot_remote.launcher.subprocess.Popen",
+            lambda *args, **kwargs: object(),
+        )
+        monkeypatch.setattr("copilot_remote.launcher.shutil.which", lambda name: "/resolved/copilot")
+        monkeypatch.setattr(
+            "copilot_remote.launcher._wait_for_remote_task_id", lambda **kwargs: None
+        )
+        monkeypatch.setattr(
+            "copilot_remote.launcher._attempt_initial_prompt_delivery",
+            lambda task_id, prompt: {"status": "unverified", "warning": "no task id"},
+        )
+
+        result = launch_copilot(repo, "test", session_id=_TEST_SID, db=FakeDB())
+
+        assert result["connect_id"] is None
+        assert "called" not in persisted
+
     def test_real_launch_returns_warning_when_prompt_delivery_fails(self, monkeypatch, tmp_path):
         repo = RepoEntry(slug="test-repo", path="/test")
 

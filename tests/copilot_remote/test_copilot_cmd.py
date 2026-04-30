@@ -148,3 +148,23 @@ class TestSlashErrorPaths:
         out = _capture_slash("/copilot_remote foobar")
         assert "usage" in out.lower()
         assert "launch" in out
+
+    def test_repo_path_auto_derived_from_workspace(self, db, monkeypatch, tmp_path):
+        """--repo without --repo-path is resolved via HERMES_WORKSPACE_PATH/repos/<slug>."""
+        repo_dir = tmp_path / "repos" / "my-org" / "my-repo"
+        repo_dir.mkdir(parents=True)
+        monkeypatch.setenv("HERMES_WORKSPACE_PATH", str(tmp_path))
+
+        out = _capture_slash(
+            "/copilot_remote launch --dry-run --repo my-org/my-repo Do something"
+        )
+        assert "done" in out.lower() or "connect" in out.lower()
+        jobs = db.list_copilot_remote()
+        assert len(jobs) == 1
+        assert jobs[0]["repo_path"] == str(repo_dir)
+
+    def test_repo_path_error_when_workspace_not_set(self, monkeypatch):
+        """--repo without --repo-path fails if HERMES_WORKSPACE_PATH is unset."""
+        monkeypatch.delenv("HERMES_WORKSPACE_PATH", raising=False)
+        out = _capture_slash("/copilot_remote launch --repo my-org/my-repo Do something")
+        assert "required" in out.lower() or "error" in out.lower()
