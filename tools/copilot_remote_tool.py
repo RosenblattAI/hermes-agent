@@ -271,7 +271,7 @@ def _resolve_repo(prompt: str, repo: str = "", repo_path: str = "") -> tuple[Opt
             # before going back to the caller in case workspace paths embed
             # credentials or attacker-controlled exception text embeds CR/LF.
             from agent.redact import redact_sensitive_text
-            from copilot_remote.router import _sanitize_for_log
+            from hermes_logging import sanitize_for_log as _sanitize_for_log
 
             logger.warning(
                 "copilot_remote: repo discovery failed for slug=%s: %s",
@@ -344,7 +344,7 @@ def _launch(args: Dict[str, Any]) -> str:
         # the launch still succeeds.
         hermes_session_id = str(args.get("hermes_session_id") or "") or None
         if hermes_session_id and db.get_session(hermes_session_id) is None:
-            from copilot_remote.router import _sanitize_for_log
+            from hermes_logging import sanitize_for_log as _sanitize_for_log
 
             # ``hermes_session_id`` originates from tool args and could in
             # principle contain CR/LF or other control chars; sanitize
