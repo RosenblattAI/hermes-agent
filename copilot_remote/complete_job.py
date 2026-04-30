@@ -22,8 +22,16 @@ if _AGENT_ROOT not in sys.path:
 from hermes_constants import get_hermes_home  # noqa: E402
 from hermes_state import SessionDB  # noqa: E402
 
+_ALLOWED_TABLES = frozenset({"copilot_remote", "copilot_jobs"})
+
 
 def finish(session_id: str, exit_code: int, table: str = "copilot_remote") -> None:
+    if table not in _ALLOWED_TABLES:
+        print(
+            f"Unknown table {table!r}. Allowed values: {sorted(_ALLOWED_TABLES)}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     state = "done" if exit_code == 0 else "failed"
     # Use get_hermes_home() so profile-aware DB path is resolved at call time.
     db = SessionDB(db_path=get_hermes_home() / "state.db")

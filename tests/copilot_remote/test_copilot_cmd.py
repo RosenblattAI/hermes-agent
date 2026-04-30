@@ -333,4 +333,21 @@ class TestStopCommand:
         # DB state must still be 'running' — we did not transition it.
         assert db.get_copilot_job(self.JOB_ID)["state"] == "running"
 
+    def test_stop_aborts_db_write_on_signal_failure(self, db):
+        """copilot_stop does NOT mark the job stopped when signals are rejected (e.g. PermissionError)."""
+        self._make_running_job(db)
+
+        with patch(
+            "hermes_cli.copilot_cmd._kill_copilot_procs",
+            side_effect=RuntimeError("Signal delivery failed for all process groups"),
+        ):
+            out = _capture_fn(
+                __import__("hermes_cli.copilot_cmd", fromlist=["copilot_stop"]).copilot_stop,
+                __import__("types").SimpleNamespace(job_id=self.JOB_ID),
+            )
+
+        # Must abort without touching the DB.
+        assert "process discovery failed" in out
+        assert db.get_copilot_job(self.JOB_ID)["state"] == "running"
+
 

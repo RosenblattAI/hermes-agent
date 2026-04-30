@@ -288,7 +288,14 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
     the job_id string, waits up to *timeout* seconds for them to exit,
     then sends SIGKILL to any survivors.
 
-    Returns True if at least one process was found and signaled.
+    Returns:
+        ``True``  — at least one process was found and signaled.
+        ``False`` — no matching processes found (job already exited).
+
+    Raises:
+        RuntimeError — matching processes were found but every signal
+            delivery attempt failed (e.g. PermissionError), meaning the
+            job is still running and the caller must *not* mark it stopped.
     """
     pids = _find_copilot_pids(job_id)
     if not pids:
@@ -296,13 +303,15 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
 
     # Collect unique process group IDs so we can kill entire groups.
     pgids: set = set()
-    for pid in pids:
+    for p in pids:
         try:
-            pgids.add(os.getpgid(pid))
+            pgids.add(os.getpgid(p))
         except OSError:
             pass
 
     if not pgids:
+        # Processes existed but disappeared before we could get pgids —
+        # they're gone, so the job is no longer running.
         return False
 
     # Graceful shutdown first.
@@ -314,15 +323,18 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
         except OSError:
             pass
 
+    if not any_signaled:
+        raise RuntimeError(
+            f"Signal delivery failed for all process groups {pgids} "
+            f"(job {job_id}); job may still be running."
+        )
+
     # Wait up to *timeout* seconds for all matched processes to exit.
     deadline = time.time() + timeout
     surviving = list(pids)
     while surviving and time.time() < deadline:
         time.sleep(0.2)
-        surviving = [
-            pid for pid in surviving
-            if _pid_exists(pid)
-        ]
+        surviving = [p for p in surviving if _pid_exists(p)]
 
     # Force-kill entire process groups for any survivors so that child
     # processes that don't match the ps filter are also terminated.
@@ -330,11 +342,10 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
         for pgid in pgids:
             try:
                 os.killpg(pgid, signal.SIGKILL)
-                any_signaled = True
             except OSError:
                 pass
 
-    return any_signaled
+    return True
 
 
 def _pid_exists(pid: int) -> bool:

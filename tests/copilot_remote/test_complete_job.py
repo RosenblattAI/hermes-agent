@@ -155,3 +155,15 @@ class TestCompleteJobSubprocess:
     def test_subprocess_invalid_exit_code_exits_nonzero(self):
         result = self._run(str(uuid.uuid4()), "not-a-number")
         assert result.returncode != 0
+
+    def test_subprocess_unknown_table_exits_nonzero(self):
+        result = self._run(str(uuid.uuid4()), "0", "unknown_table")
+        assert result.returncode != 0
+        assert "unknown_table" in result.stderr
+
+
+class TestFinishValidation:
+    def test_unknown_table_raises_system_exit(self):
+        with pytest.raises(SystemExit) as exc_info:
+            finish(str(uuid.uuid4()), exit_code=0, table="bad_table")
+        assert exc_info.value.code == 2
