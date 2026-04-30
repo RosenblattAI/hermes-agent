@@ -91,8 +91,20 @@ def copilot_launch(args):
         print(f"Router selected: {repo} ({repo_path})")
 
     if not repo_path:
-        print("Error: --repo-path is required when using --repo.", file=sys.stderr)
-        sys.exit(1)
+        # Try to resolve repo_path from the slug via workspace discovery.
+        from copilot_remote.router import _discover_repos
+        entries = _discover_repos()
+        matched = next((e for e in entries if e.slug == repo), None)
+        if matched:
+            repo_path = matched.path
+            print(f"Resolved path for {repo}: {repo_path}")
+        else:
+            print(
+                f"Error: --repo-path is required for {repo!r} "
+                "(could not resolve via HERMES_WORKSPACE_PATH).",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     db = _get_db()
     job_id = str(uuid.uuid4())
@@ -619,8 +631,20 @@ def handle_copilot_remote_slash(raw_command: str) -> None:
             print(f"Router selected: {repo} ({repo_path})")
 
         if not repo_path:
-            print("Error: --repo-path is required when using --repo.", file=sys.stderr)
-            sys.exit(1)
+            # Try to resolve repo_path from the slug via workspace discovery.
+            from copilot_remote.router import _discover_repos
+            entries = _discover_repos()
+            matched = next((e for e in entries if e.slug == repo), None)
+            if matched:
+                repo_path = matched.path
+                print(f"Resolved path for {repo}: {repo_path}")
+            else:
+                print(
+                    f"Error: --repo-path is required for {repo!r} "
+                    "(could not resolve via HERMES_WORKSPACE_PATH).",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
         db = _get_db()
         job_id = str(_uuid.uuid4())
