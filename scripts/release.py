@@ -402,7 +402,7 @@ AUTHOR_MAP = {
     "zzn+pa@zzn.im": "xinbenlv",
     "zaynjarvis@gmail.com": "ZaynJarvis",
     "zhiheng.liu@bytedance.com": "ZaynJarvis",
-    "Zabala.e.andres@gmail.com": "A-Zaba",
+    "zabala.e.andres@gmail.com": "A-Zaba",
     "ryan@rosenblatt.ai": "moro-no-kimi",
     "izhaolongfei@gmail.com": "loongfay",
     "296659110@qq.com": "lrt4836",
@@ -693,8 +693,8 @@ def build_release_artifacts(semver: str) -> list[Path]:
 
 def resolve_author(name: str, email: str) -> str:
     """Resolve a git author to a GitHub @mention."""
-    # Try email lookup first
-    gh_user = AUTHOR_MAP.get(email)
+    # Try email lookup first (normalize case so AUTHOR_MAP keys need only be lowercase)
+    gh_user = AUTHOR_MAP.get(email.lower())
     if gh_user:
         return f"@{gh_user}"
 

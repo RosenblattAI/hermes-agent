@@ -210,7 +210,8 @@ def copilot_show(args):
         print(f"Created:  {_relative_time(job['created_at'])}")
 
         if job.get("prompt"):
-            preview = job["prompt"][:120] + ("..." if len(job["prompt"]) > 120 else "")
+            raw = job["prompt"][:120] + ("..." if len(job["prompt"]) > 120 else "")
+            preview = _sanitize_for_log(raw)
             print(f"Prompt:   {preview}")
 
         sid = job.get("connect_id")
