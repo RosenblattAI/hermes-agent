@@ -245,7 +245,8 @@ def build_copilot_command(
 
 def _log_dir() -> Path:
     """Return (and create) the copilot log directory."""
-    d = Path.home() / ".hermes" / "logs"
+    from hermes_constants import get_hermes_home
+    d = get_hermes_home() / "logs"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -460,6 +461,7 @@ def launch_copilot(
         prompt,
         copilot_bin=_resolve_copilot_bin(copilot_bin),
         model=model,
+        session_id=session_id,
     )
 
     if dry_run:
@@ -528,128 +530,6 @@ def launch_copilot(
                 f'_ec=$?; '
                 f'{shlex.quote(python_bin)} {shlex.quote(complete_script)} '
                 f'{shlex.quote(session_id)} $_ec {shlex.quote(table)}'
-            )
-
-            proc = subprocess.Popen(
-                ["bash", "-c", shell_cmd],
-                cwd=repo.path,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-
-            connect_id = _wait_for_remote_task_id(prior_logs=prior_logs)
-            prompt_delivery = _attempt_initial_prompt_delivery(connect_id, prompt)
-            if prompt_delivery["status"]:
-                logger.info(
-                    "Initial prompt delivery for task %s: %s",
-                    connect_id or session_id,
-                    prompt_delivery["status"],
-                )
-            if prompt_delivery["warning"]:
-                logger.warning(_sanitize_for_log(prompt_delivery["warning"]))
-
-        return {
-            "session_id": session_id,
-            "connect_id": connect_id if not _spawn else None,
-            "cmd": cmd,
-            "proc": proc,
-            "prompt_delivery_status": prompt_delivery["status"],
-            "prompt_delivery_warning": prompt_delivery["warning"],
-        }
-
-    except Exception as exc:
-        if not dry_run and not _spawn and "proc" in locals():
-            _terminate_process_group(proc)
-        logger.error("Failed to launch copilot: %s", exc)
-        raise
-    """Launch ``copilot -i`` with ``--remote`` for a repo.
-
-    *session_id* is the hermes job ID used for DB tracking and log naming.
-    Copilot gets its own fresh session so the startup prompt actually runs.
-
-    **Real launches** (no ``_spawn``): copilot runs fully detached via a
-    shell wrapper that redirects stdout to a log file and calls
-    ``complete_job.py`` on exit.  The parent process can exit immediately.
-
-    **Test launches** (``_spawn`` provided): a daemon thread waits for the
-    fake process and calls ``on_complete`` so tests can assert on exit
-    behaviour synchronously.
-
-    If *dry_run* is True, skips the subprocess and returns placeholders.
-
-    Returns ``{"session_id": str, "cmd": [...], "proc": Popen|None}``.
-    """
-    cmd = build_copilot_command(
-        prompt,
-        copilot_bin=_resolve_copilot_bin(copilot_bin),
-        model=model,
-    )
-
-    if dry_run:
-        if on_complete:
-            on_complete(session_id, 0)
-        return {
-            "session_id": session_id,
-            "exit_code": 0,
-            "cmd": cmd,
-            "proc": None,
-            "prompt_delivery_status": None,
-            "prompt_delivery_warning": None,
-        }
-
-    try:
-        connect_id = None
-        prompt_delivery = {"status": None, "warning": None}
-
-        if _spawn:
-            # Test path: use the fake process with a daemon thread.
-            proc = _spawn(cmd, repo.path)
-
-            def _wait_and_finish():
-                try:
-                    proc.stdout.read()
-                    proc.wait()
-                    if on_complete:
-                        on_complete(session_id, proc.returncode)
-                except Exception as exc:
-                    logger.error("Background wait error: %s", exc)
-                    if on_complete:
-                        on_complete(session_id, -1)
-
-            waiter = threading.Thread(
-                target=_wait_and_finish,
-                daemon=True,
-                name="copilot-wait",
-            )
-            waiter.start()
-        else:
-            # Real path: fully detached process via shell wrapper.
-            # Interactive mode (-i) needs a PTY for its TUI to render and
-            # for --remote to register with the cloud relay, so wrap with
-            # ``script -qfc`` which allocates a PTY and captures output.
-            prior_logs = _snapshot_process_logs()
-            log_path = _log_dir() / f"copilot-{session_id}.log"
-            complete_script = str(
-                Path(__file__).resolve().parent / "complete_job.py"
-            )
-            python_bin = sys.executable
-
-            script_inner = shlex.join(cmd)
-            script_cmd = [
-                "script",
-                "-eqfc",
-                script_inner,
-                str(log_path),
-            ]
-
-            # Shell command: run copilot under script(1), capture exit
-            # code, then update the DB via complete_job.py.
-            shell_cmd = (
-                f'{shlex.join(script_cmd)} > /dev/null 2>&1; '
-                f'_ec=$?; '
-                f'{shlex.quote(python_bin)} {shlex.quote(complete_script)} '
-                f'{shlex.quote(session_id)} $_ec'
             )
 
             proc = subprocess.Popen(

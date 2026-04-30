@@ -184,14 +184,4 @@ def route_repo(
     except Exception:
         logger.exception("Router LLM call failed, returning None")
         return None
-    """Strip CR/LF/control chars before logging untrusted strings.
-
-    Prevents log-injection / multiline log spoofing per the Rosenblatt
-    log-sanitization rule (CWE-117).
-    """
-    if value is None:
-        return ""
-    text = str(value)
-    # Drop ASCII control chars (0x00-0x1F) and DEL (0x7F) except space; keep tabs as space.
-    return "".join(" " if (ord(c) < 0x20 or ord(c) == 0x7F) else c for c in text)
 

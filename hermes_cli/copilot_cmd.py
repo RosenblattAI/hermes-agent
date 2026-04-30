@@ -149,9 +149,9 @@ def copilot_launch(args):
         db.close()
         raise exc.__class__(error_text).with_traceback(exc.__traceback__) from None
 
-    # connect_id is returned by launch_copilot when a cloud-relay handle was
-    # resolved; it is available for caller use but not yet persisted here.
     connect_id = result.get("connect_id")
+    if connect_id:
+        db.update_copilot_job_connect_id(job_id, connect_id)
 
     # For dry-run, the process already completed synchronously.
     if getattr(args, "dry_run", False):

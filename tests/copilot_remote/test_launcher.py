@@ -288,9 +288,9 @@ class TestLaunchCopilot:
         assert result["session_id"] == _TEST_SID
         assert len(spawned) == 1
         assert spawned[0][1] == "/test"
-        # Real launches no longer force --resume because Copilot skips
-        # startup prompt execution on resume paths.
-        assert "--resume" not in result["cmd"]
+        # launch_copilot now passes session_id to build_copilot_command so --resume is included.
+        assert "--resume" in result["cmd"]
+        assert _TEST_SID in result["cmd"]
 
         # Wait for background thread to finish.
         completed.wait(timeout=5)
@@ -356,7 +356,8 @@ class TestLaunchCopilot:
         result = launch_copilot(repo, "test", session_id=_TEST_SID)
 
         assert result["cmd"][0] == "/resolved/copilot"
-        assert "--resume" not in result["cmd"]
+        assert "--resume" in result["cmd"]
+        assert _TEST_SID in result["cmd"]
         assert result["connect_id"] == "task-123"
         assert captured["args"][0] == "bash"
         assert captured["args"][1] == "-c"
