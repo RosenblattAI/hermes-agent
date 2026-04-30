@@ -397,7 +397,7 @@ def copilot_stop(args):
 
         if job["state"] != "running":
             print(
-                f"Job {job_id} is already stopped (state: {_state_badge(job['state'])})."
+                f"Job {job_id} is not running (state: {_state_badge(job['state'])})."
             )
             return
 

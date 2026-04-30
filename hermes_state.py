@@ -2371,12 +2371,13 @@ class SessionDB:
                 (now,),
             )
             ids = [row["id"] for row in cursor.fetchall()]
-            for jid in ids:
+            if ids:
+                placeholders = ",".join("?" * len(ids))
                 conn.execute(
-                    """UPDATE copilot_jobs
-                       SET state = 'timed_out', finished_at = ?
-                       WHERE id = ? AND state = 'running'""",
-                    (now, jid),
+                    f"""UPDATE copilot_jobs
+                           SET state = 'timed_out', finished_at = ?
+                         WHERE id IN ({placeholders}) AND state = 'running'""",
+                    [now, *ids],
                 )
             return ids
 

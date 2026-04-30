@@ -224,7 +224,7 @@ class TestStopCommand:
         assert "stopped" in out.lower()
 
     def test_stop_on_already_terminal_job_is_noop(self, db):
-        """Calling stop on a 'done' job reports it as already stopped."""
+        """Calling stop on a 'done' job reports it is not running."""
         self._make_running_job(db)
         db.finish_copilot_job(self.JOB_ID, state="done", exit_code=0)
 
@@ -233,7 +233,7 @@ class TestStopCommand:
 
         # kill should never be called for a non-running job.
         mock_kill.assert_not_called()
-        assert "already stopped" in out.lower()
+        assert "not running" in out.lower()
         # State unchanged.
         assert db.get_copilot_job(self.JOB_ID)["state"] == "done"
 
@@ -298,7 +298,7 @@ class TestStopCommand:
 
         # stop already checked state="running" and saw "done" from get_copilot_job
         # — so it reported "already stopped" before even trying to kill.
-        assert "already stopped" in out.lower()
+        assert "not running" in out.lower()
         assert db.get_copilot_job(self.JOB_ID)["state"] == "done"
 
     def test_stop_calls_kill_with_job_id(self, db):
