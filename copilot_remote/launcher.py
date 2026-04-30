@@ -171,8 +171,12 @@ def _wait_for_remote_task_id(
             try:
                 previous_size = prior_logs.get(path, 0)
                 current_size = path.stat().st_size
-                if current_size <= previous_size:
+                if current_size == previous_size:
                     continue
+                # Truncation/rotation: size shrank — reset to read from start.
+                if current_size < previous_size:
+                    previous_size = 0
+                    del prior_logs[path]
 
                 with path.open("rb") as fh:
                     fh.seek(previous_size)

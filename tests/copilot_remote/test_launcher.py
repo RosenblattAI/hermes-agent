@@ -434,3 +434,26 @@ class TestWaitForRemoteTaskIdPriorLogs:
         )
 
         assert result == "aabbccdd-1234-5678-abcd-ef0123456789"
+
+    def test_truncated_log_reread_from_zero(self, tmp_path):
+        """If a log file shrinks (rotation/truncation), prior_logs offset is
+        reset to 0 so the new content is not skipped permanently."""
+        from copilot_remote.launcher import _wait_for_remote_task_id
+
+        log = tmp_path / "process-trunc.log"
+        # First write: large content, no task line.
+        log.write_bytes(b"X" * 1000)
+        prior_logs: dict = {log: 1000}  # simulate already-read state
+
+        # Truncate the file to something smaller and write the task line.
+        log.write_bytes(self._TASK_LINE.encode())
+        assert log.stat().st_size < 1000  # confirm truncation
+
+        result = _wait_for_remote_task_id(
+            logs_dir=tmp_path,
+            timeout=1.0,
+            poll_interval=0.02,
+            prior_logs=prior_logs,
+        )
+
+        assert result == "aabbccdd-1234-5678-abcd-ef0123456789"
