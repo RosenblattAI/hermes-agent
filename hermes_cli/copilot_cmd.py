@@ -321,6 +321,10 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
         try:
             os.killpg(pgid, signal.SIGTERM)
             any_signaled = True
+        except ProcessLookupError:
+            # Process group already exited between pgid collection and kill —
+            # treat as "gone", not a signal failure.
+            any_signaled = True
         except OSError:
             pass
 
