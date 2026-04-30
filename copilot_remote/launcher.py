@@ -524,7 +524,11 @@ def launch_copilot(
                 try:
                     db.update_copilot_remote_connect_handle(session_id, connect_id)
                 except Exception as db_exc:
-                    logger.warning("Could not persist connect_id to DB: %s", db_exc)
+                    logger.warning(
+                        "Could not persist connect_id to DB for session %s: %s",
+                        session_id,
+                        db_exc,
+                    )
             prompt_delivery = _attempt_initial_prompt_delivery(connect_id, prompt)
             if prompt_delivery["status"]:
                 logger.info(

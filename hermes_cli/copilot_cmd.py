@@ -122,7 +122,12 @@ def copilot_launch(args):
                 repo_path = str(derived)
 
     if not repo_path:
-        print("Error: --repo-path is required when using --repo.", file=sys.stderr)
+        print(
+            "Error: --repo-path is required. Auto-derivation from "
+            "HERMES_WORKSPACE_PATH failed (workspace not set or repo "
+            "directory not found).",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     db = _get_db()
