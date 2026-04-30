@@ -224,8 +224,9 @@ def copilot_show(args):
         if job.get("error_text"):
             print(f"Error:    {job['error_text']}")
         if job.get("signal_source"):
-            ref = f" ({job['signal_ref']})" if job.get("signal_ref") else ""
-            print(f"Signal:   {job['signal_source']}{ref}")
+            src = _sanitize_for_log(job["signal_source"])
+            ref = f" ({_sanitize_for_log(job['signal_ref'])})" if job.get("signal_ref") else ""
+            print(f"Signal:   {src}{ref}")
 
     finally:
         db.close()
@@ -661,7 +662,6 @@ def handle_copilot_remote_slash(raw_command: str) -> None:
                 on_complete=_on_complete,
             )
         except Exception as exc:
-            from copilot_remote.router import _sanitize_for_log
             redacted = _sanitize_for_log(redact_sensitive_text(str(exc)))
             db.finish_copilot_remote(job_id, state="failed", error_text=redacted)
             db.close()
@@ -679,11 +679,14 @@ def handle_copilot_remote_slash(raw_command: str) -> None:
             print(f"  State: 🟢 running")
 
         if prompt_delivery_warning:
-            print(f"  Warning: {prompt_delivery_warning}", file=sys.stderr)
+            print(
+                f"  Warning: {_sanitize_for_log(prompt_delivery_warning)}",
+                file=sys.stderr,
+            )
 
         if connect_handle:
             print(f"\n  Connect: copilot --connect={connect_handle}")
-            print(f"  Resume:  copilot --resume={connect_handle}")
+            print(f"  Resume:  copilot --resume={job_id}")
         else:
             print(
                 "\n  Connect handle unavailable — Hermes could not extract "
