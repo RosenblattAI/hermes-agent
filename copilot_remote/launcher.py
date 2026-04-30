@@ -37,7 +37,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from copilot_remote.models import RepoEntry
-from copilot_remote.router import _sanitize_for_log
+from hermes_logging import sanitize_for_log as _sanitize_for_log
 
 logger = logging.getLogger(__name__)
 

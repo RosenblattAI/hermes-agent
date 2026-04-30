@@ -4044,7 +4044,12 @@ class GatewayRunner:
                     except SystemExit:
                         pass
                     except Exception as exc:
-                        logger.exception("Unhandled error in /copilot slash handler")
+                        from hermes_logging import sanitize_for_log as _slf
+                        logger.error(
+                            "Unhandled error in /copilot slash handler: %s: %s",
+                            type(exc).__name__,
+                            _slf(str(exc)),
+                        )
                         return "Error: /copilot command failed — see server logs for details."
                 return buf.getvalue().strip() or "Done."
 

@@ -15,7 +15,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-from copilot_remote.router import _sanitize_for_log
+from hermes_logging import sanitize_for_log as _sanitize_for_log
 from hermes_state import SessionDB
 
 
@@ -344,7 +344,7 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
     if not any_signaled:
         raise RuntimeError(
             f"Signal delivery failed for all process groups {pgids} "
-            f"(job {job_id}); job may still be running."
+            f"(job {_sanitize_for_log(job_id)}); job may still be running."
         )
 
     # Wait up to *timeout* seconds for all matched processes to exit.
@@ -367,7 +367,7 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
         still_alive = [p for p in surviving if _pid_exists(p)]
         if still_alive:
             raise RuntimeError(
-                f"PIDs {still_alive} survived SIGKILL for job {job_id}; "
+                f"PIDs {still_alive} survived SIGKILL for job {_sanitize_for_log(job_id)}; "
                 f"process may still be running."
             )
 
