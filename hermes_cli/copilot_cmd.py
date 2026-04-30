@@ -540,7 +540,7 @@ def handle_copilot_slash(raw_command: str) -> None:
             print("  /copilot list                        List all jobs")
             print("  /copilot launch <prompt>             Route prompt → repo, launch copilot")
             print("  /copilot launch --model <m> <prompt> Use specific model")
-            print("  /copilot launch --repo <slug> <msg>  Launch for specific repo")
+            print("  /copilot launch --repo <slug> --repo-path <path> <msg>  Launch for specific repo")
             print("  /copilot show <job_id>               Show job details + connect command")
             print("  /copilot stop <job_id>               Stop a running job")
 
@@ -808,7 +808,7 @@ def handle_copilot_remote_slash(raw_command: str) -> None:
             print("  /copilot_remote list                        List all jobs")
             print("  /copilot_remote launch <prompt>             Route prompt → repo, launch copilot")
             print("  /copilot_remote launch --model <m> <prompt> Use specific model")
-            print("  /copilot_remote launch --repo <slug> <msg>  Launch for specific repo")
+            print("  /copilot_remote launch --repo <slug> --repo-path <path> <msg>  Launch for specific repo")
             print("  /copilot_remote show <job_id>               Show job details + connect command")
 
     except SystemExit:
