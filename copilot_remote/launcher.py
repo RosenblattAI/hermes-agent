@@ -184,17 +184,16 @@ def _wait_for_remote_task_id(
 
         for path, _mtime in sorted(log_paths_with_mtime, key=lambda item: item[1], reverse=True):
             try:
-                previous_size = prior_logs.get(path)
+                previous_size = prior_logs.get(path, 0)
                 current_size = path.stat().st_size
-                if previous_size is not None and current_size <= previous_size:
+                if current_size <= previous_size:
                     continue
 
-                if previous_size is None:
-                    log_text = _read_log_tail(path)
-                else:
-                    with path.open("rb") as fh:
-                        fh.seek(previous_size)
-                        log_text = fh.read().decode("utf-8", errors="ignore")
+                with path.open("rb") as fh:
+                    fh.seek(previous_size)
+                    log_text = fh.read().decode("utf-8", errors="ignore")
+
+                prior_logs[path] = current_size
 
                 task_id = _parse_remote_task_id(
                     log_text,
