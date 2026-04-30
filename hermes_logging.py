@@ -387,3 +387,16 @@ def _read_logging_config():
     except Exception:
         pass
     return (None, None, None)
+
+
+def sanitize_for_log(value) -> str:
+    """Strip ASCII control chars from *value* before logging (CWE-117).
+
+    Prevents log-injection / multiline log spoofing by replacing ASCII
+    control characters (0x00–0x1F) and DEL (0x7F) with spaces.
+    """
+    if value is None:
+        return ""
+    return "".join(
+        " " if (ord(c) < 0x20 or ord(c) == 0x7F) else c for c in str(value)
+    )

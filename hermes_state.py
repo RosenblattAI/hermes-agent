@@ -23,6 +23,7 @@ import threading
 import time
 from pathlib import Path
 from hermes_constants import get_hermes_home
+from hermes_logging import sanitize_for_log as _sanitize_log_value
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
@@ -30,13 +31,6 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def _sanitize_log_value(value) -> str:
-    """Strip ASCII control chars before logging untrusted strings (CWE-117)."""
-    if value is None:
-        return ""
-    return "".join(
-        " " if (ord(c) < 0x20 or ord(c) == 0x7F) else c for c in str(value)
-    )
 
 DEFAULT_DB_PATH = get_hermes_home() / "state.db"
 
