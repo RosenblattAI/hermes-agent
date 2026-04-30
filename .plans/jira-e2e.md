@@ -39,7 +39,7 @@ New columns on `copilot_jobs`:
 New table: `copilot_job_hooks`
 - Rows: `id`, `job_id`, `hook_type` (`merge_gate`/`post_task`), `hook_url`, `hook_payload`, `state`, `fired_at`, `response_code`, `error_text`, `created_at`
 
-### `copilot_jobs/models.py`
+### `copilot_remote/models.py`
 
 - `JobState.TIMED_OUT`, `JobState.STOPPED` added; `is_terminal` property
   *(Note: the DB stores these as the lowercase strings `"timed_out"` and `"stopped"`.)*
@@ -58,10 +58,10 @@ New table: `copilot_job_hooks`
 | `fire_job_hook(hook_id, response_code)` | Mark hook fired/failed |
 | `skip_job_hooks(job_id, hook_type)` | Mark pending hooks skipped (on cancel) |
 
-### `copilot_jobs/launcher.py`
+### `copilot_remote/launcher.py`
 
-- `launch_copilot` accepts optional `db` parameter; persists `connect_id` after resolution
-- `_log_dir()` now uses `get_hermes_home()` instead of hardcoded `~/.hermes`
+- `connect_id` is persisted via `db.update_copilot_job_connect_id()` in `copilot_cmd.py` after `launch_copilot()` returns
+- `_log_dir()` uses `get_hermes_home()` instead of hardcoded `~/.hermes`
 
 ---
 
