@@ -669,7 +669,7 @@ def handle_copilot_remote_slash(raw_command: str) -> None:
         print(f"Launching copilot remote: {job_id}")
         print(f"  Repo: {repo}")
         if prompt:
-            preview = prompt[:80] + ("..." if len(prompt) > 80 else "")
+            preview = _sanitize_for_log(prompt[:80] + ("..." if len(prompt) > 80 else ""))
             print(f"  Prompt: {preview}")
 
         def _on_complete(session_id, exit_code):
@@ -751,7 +751,7 @@ def handle_copilot_remote_slash(raw_command: str) -> None:
             sid = _remote_connect_handle(job)
             if sid:
                 print(f"Connect:  copilot --connect={sid}")
-                print(f"Resume:   copilot --resume={sid}")
+                print(f"Resume:   copilot --resume={job['id']}")
             else:
                 print(
                     "Connect:  unavailable — Hermes did not extract a Copilot "
