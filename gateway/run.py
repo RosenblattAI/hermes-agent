@@ -4045,7 +4045,7 @@ class GatewayRunner:
                         pass
                     except Exception as exc:
                         logger.exception("Unhandled error in /copilot slash handler")
-                        return f"Error: {exc}"
+                        return "Error: /copilot command failed — see server logs for details."
                 return buf.getvalue().strip() or "Done."
 
             return await asyncio.to_thread(_run_copilot_command, event.text)

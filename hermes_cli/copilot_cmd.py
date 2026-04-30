@@ -362,6 +362,14 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
                 os.killpg(pgid, signal.SIGKILL)
             except OSError:
                 pass
+        # Give the kernel a moment to reap, then re-check.
+        time.sleep(0.2)
+        still_alive = [p for p in surviving if _pid_exists(p)]
+        if still_alive:
+            raise RuntimeError(
+                f"PIDs {still_alive} survived SIGKILL for job {job_id}; "
+                f"process may still be running."
+            )
 
     return True
 

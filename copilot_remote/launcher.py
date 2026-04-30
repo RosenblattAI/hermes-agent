@@ -8,11 +8,10 @@ soon as the prompt completes and never registers with the cloud relay.
 
 Because interactive mode renders a TUI, copilot is wrapped in
 ``script -qfc`` to allocate a PTY, with stdout/stderr captured to a log
-file. Hermes keeps its own pre-generated job ID for bookkeeping, but it
-does not force that UUID into Copilot via ``--resume``. Recent Copilot
-CLI builds treat ``--resume`` as a resume path where startup prompts do
-not auto-run, which would make ``/copilot_remote launch <prompt>`` open a
-remote session without executing the requested work.
+file. The pre-generated job UUID is passed to Copilot via ``--resume``
+so the session is registered under a known ID (enabling later
+``--connect`` calls).  Supplying ``--resume`` with a *new* UUID acts as a
+session *create*, not a *restore*, so startup prompts run normally.
 
 When launched for real (not via ``_spawn`` or ``dry_run``), the wrapper
 is fully detached (``start_new_session=True``). A shell wrapper runs
@@ -492,9 +491,10 @@ def launch_copilot(
             # Real path: fully detached process via shell wrapper.
             # Interactive mode (-i) needs a PTY for its TUI to render and
             # for --remote to register with the cloud relay, so wrap with
-            # ``script -eqfc`` which allocates a PTY and captures output.
-            # The ``-e`` flag propagates the child exit code so
-            # ``complete_job.py`` can record the correct terminal state.
+            # script(1) which allocates a PTY and captures output.
+            # util-linux script: -e propagates child exit code, -q quiet,
+            # -f flush, -c command.  BSD script (macOS): no -e/-f/-c flags;
+            # command follows logfile; exit code propagates by default.
             prior_logs = _snapshot_process_logs()
             log_path = _log_dir() / f"copilot-{session_id}.log"
             complete_script = str(
@@ -502,13 +502,12 @@ def launch_copilot(
             )
             python_bin = sys.executable
 
-            script_inner = shlex.join(cmd)
-            script_cmd = [
-                "script",
-                "-eqfc",
-                script_inner,
-                str(log_path),
-            ]
+            if sys.platform == "darwin":
+                # BSD script(1): script [-q] logfile command [args...]
+                script_cmd = ["script", "-q", str(log_path)] + cmd
+            else:
+                # util-linux script(1): -e propagates exit code
+                script_cmd = ["script", "-eqfc", shlex.join(cmd), str(log_path)]
 
             # Shell command: run copilot under script(1), capture exit
             # code, then update the DB via complete_job.py.
