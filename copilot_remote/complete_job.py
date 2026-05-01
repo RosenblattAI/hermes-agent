@@ -1,14 +1,11 @@
-"""Update copilot job state after the copilot process exits.
+"""Update copilot remote state after the copilot process exits.
 
 Called by the shell wrapper that ``launcher.py`` spawns.  Runs outside
 the original hermes process, so it must bootstrap its own DB connection.
 
 Usage::
 
-    python complete_job.py <session_id> <exit_code> [copilot_remote|copilot_jobs]
-
-The optional third argument selects which DB table/method to update.
-Defaults to ``copilot_remote`` for backward compatibility.
+    python complete_job.py <session_id> <exit_code>
 """
 
 import sys
@@ -22,7 +19,7 @@ if _AGENT_ROOT not in sys.path:
 from hermes_constants import get_hermes_home  # noqa: E402
 from hermes_state import SessionDB  # noqa: E402
 
-_ALLOWED_TABLES = frozenset({"copilot_remote", "copilot_jobs"})
+_ALLOWED_TABLES = frozenset({"copilot_remote"})
 
 
 def finish(session_id: str, exit_code: int, table: str = "copilot_remote") -> None:
@@ -36,10 +33,7 @@ def finish(session_id: str, exit_code: int, table: str = "copilot_remote") -> No
     # Use get_hermes_home() so profile-aware DB path is resolved at call time.
     db = SessionDB(db_path=get_hermes_home() / "state.db")
     try:
-        if table == "copilot_jobs":
-            db.finish_copilot_job(session_id, state=state, exit_code=exit_code)
-        else:
-            db.finish_copilot_remote(session_id, state=state, exit_code=exit_code)
+        db.finish_copilot_remote(session_id, state=state, exit_code=exit_code)
     finally:
         db.close()
 
@@ -47,7 +41,7 @@ def finish(session_id: str, exit_code: int, table: str = "copilot_remote") -> No
 def main() -> None:
     if len(sys.argv) not in (3, 4):
         print(
-            f"Usage: {sys.argv[0]} <session_id> <exit_code> [copilot_remote|copilot_jobs]",
+            f"Usage: {sys.argv[0]} <session_id> <exit_code>",
             file=sys.stderr,
         )
         sys.exit(1)

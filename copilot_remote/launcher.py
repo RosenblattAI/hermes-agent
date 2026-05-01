@@ -422,18 +422,12 @@ def launch_copilot(
     model: Optional[str] = None,
     dry_run: bool = False,
     on_complete: Optional[Callable[[str, int], None]] = None,
-    table: str = "copilot_remote",
     _spawn: Optional[Callable] = None,
 ) -> Dict[str, Any]:
     """Launch ``copilot -i`` with ``--remote`` for a repo.
 
     *session_id* is the hermes job ID used for DB tracking and log naming.
     Copilot gets its own fresh session so the startup prompt actually runs.
-
-    *table* selects which DB table ``complete_job.py`` updates on exit:
-    ``"copilot_remote"`` (default, for ``/copilot_remote`` slash-command
-    launches) or ``"copilot_jobs"`` (for ``hermes copilot launch`` which
-    uses the extended schema-v13 table with Jira/deadline/hooks fields).
 
     **Real launches** (no ``_spawn``): copilot runs fully detached via a
     shell wrapper that redirects stdout to a log file and calls
@@ -519,7 +513,7 @@ def launch_copilot(
                 f'{shlex.join(script_cmd)} > /dev/null 2>&1; '
                 f'_ec=$?; '
                 f'{shlex.quote(python_bin)} {shlex.quote(complete_script)} '
-                f'{shlex.quote(session_id)} $_ec {shlex.quote(table)}'
+                f'{shlex.quote(session_id)} $_ec'
             )
 
             proc = subprocess.Popen(

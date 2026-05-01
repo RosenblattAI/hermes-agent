@@ -183,7 +183,7 @@ class TestStopCommand:
     JOB_ID = "ffffffff-0000-0000-0000-000000000001"
 
     def _make_running_job(self, db):
-        db.create_copilot_job(
+        db.create_copilot_remote(
             job_id=self.JOB_ID, repo_slug="stop-repo", repo_path="/stop"
         )
         return self.JOB_ID
@@ -198,7 +198,7 @@ class TestStopCommand:
         assert "stopped" in out.lower()
 
         # DB state must be "stopped" (not "running" or "failed").
-        job = db.get_copilot_job(self.JOB_ID)
+        job = db.get_copilot_remote(self.JOB_ID)
         assert job["state"] == "stopped"
         assert job["error_text"] == "stopped by user"
 
@@ -226,7 +226,7 @@ class TestStopCommand:
     def test_stop_on_already_terminal_job_is_noop(self, db):
         """Calling stop on a 'done' job reports it is not running."""
         self._make_running_job(db)
-        db.finish_copilot_job(self.JOB_ID, state="done", exit_code=0)
+        db.finish_copilot_remote(self.JOB_ID, state="done", exit_code=0)
 
         with patch("hermes_cli.copilot_cmd._kill_copilot_procs", return_value=False) as mock_kill:
             out = _capture_copilot_slash(f"/copilot stop {self.JOB_ID}")
@@ -235,36 +235,36 @@ class TestStopCommand:
         mock_kill.assert_not_called()
         assert "not running" in out.lower()
         # State unchanged.
-        assert db.get_copilot_job(self.JOB_ID)["state"] == "done"
+        assert db.get_copilot_remote(self.JOB_ID)["state"] == "done"
 
     def test_complete_job_cannot_overwrite_stopped_state(self, db):
-        """finish_copilot_job is a no-op when the job is already in a terminal state."""
+        """finish_copilot_remote is a no-op when the job is already in a terminal state."""
         self._make_running_job(db)
 
         # Simulate stop setting state to "stopped".
-        rows = db.finish_copilot_job(self.JOB_ID, state="stopped", exit_code=-1,
-                                     error_text="stopped by user")
+        rows = db.finish_copilot_remote(self.JOB_ID, state="stopped", exit_code=-1,
+                                        error_text="stopped by user")
         assert rows == 1
 
         # Simulate complete_job.py arriving late and trying to overwrite with "failed".
-        rows2 = db.finish_copilot_job(self.JOB_ID, state="failed", exit_code=1)
+        rows2 = db.finish_copilot_remote(self.JOB_ID, state="failed", exit_code=1)
         assert rows2 == 0  # No rows updated — already terminal.
 
-        job = db.get_copilot_job(self.JOB_ID)
+        job = db.get_copilot_remote(self.JOB_ID)
         assert job["state"] == "stopped"          # unchanged
         assert job["error_text"] == "stopped by user"  # preserved
 
-    def test_finish_copilot_job_returns_1_on_first_transition(self, db):
-        """finish_copilot_job returns 1 when the job transitions from running."""
+    def test_finish_copilot_remote_returns_1_on_first_transition(self, db):
+        """finish_copilot_remote returns 1 when the job transitions from running."""
         self._make_running_job(db)
-        rows = db.finish_copilot_job(self.JOB_ID, state="done", exit_code=0)
+        rows = db.finish_copilot_remote(self.JOB_ID, state="done", exit_code=0)
         assert rows == 1
 
-    def test_finish_copilot_job_returns_0_on_repeat(self, db):
-        """finish_copilot_job returns 0 when called a second time."""
+    def test_finish_copilot_remote_returns_0_on_repeat(self, db):
+        """finish_copilot_remote returns 0 when called a second time."""
         self._make_running_job(db)
-        db.finish_copilot_job(self.JOB_ID, state="done", exit_code=0)
-        rows = db.finish_copilot_job(self.JOB_ID, state="done", exit_code=0)
+        db.finish_copilot_remote(self.JOB_ID, state="done", exit_code=0)
+        rows = db.finish_copilot_remote(self.JOB_ID, state="done", exit_code=0)
         assert rows == 0
 
     def test_stop_no_process_found_still_updates_db(self, db):
@@ -275,7 +275,7 @@ class TestStopCommand:
             out = _capture_copilot_slash(f"/copilot stop {self.JOB_ID}")
 
         assert "no live process" in out.lower()
-        assert db.get_copilot_job(self.JOB_ID)["state"] == "stopped"
+        assert db.get_copilot_remote(self.JOB_ID)["state"] == "stopped"
 
     def test_state_badge_stopped(self):
         """The 'stopped' state has a distinct badge."""
@@ -290,16 +290,16 @@ class TestStopCommand:
         self._make_running_job(db)
 
         # Simulate: complete_job.py wins the write lock and sets state="done".
-        db.finish_copilot_job(self.JOB_ID, state="done", exit_code=0)
+        db.finish_copilot_remote(self.JOB_ID, state="done", exit_code=0)
 
         # Now stop is called; kill succeeds but the DB update is a no-op.
         with patch("hermes_cli.copilot_cmd._kill_copilot_procs", return_value=True):
             out = _capture_copilot_slash(f"/copilot stop {self.JOB_ID}")
 
-        # stop already checked state="running" and saw "done" from get_copilot_job
+        # stop already checked state="running" and saw "done" from get_copilot_remote
         # — so it reported "already stopped" before even trying to kill.
         assert "not running" in out.lower()
-        assert db.get_copilot_job(self.JOB_ID)["state"] == "done"
+        assert db.get_copilot_remote(self.JOB_ID)["state"] == "done"
 
     def test_stop_calls_kill_with_job_id(self, db):
         """copilot_stop forwards the job_id to _kill_copilot_procs.
@@ -331,7 +331,7 @@ class TestStopCommand:
 
         assert "process discovery failed" in out
         # DB state must still be 'running' — we did not transition it.
-        assert db.get_copilot_job(self.JOB_ID)["state"] == "running"
+        assert db.get_copilot_remote(self.JOB_ID)["state"] == "running"
 
     def test_stop_aborts_db_write_on_signal_failure(self, db):
         """copilot_stop does NOT mark the job stopped when signals are rejected (e.g. PermissionError)."""
@@ -348,6 +348,6 @@ class TestStopCommand:
 
         # Must abort without touching the DB.
         assert "process discovery failed" in out
-        assert db.get_copilot_job(self.JOB_ID)["state"] == "running"
+        assert db.get_copilot_remote(self.JOB_ID)["state"] == "running"
 
 

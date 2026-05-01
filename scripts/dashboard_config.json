@@ -1,0 +1,42 @@
+{
+  "user": {
+    "display_name": "Andres",
+    "slack_user_id": "U08DAV8CXKJ",
+    "slack_dm_channel": "D0AUHJ0SFUZ",
+    "jira_email": "andres.zabala@rosenblatt.ai",
+    "jira_account_id": "712020:d1651414-d33b-464a-a70f-3583921856f0",
+    "timezone_offset_hours": -4,
+    "weather_lat": 25.7617,
+    "weather_lon": -80.1918,
+    "weather_location": "Miami, FL"
+  },
+  "boards": [
+    {
+      "key": "CON",
+      "label": "Product",
+      "emoji": ":handshake:",
+      "site": "https://rosenblatt-ai.atlassian.net",
+      "filter_by_assignee": false
+    }
+  ],
+  "channels": {
+    "news_channel": "C07D3G3U483",
+    "news_bot_id": "B0ASCELRWCR",
+    "council_channel": "C0AT03MJYV7"
+  },
+  "features": {
+    "news": true,
+    "dream_log": true,
+    "calendar": false,
+    "daily_thread": true,
+    "ticket_threads": true,
+    "weather": true,
+    "quote": true
+  },
+  "display": {
+    "summary_max_chars": 55,
+    "backlog_max_items": 4,
+    "done_max_items": 5,
+    "review_max_items": 5
+  }
+}

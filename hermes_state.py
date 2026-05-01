@@ -34,7 +34,7 @@ T = TypeVar("T")
 
 DEFAULT_DB_PATH = get_hermes_home() / "state.db"
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -113,48 +113,28 @@ CREATE TABLE IF NOT EXISTS copilot_remote (
     exit_code INTEGER,
     created_at REAL NOT NULL,
     finished_at REAL,
-    error_text TEXT
+    error_text TEXT,
+    -- Jira issue key that triggered this job (e.g. "PROJ-42"). NULL = not Jira-triggered.
+    jira_issue_key TEXT,
+    -- Wall-clock deadline (unix timestamp). NULL = no timeout.
+    deadline_at REAL,
+    -- If this is a retry, points to the original entry's id.
+    retry_of TEXT REFERENCES copilot_remote(id),
+    -- Number of times this entry itself has been retried (0 = never retried).
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    -- PID of the copilot process, used for reliable signalling. NULL for entries before schema v14.
+    pid INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_copilot_remote_state ON copilot_remote(state);
 CREATE INDEX IF NOT EXISTS idx_copilot_remote_repo ON copilot_remote(repo_slug, state);
 
-CREATE TABLE IF NOT EXISTS copilot_jobs (
+-- Lifecycle hooks: merge-gate and post-task callbacks registered per remote entry.
+CREATE TABLE IF NOT EXISTS copilot_remote_hooks (
     id TEXT PRIMARY KEY,
-    hermes_session_id TEXT REFERENCES sessions(id),
-    repo_slug TEXT NOT NULL,
-    repo_path TEXT NOT NULL,
-    prompt TEXT,
-    signal_source TEXT,
-    signal_ref TEXT,
-    -- Persisted remote task ID from GitHub Copilot cloud relay (--connect).
-    connect_id TEXT,
-    -- Jira issue key that triggered this job (e.g. "PROJ-42").
-    jira_issue_key TEXT,
-    -- Wall-clock deadline (unix timestamp). NULL = no timeout.
-    deadline_at REAL,
-    -- If this is a retry, points to the original job's id.
-    retry_of TEXT REFERENCES copilot_jobs(id),
-    -- Number of times this job itself has been retried (0 = never retried).
-    retry_count INTEGER NOT NULL DEFAULT 0,
-    state TEXT NOT NULL DEFAULT 'running',
-    exit_code INTEGER,
-    created_at REAL NOT NULL,
-    finished_at REAL,
-    error_text TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_copilot_jobs_state ON copilot_jobs(state);
-CREATE INDEX IF NOT EXISTS idx_copilot_jobs_repo ON copilot_jobs(repo_slug, state);
-
--- Lifecycle hooks: merge-gate and post-task callbacks registered per job.
-CREATE TABLE IF NOT EXISTS copilot_job_hooks (
-    id TEXT PRIMARY KEY,
-    job_id TEXT NOT NULL REFERENCES copilot_jobs(id),
+    remote_id TEXT NOT NULL REFERENCES copilot_remote(id),
     hook_type TEXT NOT NULL,
-    -- Webhook URL to call when the hook fires.
     hook_url TEXT NOT NULL,
-    -- Optional JSON payload template (may include {job_id}, {state} placeholders).
     hook_payload TEXT,
     state TEXT NOT NULL DEFAULT 'pending',
     fired_at REAL,
@@ -163,7 +143,7 @@ CREATE TABLE IF NOT EXISTS copilot_job_hooks (
     created_at REAL NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_copilot_job_hooks_job ON copilot_job_hooks(job_id);
+CREATE INDEX IF NOT EXISTS idx_copilot_remote_hooks_remote ON copilot_remote_hooks(remote_id);
 """
 
 FTS_SQL = """
@@ -335,13 +315,13 @@ class SessionDB:
         # try/except so fresh DB creation is as robust as the migration path.
         _partial_indexes = [
             (
-                "CREATE INDEX IF NOT EXISTS idx_copilot_jobs_deadline "
-                "ON copilot_jobs(deadline_at) "
+                "CREATE INDEX IF NOT EXISTS idx_copilot_remote_deadline "
+                "ON copilot_remote(deadline_at) "
                 "WHERE deadline_at IS NOT NULL AND state = 'running'"
             ),
             (
-                "CREATE INDEX IF NOT EXISTS idx_copilot_job_hooks_pending "
-                "ON copilot_job_hooks(state) WHERE state = 'pending'"
+                "CREATE INDEX IF NOT EXISTS idx_copilot_remote_hooks_pending "
+                "ON copilot_remote_hooks(state) WHERE state = 'pending'"
             ),
         ]
         for ddl in _partial_indexes:
@@ -680,6 +660,88 @@ class SessionDB:
                 except sqlite3.OperationalError:
                     pass
                 cursor.execute("UPDATE schema_version SET version = 13")
+            if current_version < 14:
+                # v14: consolidate copilot_jobs + copilot_job_hooks into copilot_remote.
+                # Add new columns to copilot_remote, migrate data, drop old tables.
+                for col, ddl in [
+                    ("jira_issue_key", "TEXT"),
+                    ("deadline_at", "REAL"),
+                    ("retry_of", "TEXT"),
+                    ("retry_count", "INTEGER NOT NULL DEFAULT 0"),
+                    ("pid", "INTEGER"),
+                ]:
+                    try:
+                        cursor.execute(
+                            f"ALTER TABLE copilot_remote ADD COLUMN {col} {ddl}"
+                        )
+                    except sqlite3.OperationalError:
+                        pass  # column already exists
+                # Create copilot_remote_hooks if not present
+                cursor.executescript("""
+                    CREATE TABLE IF NOT EXISTS copilot_remote_hooks (
+                        id TEXT PRIMARY KEY,
+                        remote_id TEXT NOT NULL REFERENCES copilot_remote(id),
+                        hook_type TEXT NOT NULL,
+                        hook_url TEXT NOT NULL,
+                        hook_payload TEXT,
+                        state TEXT NOT NULL DEFAULT 'pending',
+                        fired_at REAL,
+                        response_code INTEGER,
+                        error_text TEXT,
+                        created_at REAL NOT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_copilot_remote_hooks_remote
+                        ON copilot_remote_hooks(remote_id);
+                """)
+                # Migrate copilot_jobs rows → copilot_remote (connect_id maps to connect_handle)
+                try:
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO copilot_remote
+                            (id, hermes_session_id, repo_slug, repo_path, prompt,
+                             signal_source, signal_ref, connect_handle,
+                             jira_issue_key, deadline_at, retry_of, retry_count,
+                             state, exit_code, created_at, finished_at, error_text)
+                        SELECT id, hermes_session_id, repo_slug, repo_path, prompt,
+                               signal_source, signal_ref, connect_id,
+                               jira_issue_key, deadline_at, retry_of, retry_count,
+                               state, exit_code, created_at, finished_at, error_text
+                        FROM copilot_jobs
+                    """)
+                except sqlite3.OperationalError:
+                    pass  # copilot_jobs didn't exist on this DB
+                # Migrate copilot_job_hooks rows → copilot_remote_hooks
+                try:
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO copilot_remote_hooks
+                            (id, remote_id, hook_type, hook_url, hook_payload,
+                             state, fired_at, response_code, error_text, created_at)
+                        SELECT id, job_id, hook_type, hook_url, hook_payload,
+                               state, fired_at, response_code, error_text, created_at
+                        FROM copilot_job_hooks
+                    """)
+                except sqlite3.OperationalError:
+                    pass  # copilot_job_hooks didn't exist on this DB
+                # Drop old tables
+                try:
+                    cursor.execute("DROP TABLE IF EXISTS copilot_job_hooks")
+                except sqlite3.OperationalError:
+                    pass
+                try:
+                    cursor.execute("DROP TABLE IF EXISTS copilot_jobs")
+                except sqlite3.OperationalError:
+                    pass
+                try:
+                    cursor.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_copilot_remote_deadline "
+                        "ON copilot_remote(deadline_at) WHERE deadline_at IS NOT NULL"
+                    )
+                    cursor.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_copilot_remote_hooks_pending "
+                        "ON copilot_remote_hooks(state) WHERE state = 'pending'"
+                    )
+                except sqlite3.OperationalError:
+                    pass
+                cursor.execute("UPDATE schema_version SET version = 14")
 
         # Unique title index — always ensure it exists (safe to run after migrations
         # since the title column is guaranteed to exist at this point)
@@ -2001,6 +2063,10 @@ class SessionDB:
         signal_ref: str = None,
         hermes_session_id: str = None,
         connect_handle: str = None,
+        jira_issue_key: Optional[str] = None,
+        deadline_at: Optional[float] = None,
+        retry_of: Optional[str] = None,
+        pid: Optional[int] = None,
     ) -> str:
         """Create a new copilot remote in 'running' state. Returns the job_id.
 
@@ -2008,17 +2074,35 @@ class SessionDB:
         ID) and is never overwritten by the launcher. ``connect_handle``
         stores the value used for ``copilot --connect=<handle>`` /
         ``--resume=<handle>`` and is set / updated by the launcher only.
+
+        *jira_issue_key*: source Jira issue (e.g. ``"PROJ-42"``).
+
+        *deadline_at*: unix timestamp after which the entry should be
+          considered timed-out.  ``None`` means no timeout.
+
+        *retry_of*: ID of the original entry this is retrying; the original
+          entry's ``retry_count`` is incremented atomically.
+
+        *pid*: PID of the copilot process for reliable signalling.
         """
         now = time.time()
         def _do(conn):
             conn.execute(
                 """INSERT INTO copilot_remote
                    (id, hermes_session_id, repo_slug, repo_path, prompt,
-                    signal_source, signal_ref, connect_handle, state, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running', ?)""",
+                    signal_source, signal_ref, connect_handle,
+                    jira_issue_key, deadline_at, retry_of, pid,
+                    state, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', ?)""",
                 (job_id, hermes_session_id, repo_slug, repo_path, prompt,
-                 signal_source, signal_ref, connect_handle, now),
+                 signal_source, signal_ref, connect_handle,
+                 jira_issue_key, deadline_at, retry_of, pid, now),
             )
+            if retry_of:
+                conn.execute(
+                    "UPDATE copilot_remote SET retry_count = retry_count + 1 WHERE id = ?",
+                    (retry_of,),
+                )
         self._execute_write(_do)
         return job_id
 
@@ -2028,18 +2112,27 @@ class SessionDB:
         state: str,
         exit_code: int = None,
         error_text: str = None,
-    ) -> None:
-        """Mark a copilot remote as done or failed with results."""
+    ) -> int:
+        """Transition a copilot remote from 'running' to a terminal state.
+
+        Only updates rows whose current state is 'running', making the
+        transition idempotent and safe against races between complete_job.py
+        and a concurrent stop call.
+
+        Returns the number of rows updated (1 on success, 0 if the entry was
+        already in a terminal state).
+        """
         now = time.time()
         def _do(conn):
-            conn.execute(
+            cursor = conn.execute(
                 """UPDATE copilot_remote
                    SET state = ?, exit_code = ?,
                        finished_at = ?, error_text = ?
-                   WHERE id = ?""",
+                   WHERE id = ? AND state = 'running'""",
                 (state, exit_code, now, error_text, job_id),
             )
-        self._execute_write(_do)
+            return cursor.rowcount
+        return self._execute_write(_do)
 
     def update_copilot_remote_connect_handle(
         self,
@@ -2056,6 +2149,37 @@ class SessionDB:
             conn.execute(
                 "UPDATE copilot_remote SET connect_handle = ? WHERE id = ?",
                 (connect_handle, job_id),
+            )
+        self._execute_write(_do)
+
+    def update_copilot_remote_signal_ref(
+        self,
+        job_id: str,
+        signal_ref: str,
+    ) -> None:
+        """Store caller-supplied metadata (e.g. a Jira key or webhook ID) for a copilot remote.
+
+        ``signal_ref`` is opaque trigger metadata — it is NOT a Copilot
+        connect/resume handle.  Use :meth:`update_copilot_remote_connect_handle`
+        for the reconnect handle stored in ``connect_handle``.
+        """
+        def _do(conn):
+            conn.execute(
+                "UPDATE copilot_remote SET signal_ref = ? WHERE id = ?",
+                (signal_ref, job_id),
+            )
+        self._execute_write(_do)
+
+    def update_copilot_remote_pid(
+        self,
+        job_id: str,
+        pid: int,
+    ) -> None:
+        """Persist the PID of the copilot process for reliable signalling."""
+        def _do(conn):
+            conn.execute(
+                "UPDATE copilot_remote SET pid = ? WHERE id = ?",
+                (pid, job_id),
             )
         self._execute_write(_do)
 
@@ -2087,6 +2211,195 @@ class SessionDB:
                     (limit,),
                 )
             return [dict(row) for row in cursor.fetchall()]
+
+    def expire_timed_out_remotes(self, now: float = None) -> List[str]:
+        """Mark all running entries past their ``deadline_at`` as ``timed_out``.
+
+        Designed to be called periodically (e.g. every minute) by a scheduler
+        or background thread.  Returns the list of entry IDs that were expired.
+
+        *now* defaults to ``time.time()`` and is injectable for testing.
+        """
+        if now is None:
+            now = time.time()
+        expired_ids: List[str] = []
+
+        def _do(conn):
+            cursor = conn.execute(
+                """SELECT id FROM copilot_remote
+                   WHERE state = 'running'
+                     AND deadline_at IS NOT NULL
+                     AND deadline_at <= ?""",
+                (now,),
+            )
+            ids = [row["id"] for row in cursor.fetchall()]
+            if ids:
+                placeholders = ",".join("?" * len(ids))
+                conn.execute(
+                    f"""UPDATE copilot_remote
+                           SET state = 'timed_out', finished_at = ?
+                         WHERE id IN ({placeholders}) AND state = 'running'""",
+                    [now, *ids],
+                )
+            return ids
+
+        expired_ids = self._execute_write(_do)
+        if expired_ids:
+            safe_ids = [_sanitize_log_value(jid) for jid in expired_ids]
+            logger.info("Expired %d timed-out copilot remote(s): %s", len(safe_ids), safe_ids)
+        return expired_ids
+
+    def retry_copilot_remote(
+        self,
+        original_job_id: str,
+        new_job_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Create a retry of *original_job_id* as a new running entry.
+
+        Copies repo, prompt, signal, Jira key, and deadline from the original
+        into a fresh row, linking it via ``retry_of``.  Increments
+        ``retry_count`` on the original atomically.
+
+        Returns the new entry dict, or ``None`` if the original was not found.
+        This is a low-level primitive — callers are responsible for re-launching
+        the Copilot process.
+        """
+        now = time.time()
+
+        def _do(conn):
+            row = conn.execute(
+                "SELECT * FROM copilot_remote WHERE id = ?", (original_job_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            orig = dict(row)
+            conn.execute(
+                """INSERT INTO copilot_remote
+                   (id, hermes_session_id, repo_slug, repo_path, prompt,
+                    signal_source, signal_ref, jira_issue_key,
+                    deadline_at, retry_of, state, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', ?)""",
+                (
+                    new_job_id,
+                    orig.get("hermes_session_id"),
+                    orig["repo_slug"],
+                    orig["repo_path"],
+                    orig.get("prompt"),
+                    orig.get("signal_source"),
+                    orig.get("signal_ref"),
+                    orig.get("jira_issue_key"),
+                    orig.get("deadline_at"),
+                    original_job_id,
+                    now,
+                ),
+            )
+            conn.execute(
+                "UPDATE copilot_remote SET retry_count = retry_count + 1 WHERE id = ?",
+                (original_job_id,),
+            )
+            new_row = conn.execute(
+                "SELECT * FROM copilot_remote WHERE id = ?", (new_job_id,)
+            ).fetchone()
+            return dict(new_row) if new_row else None
+
+        return self._execute_write(_do)
+
+    # =========================================================================
+    # Copilot remote hooks (merge-gate, post-task)
+    # =========================================================================
+
+    def register_remote_hook(
+        self,
+        hook_id: str,
+        remote_id: str,
+        hook_type: str,
+        hook_url: str,
+        hook_payload: str = None,
+    ) -> str:
+        """Register a lifecycle hook for a copilot remote entry.
+
+        *hook_type* should be ``'merge_gate'`` or ``'post_task'``.
+        *hook_url* is the webhook endpoint to call when the hook fires.
+        *hook_payload* is an optional JSON string (may contain ``{job_id}``
+        and ``{state}`` placeholders for the caller to expand at fire-time).
+
+        Returns the *hook_id*.
+        """
+        now = time.time()
+        def _do(conn):
+            conn.execute(
+                """INSERT INTO copilot_remote_hooks
+                   (id, remote_id, hook_type, hook_url, hook_payload, state, created_at)
+                   VALUES (?, ?, ?, ?, ?, 'pending', ?)""",
+                (hook_id, remote_id, hook_type, hook_url, hook_payload, now),
+            )
+        self._execute_write(_do)
+        return hook_id
+
+    def get_pending_remote_hooks(
+        self,
+        remote_id: str = None,
+        hook_type: str = None,
+    ) -> List[Dict[str, Any]]:
+        """Return pending remote hooks, optionally filtered by remote_id and/or type."""
+        parts = ["state = 'pending'"]
+        params: list = []
+        if remote_id:
+            parts.append("remote_id = ?")
+            params.append(remote_id)
+        if hook_type:
+            parts.append("hook_type = ?")
+            params.append(hook_type)
+        where = " AND ".join(parts)
+        with self._lock:
+            cursor = self._conn.execute(
+                f"SELECT * FROM copilot_remote_hooks WHERE {where} ORDER BY created_at",
+                params,
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def fire_remote_hook(
+        self,
+        hook_id: str,
+        response_code: int,
+        error_text: str = None,
+    ) -> int:
+        """Record the outcome of firing a remote hook.
+
+        Sets ``state`` to ``'fired'`` on HTTP 2xx, ``'failed'`` otherwise.
+        Returns the number of rows updated (1 on success, 0 if not found
+        or already fired).
+        """
+        now = time.time()
+        new_state = "fired" if 200 <= response_code < 300 else "failed"
+        def _do(conn):
+            cursor = conn.execute(
+                """UPDATE copilot_remote_hooks
+                   SET state = ?, fired_at = ?, response_code = ?, error_text = ?
+                   WHERE id = ? AND state = 'pending'""",
+                (new_state, now, response_code, error_text, hook_id),
+            )
+            return cursor.rowcount
+        return self._execute_write(_do)
+
+    def skip_remote_hooks(self, remote_id: str, hook_type: str = None) -> int:
+        """Mark pending hooks for a remote entry as skipped (e.g. entry cancelled).
+
+        Returns the number of hooks updated.
+        """
+        parts = ["remote_id = ?", "state = 'pending'"]
+        params: list = [remote_id]
+        if hook_type:
+            parts.append("hook_type = ?")
+            params.append(hook_type)
+        where = " AND ".join(parts)
+        def _do(conn):
+            cursor = conn.execute(
+                f"UPDATE copilot_remote_hooks SET state = 'skipped' WHERE {where}",
+                params,
+            )
+            return cursor.rowcount
+        return self._execute_write(_do)
 
     # ── Meta key/value (for scheduler bookkeeping) ──
 
@@ -2207,337 +2520,3 @@ class SessionDB:
             result["error"] = str(exc)
 
         return result
-
-    # =========================================================================
-    # Copilot job lifecycle
-    # =========================================================================
-
-    def create_copilot_job(
-        self,
-        job_id: str,
-        repo_slug: str,
-        repo_path: str,
-        prompt: Optional[str] = None,
-        signal_source: Optional[str] = None,
-        signal_ref: Optional[str] = None,
-        hermes_session_id: Optional[str] = None,
-        connect_id: Optional[str] = None,
-        jira_issue_key: Optional[str] = None,
-        deadline_at: Optional[float] = None,
-        retry_of: Optional[str] = None,
-    ) -> str:
-        """Create a new copilot job in 'running' state. Returns the job_id.
-
-        *connect_id*: remote task ID from the GitHub Copilot cloud relay.
-          Can be set later via :meth:`update_copilot_job_connect_id` once
-          the launcher resolves it from the process logs.
-
-        *jira_issue_key*: source Jira issue (e.g. ``"PROJ-42"``).
-
-        *deadline_at*: unix timestamp after which the job should be
-          considered timed-out.  ``None`` means no timeout.
-
-        *retry_of*: ID of the original job this is retrying; the original
-          job's ``retry_count`` is incremented atomically.
-        """
-        now = time.time()
-        def _do(conn):
-            conn.execute(
-                """INSERT INTO copilot_jobs
-                   (id, hermes_session_id, repo_slug, repo_path, prompt,
-                    signal_source, signal_ref, connect_id, jira_issue_key,
-                    deadline_at, retry_of, state, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', ?)""",
-                (job_id, hermes_session_id, repo_slug, repo_path, prompt,
-                 signal_source, signal_ref, connect_id, jira_issue_key,
-                 deadline_at, retry_of, now),
-            )
-            if retry_of:
-                conn.execute(
-                    "UPDATE copilot_jobs SET retry_count = retry_count + 1 WHERE id = ?",
-                    (retry_of,),
-                )
-        self._execute_write(_do)
-        return job_id
-
-    def finish_copilot_job(
-        self,
-        job_id: str,
-        state: str,
-        exit_code: int = None,
-        error_text: str = None,
-    ) -> int:
-        """Transition a copilot job from 'running' to a terminal state.
-
-        Only updates rows whose current state is 'running', making the
-        transition idempotent and safe against races between complete_job.py
-        and a concurrent ``hermes copilot stop`` call.
-
-        Returns the number of rows updated (1 on success, 0 if the job was
-        already in a terminal state).
-        """
-        now = time.time()
-        def _do(conn):
-            cursor = conn.execute(
-                """UPDATE copilot_jobs
-                   SET state = ?, exit_code = ?,
-                       finished_at = ?, error_text = ?
-                   WHERE id = ? AND state = 'running'""",
-                (state, exit_code, now, error_text, job_id),
-            )
-            return cursor.rowcount
-        return self._execute_write(_do)
-
-    def update_copilot_job_signal_ref(
-        self,
-        job_id: str,
-        signal_ref: str,
-    ) -> None:
-        """Store caller-supplied metadata (e.g. a Jira key or webhook ID) for a copilot job.
-
-        ``signal_ref`` is opaque trigger metadata — it is NOT a Copilot
-        connect/resume handle.  Use :meth:`update_copilot_job_connect_id`
-        for the reconnect handle stored in ``connect_id``.
-        """
-        def _do(conn):
-            conn.execute(
-                "UPDATE copilot_jobs SET signal_ref = ? WHERE id = ?",
-                (signal_ref, job_id),
-            )
-        self._execute_write(_do)
-
-    def update_copilot_job_connect_id(
-        self,
-        job_id: str,
-        connect_id: str,
-    ) -> None:
-        """Persist the remote task ID resolved from the Copilot process logs.
-
-        Called by the launcher after :func:`_wait_for_remote_task_id` returns
-        a value so that the connect handle is durably stored for --connect
-        resumption and tracing.
-        """
-        def _do(conn):
-            conn.execute(
-                "UPDATE copilot_jobs SET connect_id = ? WHERE id = ?",
-                (connect_id, job_id),
-            )
-        self._execute_write(_do)
-
-    def get_copilot_job(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Get a copilot job by ID."""
-        with self._lock:
-            cursor = self._conn.execute(
-                "SELECT * FROM copilot_jobs WHERE id = ?", (job_id,)
-            )
-            row = cursor.fetchone()
-        return dict(row) if row else None
-
-    def list_copilot_jobs(
-        self,
-        state: str = None,
-        limit: int = 50,
-    ) -> List[Dict[str, Any]]:
-        """List copilot jobs, optionally filtered by state."""
-        with self._lock:
-            if state:
-                cursor = self._conn.execute(
-                    "SELECT * FROM copilot_jobs WHERE state = ? "
-                    "ORDER BY created_at DESC LIMIT ?",
-                    (state, limit),
-                )
-            else:
-                cursor = self._conn.execute(
-                    "SELECT * FROM copilot_jobs ORDER BY created_at DESC LIMIT ?",
-                    (limit,),
-                )
-            return [dict(row) for row in cursor.fetchall()]
-
-    def expire_timed_out_jobs(self, now: float = None) -> List[str]:
-        """Mark all running jobs past their ``deadline_at`` as ``timed_out``.
-
-        Designed to be called periodically (e.g. every minute) by a scheduler
-        or background thread.  Returns the list of job IDs that were expired.
-
-        *now* defaults to ``time.time()`` and is injectable for testing.
-        """
-        if now is None:
-            now = time.time()
-        expired_ids: List[str] = []
-
-        def _do(conn):
-            cursor = conn.execute(
-                """SELECT id FROM copilot_jobs
-                   WHERE state = 'running'
-                     AND deadline_at IS NOT NULL
-                     AND deadline_at <= ?""",
-                (now,),
-            )
-            ids = [row["id"] for row in cursor.fetchall()]
-            if ids:
-                placeholders = ",".join("?" * len(ids))
-                conn.execute(
-                    f"""UPDATE copilot_jobs
-                           SET state = 'timed_out', finished_at = ?
-                         WHERE id IN ({placeholders}) AND state = 'running'""",
-                    [now, *ids],
-                )
-            return ids
-
-        expired_ids = self._execute_write(_do)
-        if expired_ids:
-            safe_ids = [_sanitize_log_value(jid) for jid in expired_ids]
-            logger.info("Expired %d timed-out copilot job(s): %s", len(safe_ids), safe_ids)
-        return expired_ids
-
-    def retry_copilot_job(
-        self,
-        original_job_id: str,
-        new_job_id: str,
-    ) -> Optional[Dict[str, Any]]:
-        """Create a retry of *original_job_id* as a new running job.
-
-        Copies repo, prompt, signal, Jira key, and deadline from the original
-        into a fresh job row, linking it via ``retry_of``.  Increments
-        ``retry_count`` on the original atomically.
-
-        Returns the new job dict, or ``None`` if the original was not found.
-        This is a low-level primitive — callers are responsible for re-launching
-        the Copilot process.
-        """
-        now = time.time()
-
-        def _do(conn):
-            row = conn.execute(
-                "SELECT * FROM copilot_jobs WHERE id = ?", (original_job_id,)
-            ).fetchone()
-            if row is None:
-                return None
-            orig = dict(row)
-            conn.execute(
-                """INSERT INTO copilot_jobs
-                   (id, hermes_session_id, repo_slug, repo_path, prompt,
-                    signal_source, signal_ref, jira_issue_key,
-                    deadline_at, retry_of, state, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', ?)""",
-                (
-                    new_job_id,
-                    orig.get("hermes_session_id"),
-                    orig["repo_slug"],
-                    orig["repo_path"],
-                    orig.get("prompt"),
-                    orig.get("signal_source"),
-                    orig.get("signal_ref"),
-                    orig.get("jira_issue_key"),
-                    orig.get("deadline_at"),
-                    original_job_id,
-                    now,
-                ),
-            )
-            conn.execute(
-                "UPDATE copilot_jobs SET retry_count = retry_count + 1 WHERE id = ?",
-                (original_job_id,),
-            )
-            new_row = conn.execute(
-                "SELECT * FROM copilot_jobs WHERE id = ?", (new_job_id,)
-            ).fetchone()
-            return dict(new_row) if new_row else None
-
-        return self._execute_write(_do)
-
-    # =========================================================================
-    # Copilot job hooks (merge-gate, post-task)
-    # =========================================================================
-
-    def register_job_hook(
-        self,
-        hook_id: str,
-        job_id: str,
-        hook_type: str,
-        hook_url: str,
-        hook_payload: str = None,
-    ) -> str:
-        """Register a lifecycle hook for a copilot job.
-
-        *hook_type* should be ``'merge_gate'`` or ``'post_task'``.
-        *hook_url* is the webhook endpoint to call when the hook fires.
-        *hook_payload* is an optional JSON string (may contain ``{job_id}``
-        and ``{state}`` placeholders for the caller to expand at fire-time).
-
-        Returns the *hook_id*.
-        """
-        now = time.time()
-        def _do(conn):
-            conn.execute(
-                """INSERT INTO copilot_job_hooks
-                   (id, job_id, hook_type, hook_url, hook_payload, state, created_at)
-                   VALUES (?, ?, ?, ?, ?, 'pending', ?)""",
-                (hook_id, job_id, hook_type, hook_url, hook_payload, now),
-            )
-        self._execute_write(_do)
-        return hook_id
-
-    def get_pending_hooks(
-        self,
-        job_id: str = None,
-        hook_type: str = None,
-    ) -> List[Dict[str, Any]]:
-        """Return pending hooks, optionally filtered by job and/or type."""
-        parts = ["state = 'pending'"]
-        params: list = []
-        if job_id:
-            parts.append("job_id = ?")
-            params.append(job_id)
-        if hook_type:
-            parts.append("hook_type = ?")
-            params.append(hook_type)
-        where = " AND ".join(parts)
-        with self._lock:
-            cursor = self._conn.execute(
-                f"SELECT * FROM copilot_job_hooks WHERE {where} ORDER BY created_at",
-                params,
-            )
-            return [dict(row) for row in cursor.fetchall()]
-
-    def fire_job_hook(
-        self,
-        hook_id: str,
-        response_code: int,
-        error_text: str = None,
-    ) -> int:
-        """Record the outcome of firing a hook.
-
-        Sets ``state`` to ``'fired'`` on HTTP 2xx, ``'failed'`` otherwise.
-        Returns the number of rows updated (1 on success, 0 if not found
-        or already fired).
-        """
-        now = time.time()
-        new_state = "fired" if 200 <= response_code < 300 else "failed"
-        def _do(conn):
-            cursor = conn.execute(
-                """UPDATE copilot_job_hooks
-                   SET state = ?, fired_at = ?, response_code = ?, error_text = ?
-                   WHERE id = ? AND state = 'pending'""",
-                (new_state, now, response_code, error_text, hook_id),
-            )
-            return cursor.rowcount
-        return self._execute_write(_do)
-
-    def skip_job_hooks(self, job_id: str, hook_type: str = None) -> int:
-        """Mark pending hooks for a job as skipped (e.g. job cancelled).
-
-        Returns the number of hooks updated.
-        """
-        parts = ["job_id = ?", "state = 'pending'"]
-        params: list = [job_id]
-        if hook_type:
-            parts.append("hook_type = ?")
-            params.append(hook_type)
-        where = " AND ".join(parts)
-        def _do(conn):
-            cursor = conn.execute(
-                f"UPDATE copilot_job_hooks SET state = 'skipped' WHERE {where}",
-                params,
-            )
-            return cursor.rowcount
-        return self._execute_write(_do)

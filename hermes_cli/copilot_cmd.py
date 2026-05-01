@@ -110,7 +110,7 @@ def copilot_launch(args):
     job_id = str(uuid.uuid4())
 
     # Create job record
-    db.create_copilot_job(
+    db.create_copilot_remote(
         job_id=job_id,
         repo_slug=repo,
         repo_path=repo_path,
@@ -131,7 +131,7 @@ def copilot_launch(args):
         try:
             state = "done" if exit_code == 0 else "failed"
             finish_db = _get_db()
-            finish_db.finish_copilot_job(
+            finish_db.finish_copilot_remote(
                 job_id,
                 state=state,
                 exit_code=exit_code,
@@ -152,18 +152,17 @@ def copilot_launch(args):
             model=model,
             dry_run=getattr(args, "dry_run", False),
             on_complete=_on_complete,
-            table="copilot_jobs",
         )
     except Exception as exc:
         from agent.redact import redact_sensitive_text
         error_text = _sanitize_for_log(redact_sensitive_text(str(exc)))
-        db.finish_copilot_job(job_id, state="failed", error_text=error_text)
+        db.finish_copilot_remote(job_id, state="failed", error_text=error_text)
         db.close()
         raise exc.__class__(error_text).with_traceback(exc.__traceback__) from None
 
     connect_id = result.get("connect_id")
     if connect_id:
-        db.update_copilot_job_connect_id(job_id, connect_id)
+        db.update_copilot_remote_connect_handle(job_id, connect_id)
 
     # For dry-run, the process already completed synchronously.
     if getattr(args, "dry_run", False):
@@ -185,7 +184,7 @@ def copilot_list(args):
 
     db = _get_db()
     try:
-        jobs = db.list_copilot_jobs(state=state, limit=limit)
+        jobs = db.list_copilot_remote(state=state, limit=limit)
         if not jobs:
             print("No copilot jobs found.")
             return
@@ -210,7 +209,7 @@ def copilot_show(args):
 
     db = _get_db()
     try:
-        job = db.get_copilot_job(job_id)
+        job = db.get_copilot_remote(job_id)
         if not job:
             print(f"Error: Job not found: {job_id}", file=sys.stderr)
             sys.exit(1)
@@ -226,7 +225,7 @@ def copilot_show(args):
             preview = _sanitize_for_log(raw)
             print(f"Prompt:   {preview}")
 
-        sid = job.get("connect_id")
+        sid = job.get("connect_handle")
         if sid:
             print(f"Connect:  copilot --connect={sid}")
         print(f"Resume:   copilot --resume={job['id']}")
@@ -398,7 +397,7 @@ def copilot_stop(args):
 
     db = _get_db()
     try:
-        job = db.get_copilot_job(job_id)
+        job = db.get_copilot_remote(job_id)
         if not job:
             print(f"Error: Job not found: {job_id}", file=sys.stderr)
             sys.exit(1)
@@ -421,14 +420,14 @@ def copilot_stop(args):
             )
             sys.exit(1)
 
-        updated = db.finish_copilot_job(
+        updated = db.finish_copilot_remote(
             job_id,
             state="stopped",
             exit_code=-1,
             error_text="stopped by user",
         )
         if updated:
-            db.skip_job_hooks(job_id)
+            db.skip_remote_hooks(job_id)
 
         if killed:
             print(f"  Process tree terminated.")
@@ -442,7 +441,7 @@ def copilot_stop(args):
             print(f"  State: {_state_badge('stopped')}")
         else:
             # complete_job.py raced and already wrote a terminal state.
-            current = db.get_copilot_job(job_id)
+            current = db.get_copilot_remote(job_id)
             current_state = current["state"] if current else "unknown"
             print(
                 f"  Job exited on its own before the DB update; "
@@ -578,9 +577,8 @@ def handle_copilot_slash(raw_command: str) -> None:
 def handle_copilot_remote_slash(raw_command: str) -> None:
     """Handle /copilot_remote slash command from an interactive Hermes session.
 
-    Uses the ``copilot_remote`` package and DB table (distinct from the
-    ``copilot_jobs`` implementation above).  Parses the raw command text
-    and dispatches to the appropriate handler.  Uses ``shlex.split`` so
+    Uses the ``copilot_remote`` package and DB table.  Parses the raw command
+    text and dispatches to the appropriate handler.  Uses ``shlex.split`` so
     quoted prompts (and any path argument containing spaces) are
     preserved as a single token instead of being shattered on whitespace.
     """

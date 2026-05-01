@@ -27,12 +27,6 @@ def _make_remote(db: SessionDB) -> str:
     return sid
 
 
-def _make_job(db: SessionDB) -> str:
-    sid = str(uuid.uuid4())
-    db.create_copilot_job(sid, repo_slug="acme/test", repo_path="/tmp", prompt="test")
-    return sid
-
-
 # ---------------------------------------------------------------------------
 # Unit tests for finish() — copilot_remote table (default)
 # ---------------------------------------------------------------------------
@@ -71,38 +65,6 @@ class TestFinishRemote:
 
 
 # ---------------------------------------------------------------------------
-# Unit tests for finish() — copilot_jobs table
-# ---------------------------------------------------------------------------
-
-class TestFinishJobs:
-    def test_exit_zero_marks_done(self):
-        db = SessionDB(db_path=_hermes_db_path())
-        sid = _make_job(db)
-        db.close()
-
-        finish(sid, exit_code=0, table="copilot_jobs")
-
-        db2 = SessionDB(db_path=_hermes_db_path())
-        row = db2.get_copilot_job(sid)
-        db2.close()
-        assert row["state"] == "done"
-        assert row["exit_code"] == 0
-
-    def test_nonzero_exit_marks_failed(self):
-        db = SessionDB(db_path=_hermes_db_path())
-        sid = _make_job(db)
-        db.close()
-
-        finish(sid, exit_code=2, table="copilot_jobs")
-
-        db2 = SessionDB(db_path=_hermes_db_path())
-        row = db2.get_copilot_job(sid)
-        db2.close()
-        assert row["state"] == "failed"
-        assert row["exit_code"] == 2
-
-
-# ---------------------------------------------------------------------------
 # Integration tests: real subprocess invocation
 # ---------------------------------------------------------------------------
 
@@ -132,19 +94,6 @@ class TestCompleteJobSubprocess:
 
         db2 = SessionDB(db_path=_hermes_db_path())
         row = db2.get_copilot_remote(sid)
-        db2.close()
-        assert row["state"] == "done"
-
-    def test_subprocess_marks_jobs_table_done(self):
-        db = SessionDB(db_path=_hermes_db_path())
-        sid = _make_job(db)
-        db.close()
-
-        result = self._run(sid, "0", "copilot_jobs")
-        assert result.returncode == 0, result.stderr
-
-        db2 = SessionDB(db_path=_hermes_db_path())
-        row = db2.get_copilot_job(sid)
         db2.close()
         assert row["state"] == "done"
 
