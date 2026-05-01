@@ -24,7 +24,7 @@ You are writing a patch that will land in the Rosenblatt fork of `NousResearch/h
 
 `hermes-agent` has a deep extension surface, and most of it is **auto-discovered** — meaning you can add new functionality without editing any existing file. Before modifying anything, check whether one of these seams fits:
 
-- **Tool registration (auto-discovery, no manual list edit).** Drop a new `*.py` file in `tools/` containing a top-level `registry.register(...)` call. The registry's `discover_builtin_tools()` (`tools/registry.py:56`) uses AST inspection to find every `tools/*.py` file with such a call and imports it at startup. Called from `model_tools.py:132`. **You do not need to edit `model_tools.py` or any other registry file** to add a tool — just drop the file. Pattern (see `tools/web_tools.py` for a real example):
+- **Tool registration (auto-discovery, no manual list edit).** Drop a new `*.py` file in `tools/` containing a top-level `registry.register(...)` call. The registry's `discover_builtin_tools()` function (in `tools/registry.py`) uses AST inspection to find every `tools/*.py` file with such a call and imports it at startup. Called from `model_tools.py` during module import. **You do not need to edit `model_tools.py` or any other registry file** to add a tool — just drop the file. Pattern (see `tools/web_tools.py` for a real example):
   ```python
   from tools.registry import registry
 
@@ -47,12 +47,8 @@ You are writing a patch that will land in the Rosenblatt fork of `NousResearch/h
   2. **Project plugins:** `./.hermes/plugins/<name>/` (opt-in via `HERMES_ENABLE_PROJECT_PLUGINS`)
   3. **Pip plugins:** Python packages exposing the `hermes_agent.plugins` entry-point group
 
-  Each directory plugin requires `plugin.yaml` (manifest) and `__init__.py` with a `register(ctx)` function. The `PluginContext` (`hermes_cli/plugins.py`) lets plugins register tools (delegates to `tools.registry.register`), commands, and **lifecycle hooks**:
-  ```
-  pre_tool_call, post_tool_call, pre_llm_call, post_llm_call,
-  pre_api_request, post_api_request, on_session_start,
-  on_session_end, on_session_finalize, on_session_reset
-  ```
+  Each directory plugin requires `plugin.yaml` (manifest) and `__init__.py` with a `register(ctx)` function. The `PluginContext` (in `hermes_cli/plugins.py`) lets plugins register tools (delegates to `tools.registry.register`), commands, and **lifecycle hooks** spanning tool calls, LLM calls, API requests, and session events. The authoritative list is `hermes_cli/plugins.py`'s `VALID_HOOKS` set — refer to it for the current hook names; new hooks land there as they're added upstream.
+
   This is the strongest extension seam in the codebase — a plugin needs zero source edits and gets full lifecycle access. **Strongly prefer this over patching agent internals.**
 
 - **Bundled skills** (`skills/<category>/<skill>/SKILL.md`). Most "new capabilities" should be skills, not tools or core code — see `CONTRIBUTING.md`'s "Should it be a Skill or a Tool?" section. A skill is a SKILL.md plus optional `scripts/` and `references/`. Zero source patches.
