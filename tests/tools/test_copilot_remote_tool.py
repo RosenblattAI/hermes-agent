@@ -134,9 +134,18 @@ def test_schema_discourages_terminal_copilot_probes():
     assert "call this tool directly" in description
 
 
-def test_schema_marks_copilot_remote_as_default_implementation_tool():
-    description = COPILOT_REMOTE_SCHEMA["description"]
+def test_schema_marks_copilot_remote_as_opt_in_execution_tool():
+    description = COPILOT_REMOTE_SCHEMA["description"].lower()
 
-    assert "default implementation tool" in description
-    assert "code-writing" in description
+    assert "opt-in execution tool" in description
+    assert "explicitly asks hermes to perform repository work" in description
     assert "website-building" in description
+
+
+def test_schema_blocks_discussion_only_launches():
+    description = COPILOT_REMOTE_SCHEMA["description"].lower()
+
+    assert "discussion-only requests" in description
+    assert "explain" in description
+    assert "compare" in description
+    assert "plan" in description

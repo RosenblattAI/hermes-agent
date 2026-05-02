@@ -1050,11 +1050,19 @@ class TestToolUseEnforcementGuidance:
 
 
 class TestCopilotRemoteDelegationGuidance:
-    def test_guidance_defaults_code_writing_to_copilot_remote(self):
+    def test_guidance_treats_copilot_remote_as_opt_in_execution(self):
         text = COPILOT_REMOTE_DELEGATION_GUIDANCE.lower()
-        assert "default execution" in text
-        assert "code" in text
+        assert "opt-in" in text
+        assert "not the default" in text
         assert "copilot_remote(action=\"launch\")" in text
+
+    def test_guidance_requires_discussion_vs_execution_gate(self):
+        text = COPILOT_REMOTE_DELEGATION_GUIDANCE.lower()
+        assert "classify the user's request as discussion or execution" in text
+        assert "explain" in text
+        assert "plan" in text
+        assert "implement" in text
+        assert "open a pr" in text
 
     def test_guidance_discourages_local_implementation_first(self):
         text = COPILOT_REMOTE_DELEGATION_GUIDANCE.lower()
