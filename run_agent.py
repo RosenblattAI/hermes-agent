@@ -12872,6 +12872,7 @@ class AIAgent:
         )
         state = job.get("state") or payload.get("state") or "running"
         connect_command = job.get("connect_command") or payload.get("connect_command") or ""
+        web_url = job.get("web_url") or payload.get("web_url")
 
         response = (
             "Launched this as a Copilot remote job.\n"
@@ -12879,6 +12880,8 @@ class AIAgent:
             f"Repo: {repo_slug}\n"
             f"State: {state}"
         )
+        if web_url:
+            response += f"\nWeb: {web_url}"
         if connect_command:
             response += f"\nConnect: `{connect_command}`"
         return response

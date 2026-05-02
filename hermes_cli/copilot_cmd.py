@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from agent.redact import redact_sensitive_text
+from copilot_remote.github_task_url import build_github_task_web_url
 from hermes_state import SessionDB
 
 
@@ -44,6 +45,22 @@ def _connect_handle(job: dict) -> Optional[str]:
     """
     handle = job.get("connect_handle")
     return handle if handle else None
+
+
+def _github_task_web_url(job: dict) -> Optional[str]:
+    """Build a GitHub task web URL when the stored job metadata is sufficient.
+
+    Returns ``None`` unless the job has a connect handle, a repo slug, and a
+    repo path that resolves to an existing directory whose basename matches the
+    stored slug. The shared helper also requires a GitHub ``remote.origin.url``
+    whose repo segment matches that slug.
+    """
+    handle = _connect_handle(job)
+    if not handle:
+        return None
+    repo_path = job.get("repo_path", "") or ""
+    repo_slug = str(job.get("repo_slug") or job.get("repo") or "")
+    return build_github_task_web_url(repo_path, repo_slug, handle)
 
 
 def _relative_time(ts) -> str:
@@ -193,6 +210,14 @@ def copilot_launch(args):
     if connect_handle:
         print(f"\n  Connect: copilot --connect={connect_handle}")
         print(f"  Resume:  copilot --resume={connect_handle}")
+        job = {
+            "repo_path": repo_path,
+            "repo_slug": repo,
+            "connect_handle": connect_handle,
+        }
+        web = _github_task_web_url(job)
+        if web:
+            print(f"  Web:     {web}")
     else:
         # The launcher could not extract Copilot's remote task ID. Do not
         # fabricate a reconnect command from the Hermes job UUID — it is
@@ -260,6 +285,9 @@ def copilot_show(args):
         if sid:
             print(f"Connect:  copilot --connect={sid}")
             print(f"Resume:   copilot --resume={sid}")
+            web = _github_task_web_url(job)
+            if web:
+                print(f"Web:      {web}")
         else:
             print(
                 "Connect:  unavailable — Hermes did not extract a Copilot "

@@ -14,6 +14,7 @@ import uuid
 from typing import Any, Dict, Optional
 
 from agent.redact import redact_sensitive_text
+from copilot_remote.github_task_url import build_github_task_web_url
 from copilot_remote.models import RepoEntry
 from hermes_state import SessionDB
 from tools.registry import registry
@@ -143,13 +144,15 @@ def _job_handle(job: Dict[str, Any]) -> Optional[str]:
     return str(handle) if handle else None
 
 
-def _serialize_job(job: Dict[str, Any]) -> Dict[str, Any]:
+def _serialize_job(job: Dict[str, Any], *, include_web_url: bool = True) -> Dict[str, Any]:
     handle = _job_handle(job)
-    serialized = {
+    repo_path = job.get("repo_path", "") or ""
+    repo_slug = str(job.get("repo_slug") or "")
+    serialized: Dict[str, Any] = {
         "job_id": job.get("id"),
         "state": job.get("state"),
         "repo": job.get("repo_slug"),
-        "repo_path": job.get("repo_path"),
+        "repo_path": repo_path or None,
         "created_at": job.get("created_at"),
         "finished_at": job.get("finished_at"),
         "exit_code": job.get("exit_code"),
@@ -157,6 +160,11 @@ def _serialize_job(job: Dict[str, Any]) -> Dict[str, Any]:
         "connect_handle": handle,
         "connect_command": f"copilot --connect={handle}" if handle else None,
         "resume_command": f"copilot --resume={handle}" if handle else None,
+        "web_url": (
+            build_github_task_web_url(repo_path, repo_slug, handle)
+            if include_web_url
+            else None
+        ),
     }
     prompt = job.get("prompt")
     if prompt:
@@ -420,7 +428,10 @@ def _list(args: Dict[str, Any]) -> str:
 
     db = _get_db()
     try:
-        jobs = [_serialize_job(job) for job in db.list_copilot_remote(state=state, limit=limit)]
+        jobs = [
+            _serialize_job(job, include_web_url=False)
+            for job in db.list_copilot_remote(state=state, limit=limit)
+        ]
         return json.dumps({"success": True, "action": "list", "jobs": jobs}, ensure_ascii=False)
     finally:
         db.close()
