@@ -1936,8 +1936,10 @@ class SessionDB:
 
         ``signal_ref`` stores caller-supplied metadata (e.g. a Jira ticket
         ID) and is never overwritten by the launcher. ``connect_handle``
-        stores the value used for ``copilot --connect=<handle>`` /
-        ``--resume=<handle>`` and is set / updated by the launcher only.
+        stores the cloud relay task ID used for ``copilot --connect=<handle>``
+        (re-attach from any terminal). It is distinct from the Hermes job UUID,
+        which is passed to Copilot via ``--resume`` at launch time to register
+        the session under a known ID.
 
         *jira_issue_key*: source Jira issue (e.g. ``"PROJ-42"``).
         *deadline_at*: unix timestamp after which the job should be

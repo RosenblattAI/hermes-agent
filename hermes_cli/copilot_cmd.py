@@ -274,7 +274,7 @@ def copilot_show(args):
     try:
         job = db.get_copilot_remote(job_id)
         if not job:
-            print(f"Error: Job not found: {job_id}", file=sys.stderr)
+            print(f"Error: Job not found: {_sanitize_for_log(job_id)}", file=sys.stderr)
             sys.exit(1)
 
         print(f"Job:      {job['id']}")
@@ -305,7 +305,7 @@ def copilot_show(args):
         if job.get("exit_code") is not None:
             print(f"Exit:     {job['exit_code']}")
         if job.get("error_text"):
-            print(f"Error:    {job['error_text']}")
+            print(f"Error:    {_sanitize_for_log(job['error_text'])}")
         if job.get("signal_source"):
             src = _sanitize_for_log(job["signal_source"])
             ref = f" ({_sanitize_for_log(job['signal_ref'])})" if job.get("signal_ref") else ""
@@ -466,21 +466,22 @@ def copilot_stop(args):
     terminal state at the same moment.
     """
     job_id = args.job_id
+    safe_job_id = _sanitize_for_log(job_id)
 
     db = _get_db()
     try:
         job = db.get_copilot_remote(job_id)
         if not job:
-            print(f"Error: Job not found: {job_id}", file=sys.stderr)
+            print(f"Error: Job not found: {safe_job_id}", file=sys.stderr)
             sys.exit(1)
 
         if job["state"] != "running":
             print(
-                f"Job {job_id} is not running (state: {_state_badge(job['state'])})."
+                f"Job {safe_job_id} is not running (state: {_state_badge(job['state'])})."
             )
             return
 
-        print(f"Stopping copilot job: {job_id}")
+        print(f"Stopping copilot job: {safe_job_id}")
         try:
             killed = _kill_copilot_procs(job_id)
         except RuntimeError as exc:

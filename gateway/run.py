@@ -4035,6 +4035,7 @@ class GatewayRunner:
                             "Unhandled error in /copilot slash handler: %s: %s",
                             type(exc).__name__,
                             _slf(str(exc)),
+                            exc_info=True,
                         )
                         return "Error: /copilot command failed — see server logs for details."
                 return buf.getvalue().strip() or "Done."

@@ -7,8 +7,9 @@ against a persistent session — the non-interactive ``-p`` flag exits as
 soon as the prompt completes and never registers with the cloud relay.
 
 Because interactive mode renders a TUI, copilot is wrapped in
-``script -qfc`` to allocate a PTY, with stdout/stderr captured to a log
-file. The pre-generated job UUID is passed to Copilot via ``--resume``
+``script`` to allocate a PTY, with stdout/stderr captured to a log
+file (``script -eqfc <cmd> <log>`` on Linux/util-linux;
+``script -q <log> <cmd>`` on macOS). The pre-generated job UUID is passed to Copilot via ``--resume``
 so the session is registered under a known ID (enabling later
 ``--connect`` calls).  Supplying ``--resume`` with a *new* UUID acts as a
 session *create*, not a *restore*, so startup prompts run normally.
