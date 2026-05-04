@@ -2078,10 +2078,6 @@ class TestCopilotJobMigrationFromV6:
 # Auto-maintenance: state_meta + vacuum + maybe_auto_prune_and_vacuum
 # =========================================================================
 
-# =========================================================================
-# Auto-maintenance: state_meta + vacuum + maybe_auto_prune_and_vacuum
-# =========================================================================
-
 class TestStateMeta:
     def test_get_meta_missing_returns_none(self, db):
         assert db.get_meta("nonexistent") is None

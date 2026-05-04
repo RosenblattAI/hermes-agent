@@ -5,7 +5,10 @@ the original hermes process, so it must bootstrap its own DB connection.
 
 Usage::
 
-    python complete_job.py <session_id> <exit_code>
+    python complete_job.py <session_id> <exit_code> [table]
+
+``table`` defaults to ``copilot_remote``; it must be one of the allowed
+tables listed in ``_ALLOWED_TABLES``.
 
 """
 
@@ -42,7 +45,7 @@ def finish(session_id: str, exit_code: int, table: str = "copilot_remote") -> No
 def main() -> None:
     if len(sys.argv) not in (3, 4):
         print(
-            f"Usage: {sys.argv[0]} <session_id> <exit_code>",
+            f"Usage: {sys.argv[0]} <session_id> <exit_code> [table]",
             file=sys.stderr,
         )
         sys.exit(1)

@@ -27,41 +27,39 @@ to fill those gaps:
 
 ### Schema v13 (`hermes_state.py`, migrations v10–v13)
 
-New columns on `copilot_remote`:
+New column on `copilot_remote`:
 | Column | Type | Purpose |
 |---|---|---|
 | `connect_handle` | TEXT | Persisted Copilot cloud relay task ID (`--connect` handle) |
-| `jira_issue_key` | TEXT | Source Jira issue (e.g. `"PROJ-42"`) |
-| `deadline_at` | REAL | Unix timestamp; NULL = no timeout |
-| `retry_of` | TEXT | FK → original session (resumability provenance) |
-| `retry_count` | INTEGER | Times this original has been retried |
 | `pid` | INTEGER | OS process ID of the launched copilot process |
 
-New table: `copilot_remote_hooks`
-- Rows: `id`, `remote_id`, `hook_type` (`merge_gate`/`post_task`), `hook_url`, `hook_payload`, `state`, `fired_at`, `response_code`, `error_text`, `created_at`
+> **Note:** `jira_issue_key`, `deadline_at`, `retry_of`, `retry_count`, and the
+> `copilot_remote_hooks` table are **deferred** — they are prototyped on
+> `feat/copilot-remote-lifecycle-ext` and will land in a follow-up PR.
 
-Schema v13 adds new columns to `copilot_remote` and creates `copilot_remote_hooks`.
-No legacy data migration is required — `copilot_jobs` never shipped in production.
+Schema v13 adds `pid` to `copilot_remote` (and `connect_handle` was already
+present on `rosenblatt/main`).  No legacy data migration is required —
+`copilot_remote` never shipped in production.
 
 ### `copilot_remote/models.py`
 
-- `JobState.TIMED_OUT`, `JobState.STOPPED` added; `is_terminal` property
-  *(Note: the DB stores these as the lowercase strings `"timed_out"` and `"stopped"`.)*
-- `HookType` enum (`MERGE_GATE`, `POST_TASK`)
-- `HookState` enum (`PENDING`, `FIRED`, `FAILED`, `SKIPPED`)
+- `JobState.STOPPED` added; `is_terminal` property added
+  *(The DB stores state as the lowercase string `"stopped"`.)*
+
+> **Deferred to `feat/copilot-remote-lifecycle-ext`:** `JobState.TIMED_OUT`,
+> `HookType` enum (`MERGE_GATE`, `POST_TASK`), `HookState` enum
+> (`PENDING`, `FIRED`, `FAILED`, `SKIPPED`).
 
 ### New DB methods (`hermes_state.py`)
 
 | Method | Purpose |
 |---|---|
-| `update_copilot_remote_connect_handle(remote_id, connect_handle)` | Persist cloud relay handle post-launch |
 | `update_copilot_remote_pid(remote_id, pid)` | Persist OS process ID post-launch |
-| `expire_timed_out_remotes(now)` | Sweep + mark `timed_out`; returns expired IDs |
-| `retry_copilot_remote(original_id, new_id)` | Create retry row; bump original `retry_count` |
-| `register_remote_hook(...)` | Register merge-gate or post-task webhook |
-| `get_pending_remote_hooks(remote_id, hook_type)` | Query pending hooks |
-| `fire_remote_hook(hook_id, response_code)` | Mark hook fired/failed |
-| `skip_remote_hooks(remote_id, hook_type)` | Mark pending hooks skipped (on cancel) |
+
+> **Deferred to `feat/copilot-remote-lifecycle-ext`:**
+> `expire_timed_out_remotes`, `retry_copilot_remote`, `register_remote_hook`,
+> `get_pending_remote_hooks`, `fire_remote_hook`, `skip_remote_hooks`.
+> (`update_copilot_remote_connect_handle` was already on `rosenblatt/main`.)
 
 ### `copilot_remote/launcher.py`
 

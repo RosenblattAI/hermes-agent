@@ -23,7 +23,6 @@ import threading
 import time
 from pathlib import Path
 from hermes_constants import get_hermes_home
-from hermes_logging import sanitize_for_log as _sanitize_log_value
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
