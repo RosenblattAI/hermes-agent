@@ -288,9 +288,9 @@ class TestLaunchCopilot:
         assert result["session_id"] == _TEST_SID
         assert len(spawned) == 1
         assert spawned[0][1] == "/test"
-        # Real launches no longer force --resume because Copilot skips
-        # startup prompt execution on resume paths.
-        assert "--resume" not in result["cmd"]
+        # launch_copilot now passes session_id to build_copilot_command so --resume is included.
+        assert "--resume" in result["cmd"]
+        assert _TEST_SID in result["cmd"]
 
         # Wait for background thread to finish.
         completed.wait(timeout=5)
@@ -356,7 +356,8 @@ class TestLaunchCopilot:
         result = launch_copilot(repo, "test", session_id=_TEST_SID)
 
         assert result["cmd"][0] == "/resolved/copilot"
-        assert "--resume" not in result["cmd"]
+        assert "--resume" in result["cmd"]
+        assert _TEST_SID in result["cmd"]
         assert result["connect_id"] == "task-123"
         assert captured["args"][0] == "bash"
         assert captured["args"][1] == "-c"
@@ -387,3 +388,72 @@ class TestLaunchCopilot:
         assert result["connect_id"] == "task-123"
         assert result["prompt_delivery_status"] == "unverified"
         assert "steer failed" in result["prompt_delivery_warning"]
+
+
+class TestWaitForRemoteTaskIdPriorLogs:
+    """prior_logs must be updated after each read so subsequent polls
+    only fetch new bytes (not re-read from 0 every time)."""
+
+    # Task-line format that satisfies REMOTE_TASK_ID_PATTERN
+    _TASK_LINE = (
+        "Remote session active (steerable): "
+        "https://github.com/copilot/tasks/aabbccdd-1234-5678-abcd-ef0123456789\n"
+    )
+
+    def test_prior_logs_updated_after_first_read(self, tmp_path):
+        """_wait_for_remote_task_id must update prior_logs[path] after reading."""
+        from copilot_remote.launcher import _wait_for_remote_task_id
+
+        log = tmp_path / "process-test.log"
+        log.write_bytes(b"no task line here")
+
+        prior_logs: dict = {}
+        _wait_for_remote_task_id(
+            logs_dir=tmp_path,
+            timeout=0.15,
+            poll_interval=0.02,
+            prior_logs=prior_logs,
+        )
+
+        # The file was read; prior_logs must record its size so next poll skips it.
+        assert log in prior_logs
+        assert prior_logs[log] == log.stat().st_size
+
+    def test_first_read_starts_from_zero_not_tail(self, tmp_path):
+        """When prior_logs has no entry for a file, offset 0 is used so a task
+        line near the beginning of a large log is not missed."""
+        from copilot_remote.launcher import _wait_for_remote_task_id
+
+        log = tmp_path / "process-zero.log"
+        log.write_bytes(self._TASK_LINE.encode())
+
+        result = _wait_for_remote_task_id(
+            logs_dir=tmp_path,
+            timeout=1.0,
+            poll_interval=0.02,
+        )
+
+        assert result == "aabbccdd-1234-5678-abcd-ef0123456789"
+
+    def test_truncated_log_reread_from_zero(self, tmp_path):
+        """If a log file shrinks (rotation/truncation), prior_logs offset is
+        reset to 0 so the new content is not skipped permanently."""
+        from copilot_remote.launcher import _wait_for_remote_task_id
+
+        log = tmp_path / "process-trunc.log"
+        # First write: large content, no task line.
+        log.write_bytes(b"X" * 1000)
+        prior_logs: dict = {log: 1000}  # simulate already-read state
+
+        # Truncate the file to something smaller and write the task line.
+        log.write_bytes(self._TASK_LINE.encode())
+        assert log.stat().st_size < 1000  # confirm truncation
+
+        result = _wait_for_remote_task_id(
+            logs_dir=tmp_path,
+            timeout=1.0,
+            poll_interval=0.02,
+            prior_logs=prior_logs,
+        )
+
+        assert result == "aabbccdd-1234-5678-abcd-ef0123456789"

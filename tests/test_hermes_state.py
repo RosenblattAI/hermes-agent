@@ -1226,10 +1226,11 @@ class TestSchemaInit:
         assert "messages" in tables
         assert "schema_version" in tables
 
-    def test_schema_version(self, db):
+    def test_schema_version_is_13(self, db):
+        from hermes_state import SCHEMA_VERSION
         cursor = db._conn.execute("SELECT version FROM schema_version")
         version = cursor.fetchone()[0]
-        assert version == 9
+        assert version == SCHEMA_VERSION
 
     def test_title_column_exists(self, db):
         """Verify the title column was created in the sessions table."""
@@ -1285,12 +1286,13 @@ class TestSchemaInit:
         conn.commit()
         conn.close()
 
-        # Open with SessionDB — should migrate to v9
+        # Open with SessionDB — should migrate to current SCHEMA_VERSION
         migrated_db = SessionDB(db_path=db_path)
 
         # Verify migration
         cursor = migrated_db._conn.execute("SELECT version FROM schema_version")
-        assert cursor.fetchone()[0] == 9
+        from hermes_state import SCHEMA_VERSION
+        assert cursor.fetchone()[0] == SCHEMA_VERSION
 
         # Verify title column exists and is NULL for existing sessions
         session = migrated_db.get_session("existing")
@@ -1892,6 +1894,484 @@ class TestConcurrentWriteSafety:
 
 
 # =========================================================================
+# Copilot job lifecycle
+# =========================================================================
+
+class TestCopilotRemoteLifecycle:
+    def test_schema_version_is_13(self, db):
+        cursor = db._conn.execute("SELECT version FROM schema_version")
+        from hermes_state import SCHEMA_VERSION
+        assert cursor.fetchone()[0] == SCHEMA_VERSION
+
+    def test_copilot_tables_exist(self, db):
+        cursor = db._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
+        tables = {row[0] for row in cursor.fetchall()}
+        assert "copilot_remote" in tables
+
+    def test_create_and_get_job(self, db):
+        job_id = db.create_copilot_remote(
+            job_id="cj_test_001",
+            repo_slug="test",
+            repo_path="/repos/test",
+            prompt="Fix the login bug",
+            signal_source="cli",
+        )
+        assert job_id == "cj_test_001"
+
+        job = db.get_copilot_remote("cj_test_001")
+        assert job is not None
+        assert job["repo_slug"] == "test"
+        assert job["state"] == "running"
+        assert job["prompt"] == "Fix the login bug"
+
+    def test_get_nonexistent_job(self, db):
+        assert db.get_copilot_remote("nonexistent") is None
+
+    def test_list_jobs(self, db):
+        db.create_copilot_remote(
+            job_id="cj_a", repo_slug="repo-a", repo_path="/a"
+        )
+        db.create_copilot_remote(
+            job_id="cj_b", repo_slug="repo-b", repo_path="/b"
+        )
+        jobs = db.list_copilot_remote()
+        assert len(jobs) == 2
+
+    def test_list_jobs_by_state(self, db):
+        db.create_copilot_remote(
+            job_id="cj_a", repo_slug="repo-a", repo_path="/a"
+        )
+        db.create_copilot_remote(
+            job_id="cj_b", repo_slug="repo-b", repo_path="/b"
+        )
+        db.finish_copilot_remote("cj_a", state="done", exit_code=0)
+        running = db.list_copilot_remote(state="running")
+        done = db.list_copilot_remote(state="done")
+        assert len(running) == 1
+        assert running[0]["id"] == "cj_b"
+        assert len(done) == 1
+        assert done[0]["id"] == "cj_a"
+
+    def test_finish_job_done(self, db):
+        db.create_copilot_remote(
+            job_id="cj_1", repo_slug="repo", repo_path="/r"
+        )
+        db.finish_copilot_remote(
+            "cj_1", state="done",
+            exit_code=0,
+        )
+        job = db.get_copilot_remote("cj_1")
+        assert job["state"] == "done"
+        assert job["exit_code"] == 0
+        assert job["finished_at"] is not None
+
+    def test_finish_job_failed(self, db):
+        db.create_copilot_remote(
+            job_id="cj_1", repo_slug="repo", repo_path="/r"
+        )
+        db.finish_copilot_remote(
+            "cj_1", state="failed",
+            exit_code=1,
+            error_text="subprocess died",
+        )
+        job = db.get_copilot_remote("cj_1")
+        assert job["state"] == "failed"
+        assert job["exit_code"] == 1
+        assert job["error_text"] == "subprocess died"
+        assert job["finished_at"] is not None
+
+    def test_list_limit(self, db):
+        for i in range(5):
+            db.create_copilot_remote(
+                job_id=f"cj_{i}", repo_slug="repo", repo_path="/r"
+            )
+        jobs = db.list_copilot_remote(limit=3)
+        assert len(jobs) == 3
+
+
+class TestCopilotJobMigrationFromV6:
+    def test_migration_from_v6(self, tmp_path):
+        """Simulate a v6 database and verify migration to current schema adds copilot tables."""
+        import sqlite3
+
+        db_path = tmp_path / "migrate_v6_test.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.executescript("""
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            INSERT INTO schema_version (version) VALUES (6);
+
+            CREATE TABLE sessions (
+                id TEXT PRIMARY KEY,
+                source TEXT NOT NULL,
+                user_id TEXT,
+                model TEXT,
+                model_config TEXT,
+                system_prompt TEXT,
+                parent_session_id TEXT,
+                started_at REAL NOT NULL,
+                ended_at REAL,
+                end_reason TEXT,
+                message_count INTEGER DEFAULT 0,
+                tool_call_count INTEGER DEFAULT 0,
+                input_tokens INTEGER DEFAULT 0,
+                output_tokens INTEGER DEFAULT 0,
+                cache_read_tokens INTEGER DEFAULT 0,
+                cache_write_tokens INTEGER DEFAULT 0,
+                reasoning_tokens INTEGER DEFAULT 0,
+                billing_provider TEXT,
+                billing_base_url TEXT,
+                billing_mode TEXT,
+                estimated_cost_usd REAL,
+                actual_cost_usd REAL,
+                cost_status TEXT,
+                cost_source TEXT,
+                pricing_version TEXT,
+                title TEXT
+            );
+
+            CREATE TABLE messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT,
+                tool_call_id TEXT,
+                tool_calls TEXT,
+                tool_name TEXT,
+                timestamp REAL NOT NULL,
+                token_count INTEGER,
+                finish_reason TEXT,
+                reasoning TEXT,
+                reasoning_details TEXT,
+                codex_reasoning_items TEXT
+            );
+        """)
+        conn.commit()
+        conn.close()
+
+        # Open with SessionDB — should migrate to current SCHEMA_VERSION
+        migrated_db = SessionDB(db_path=db_path)
+
+        cursor = migrated_db._conn.execute("SELECT version FROM schema_version")
+        from hermes_state import SCHEMA_VERSION
+        assert cursor.fetchone()[0] == SCHEMA_VERSION
+
+        # Verify copilot tables exist
+        cursor = migrated_db._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
+        tables = {row[0] for row in cursor.fetchall()}
+        assert "copilot_remote" in tables
+
+        # Verify we can create a job on the migrated DB
+        job_id = migrated_db.create_copilot_remote(
+            job_id="cj_migrated",
+            repo_slug="test-repo",
+            repo_path="/test",
+        )
+        assert migrated_db.get_copilot_remote(job_id) is not None
+        migrated_db.close()
+
+
+# =========================================================================
+# Schema v13 — new copilot_jobs fields and copilot_job_hooks
+# =========================================================================
+
+class TestCopilotJobV13Fields:
+    """Tests for the new fields added in schema v14 (formerly v13 copilot_jobs)."""
+
+    @pytest.fixture()
+    def db(self, tmp_path):
+        db_path = tmp_path / "state.db"
+        _db = SessionDB(db_path=db_path)
+        yield _db
+        _db.close()
+
+    def test_new_columns_present(self, db):
+        cursor = db._conn.execute("PRAGMA table_info(copilot_remote)")
+        cols = {row[1] for row in cursor.fetchall()}
+        for col in ("connect_handle", "jira_issue_key", "deadline_at", "retry_of", "retry_count"):
+            assert col in cols, f"Expected column {col!r} in copilot_remote"
+
+    def test_copilot_remote_hooks_table_present(self, db):
+        cursor = db._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+        tables = {row[0] for row in cursor.fetchall()}
+        assert "copilot_remote_hooks" in tables
+
+    def test_create_remote_with_all_new_fields(self, db):
+        db.create_copilot_remote(
+            job_id="cj_v14",
+            repo_slug="my-repo",
+            repo_path="/repos/my-repo",
+            connect_handle="task-abc-123",
+            jira_issue_key="PROJ-42",
+            deadline_at=9999999999.0,
+        )
+        job = db.get_copilot_remote("cj_v14")
+        assert job["connect_handle"] == "task-abc-123"
+        assert job["jira_issue_key"] == "PROJ-42"
+        assert job["deadline_at"] == 9999999999.0
+        assert job["retry_of"] is None
+        assert job["retry_count"] == 0
+        db.create_copilot_remote(job_id="cj_trace", repo_slug="r", repo_path="/r")
+        db.update_copilot_remote_connect_handle("cj_trace", "task-xyz-456")
+        job = db.get_copilot_remote("cj_trace")
+        assert job["connect_handle"] == "task-xyz-456"
+
+
+class TestExpireTimedOutRemotes:
+    """Tests for expire_timed_out_remotes."""
+
+    @pytest.fixture()
+    def db(self, tmp_path):
+        db_path = tmp_path / "state.db"
+        _db = SessionDB(db_path=db_path)
+        yield _db
+        _db.close()
+
+    def test_no_jobs_nothing_expired(self, db):
+        expired = db.expire_timed_out_remotes(now=1000.0)
+        assert expired == []
+
+    def test_running_job_without_deadline_not_expired(self, db):
+        db.create_copilot_remote(job_id="cj_no_deadline", repo_slug="r", repo_path="/r")
+        expired = db.expire_timed_out_remotes(now=9999999999.0)
+        assert "cj_no_deadline" not in expired
+        assert db.get_copilot_remote("cj_no_deadline")["state"] == "running"
+
+    def test_running_job_past_deadline_is_expired(self, db):
+        db.create_copilot_remote(
+            job_id="cj_expired",
+            repo_slug="r",
+            repo_path="/r",
+            deadline_at=1000.0,
+        )
+        expired = db.expire_timed_out_remotes(now=2000.0)
+        assert "cj_expired" in expired
+        job = db.get_copilot_remote("cj_expired")
+        assert job["state"] == "timed_out"
+        assert job["finished_at"] == 2000.0
+
+    def test_running_job_before_deadline_not_expired(self, db):
+        db.create_copilot_remote(
+            job_id="cj_future",
+            repo_slug="r",
+            repo_path="/r",
+            deadline_at=5000.0,
+        )
+        expired = db.expire_timed_out_remotes(now=2000.0)
+        assert "cj_future" not in expired
+        assert db.get_copilot_remote("cj_future")["state"] == "running"
+
+    def test_already_done_job_not_re_expired(self, db):
+        db.create_copilot_remote(
+            job_id="cj_done",
+            repo_slug="r",
+            repo_path="/r",
+            deadline_at=1000.0,
+        )
+        db.finish_copilot_remote("cj_done", state="done", exit_code=0)
+        expired = db.expire_timed_out_remotes(now=2000.0)
+        assert "cj_done" not in expired
+        assert db.get_copilot_remote("cj_done")["state"] == "done"
+
+    def test_multiple_expired_jobs_all_marked(self, db):
+        for i in range(3):
+            db.create_copilot_remote(
+                job_id=f"cj_multi_{i}",
+                repo_slug="r",
+                repo_path="/r",
+                deadline_at=1000.0,
+            )
+        expired = db.expire_timed_out_remotes(now=2000.0)
+        assert len(expired) == 3
+        for i in range(3):
+            assert db.get_copilot_remote(f"cj_multi_{i}")["state"] == "timed_out"
+
+
+class TestRetryCopilotRemote:
+    """Tests for retry_copilot_remote — resumability primitives."""
+
+    @pytest.fixture()
+    def db(self, tmp_path):
+        db_path = tmp_path / "state.db"
+        _db = SessionDB(db_path=db_path)
+        yield _db
+        _db.close()
+
+    def _make_original(self, db, job_id="cj_orig"):
+        db.create_copilot_remote(
+            job_id=job_id,
+            repo_slug="my-repo",
+            repo_path="/repos/my-repo",
+            prompt="Fix the bug",
+            signal_source="jira",
+            jira_issue_key="PROJ-99",
+            deadline_at=9999.0,
+        )
+        db.finish_copilot_remote(job_id, state="failed", exit_code=1)
+
+    def test_retry_creates_new_running_job(self, db):
+        self._make_original(db)
+        new_job = db.retry_copilot_remote("cj_orig", "cj_retry_1")
+        assert new_job is not None
+        assert new_job["id"] == "cj_retry_1"
+        assert new_job["state"] == "running"
+
+    def test_retry_links_to_original(self, db):
+        self._make_original(db)
+        new_job = db.retry_copilot_remote("cj_orig", "cj_retry_1")
+        assert new_job["retry_of"] == "cj_orig"
+
+    def test_retry_copies_key_fields(self, db):
+        self._make_original(db)
+        new_job = db.retry_copilot_remote("cj_orig", "cj_retry_1")
+        assert new_job["repo_slug"] == "my-repo"
+        assert new_job["prompt"] == "Fix the bug"
+        assert new_job["jira_issue_key"] == "PROJ-99"
+        assert new_job["deadline_at"] == 9999.0
+
+    def test_retry_increments_original_retry_count(self, db):
+        self._make_original(db)
+        db.retry_copilot_remote("cj_orig", "cj_retry_1")
+        orig = db.get_copilot_remote("cj_orig")
+        assert orig["retry_count"] == 1
+
+    def test_double_retry_increments_count_twice(self, db):
+        self._make_original(db)
+        db.retry_copilot_remote("cj_orig", "cj_retry_1")
+        db.retry_copilot_remote("cj_orig", "cj_retry_2")
+        orig = db.get_copilot_remote("cj_orig")
+        assert orig["retry_count"] == 2
+
+    def test_retry_nonexistent_returns_none(self, db):
+        result = db.retry_copilot_remote("no-such-job", "cj_new")
+        assert result is None
+        assert db.get_copilot_remote("cj_new") is None
+
+
+class TestCopilotRemoteHooks:
+    """Tests for merge-gate and post-task hook plumbing."""
+
+    @pytest.fixture()
+    def db(self, tmp_path):
+        db_path = tmp_path / "state.db"
+        _db = SessionDB(db_path=db_path)
+        _db.create_copilot_remote(job_id="cj_hook", repo_slug="r", repo_path="/r")
+        yield _db
+        _db.close()
+
+    def test_register_merge_gate_hook(self, db):
+        db.register_remote_hook(
+            hook_id="h1",
+            remote_id="cj_hook",
+            hook_type="merge_gate",
+            hook_url="https://example.com/gate",
+        )
+        hooks = db.get_pending_remote_hooks(remote_id="cj_hook")
+        assert len(hooks) == 1
+        assert hooks[0]["hook_type"] == "merge_gate"
+        assert hooks[0]["state"] == "pending"
+
+    def test_register_post_task_hook_with_payload(self, db):
+        payload = '{"job_id": "{job_id}", "state": "{state}"}'
+        db.register_remote_hook(
+            hook_id="h2",
+            remote_id="cj_hook",
+            hook_type="post_task",
+            hook_url="https://ci.example.com/validate",
+            hook_payload=payload,
+        )
+        hooks = db.get_pending_remote_hooks(remote_id="cj_hook", hook_type="post_task")
+        assert len(hooks) == 1
+        assert hooks[0]["hook_payload"] == payload
+
+    def test_fire_hook_success(self, db):
+        db.register_remote_hook("h3", "cj_hook", "post_task", "https://x.com/cb")
+        rows = db.fire_remote_hook("h3", response_code=200)
+        assert rows == 1
+        hooks = db.get_pending_remote_hooks(remote_id="cj_hook")
+        # No longer pending
+        assert all(h["id"] != "h3" for h in hooks)
+        cursor = db._conn.execute(
+            "SELECT state, response_code FROM copilot_remote_hooks WHERE id = 'h3'"
+        )
+        row = cursor.fetchone()
+        assert row[0] == "fired"
+        assert row[1] == 200
+
+    def test_fire_hook_non_2xx_marks_failed(self, db):
+        db.register_remote_hook("h4", "cj_hook", "merge_gate", "https://x.com/gate")
+        db.fire_remote_hook("h4", response_code=500, error_text="server error")
+        cursor = db._conn.execute(
+            "SELECT state, error_text FROM copilot_remote_hooks WHERE id = 'h4'"
+        )
+        row = cursor.fetchone()
+        assert row[0] == "failed"
+        assert row[1] == "server error"
+
+    def test_fire_hook_idempotent(self, db):
+        db.register_remote_hook("h5", "cj_hook", "post_task", "https://x.com/cb")
+        db.fire_remote_hook("h5", response_code=200)
+        # Second call should not update (already not pending)
+        rows = db.fire_remote_hook("h5", response_code=200)
+        assert rows == 0
+
+    def test_skip_hooks_on_cancel(self, db):
+        db.register_remote_hook("h6", "cj_hook", "merge_gate", "https://x.com/gate")
+        db.register_remote_hook("h7", "cj_hook", "post_task", "https://x.com/post")
+        skipped = db.skip_remote_hooks("cj_hook")
+        assert skipped == 2
+        assert db.get_pending_remote_hooks(remote_id="cj_hook") == []
+
+    def test_get_pending_hooks_filter_by_type(self, db):
+        db.register_remote_hook("h8", "cj_hook", "merge_gate", "https://x.com/gate")
+        db.register_remote_hook("h9", "cj_hook", "post_task", "https://x.com/post")
+        mg_hooks = db.get_pending_remote_hooks(remote_id="cj_hook", hook_type="merge_gate")
+        assert len(mg_hooks) == 1
+        assert mg_hooks[0]["id"] == "h8"
+
+
+class TestJobStateEnum:
+    """Tests for the extended JobState enum in copilot_remote.models."""
+
+    def test_timed_out_is_terminal(self):
+        from copilot_remote.models import JobState
+        assert JobState.TIMED_OUT.is_terminal is True
+
+    def test_stopped_is_terminal(self):
+        from copilot_remote.models import JobState
+        assert JobState.STOPPED.is_terminal is True
+
+    def test_running_is_not_terminal(self):
+        from copilot_remote.models import JobState
+        assert JobState.RUNNING.is_terminal is False
+
+    def test_done_is_terminal(self):
+        from copilot_remote.models import JobState
+        assert JobState.DONE.is_terminal is True
+
+    def test_failed_is_terminal(self):
+        from copilot_remote.models import JobState
+        assert JobState.FAILED.is_terminal is True
+
+    def test_hook_type_values(self):
+        from copilot_remote.models import HookType
+        assert HookType.MERGE_GATE == "merge_gate"
+        assert HookType.POST_TASK == "post_task"
+
+    def test_hook_state_values(self):
+        from copilot_remote.models import HookState
+        assert HookState.PENDING == "pending"
+        assert HookState.FIRED == "fired"
+        assert HookState.FAILED == "failed"
+        assert HookState.SKIPPED == "skipped"
+
+
+# =========================================================================
 # Auto-maintenance: state_meta + vacuum + maybe_auto_prune_and_vacuum
 # =========================================================================
 
@@ -2064,4 +2544,5 @@ class TestAutoMaintenance:
         assert count == 1
         assert not (sessions_dir / "old.jsonl").exists()
         assert (sessions_dir / "active.jsonl").exists()
+
 

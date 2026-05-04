@@ -8372,13 +8372,17 @@ For more help on a command:
     )
 
     # copilot list
-    cop_list = copilot_subparsers.add_parser("list", aliases=["ls"], help="List copilot remote jobs")
-    cop_list.add_argument("--state", help="Filter by state (running, done, failed)")
+    cop_list = copilot_subparsers.add_parser("list", aliases=["ls"], help="List copilot jobs")
+    cop_list.add_argument("--state", help="Filter by state (running, done, failed, timed_out, stopped)")
     cop_list.add_argument("--limit", type=int, default=20, help="Max results (default: 20)")
 
     # copilot show
-    cop_show = copilot_subparsers.add_parser("show", help="Show details of a copilot remote")
+    cop_show = copilot_subparsers.add_parser("show", help="Show details of a copilot job")
     cop_show.add_argument("job_id", help="Job ID to inspect")
+
+    # copilot stop
+    cop_stop = copilot_subparsers.add_parser("stop", help="Stop a running copilot job")
+    cop_stop.add_argument("job_id", help="Job ID to stop")
 
     copilot_parser.set_defaults(func=cmd_copilot)
 

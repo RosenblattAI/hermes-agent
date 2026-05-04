@@ -8,11 +8,10 @@ soon as the prompt completes and never registers with the cloud relay.
 
 Because interactive mode renders a TUI, copilot is wrapped in
 ``script -qfc`` to allocate a PTY, with stdout/stderr captured to a log
-file. Hermes keeps its own pre-generated job ID for bookkeeping, but it
-does not force that UUID into Copilot via ``--resume``. Recent Copilot
-CLI builds treat ``--resume`` as a resume path where startup prompts do
-not auto-run, which would make ``/copilot_remote launch <prompt>`` open a
-remote session without executing the requested work.
+file. The pre-generated job UUID is passed to Copilot via ``--resume``
+so the session is registered under a known ID (enabling later
+``--connect`` calls).  Supplying ``--resume`` with a *new* UUID acts as a
+session *create*, not a *restore*, so startup prompts run normally.
 
 When launched for real (not via ``_spawn`` or ``dry_run``), the wrapper
 is fully detached (``start_new_session=True``). A shell wrapper runs
@@ -38,7 +37,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from copilot_remote.models import RepoEntry
-from copilot_remote.router import _sanitize_for_log
+from hermes_logging import sanitize_for_log as _sanitize_for_log
 
 logger = logging.getLogger(__name__)
 
@@ -150,11 +149,13 @@ def _wait_for_remote_task_id(
     timeout: float = 5.0,
     poll_interval: float = 0.1,
     prior_logs: Optional[Dict[Path, int]] = None,
+    logs_dir: Optional[Path] = None,
 ) -> Optional[str]:
     """Poll Copilot process logs for the exported remote task ID."""
-    logs_dir = Path.home() / ".copilot" / "logs"
+    if logs_dir is None:
+        logs_dir = Path.home() / ".copilot" / "logs"
     deadline = time.time() + timeout
-    prior_logs = prior_logs or {}
+    prior_logs = {} if prior_logs is None else prior_logs
 
     while time.time() < deadline:
         # Snapshot (path, mtime) up-front with try/except so a log rotated or
@@ -168,15 +169,20 @@ def _wait_for_remote_task_id(
 
         for path, _mtime in sorted(log_paths_with_mtime, key=lambda item: item[1], reverse=True):
             try:
-                previous_size = prior_logs.get(path)
+                previous_size = prior_logs.get(path, 0)
                 current_size = path.stat().st_size
-                if previous_size is not None and current_size <= previous_size:
+                if current_size == previous_size:
                     continue
+                # Truncation/rotation: size shrank — reset to read from start.
+                if current_size < previous_size:
+                    previous_size = 0
+                    del prior_logs[path]
 
-                if previous_size is None:
-                    log_text = path.read_text(encoding="utf-8", errors="ignore")
-                else:
-                    log_text = path.read_bytes()[previous_size:].decode("utf-8", errors="ignore")
+                with path.open("rb") as fh:
+                    fh.seek(previous_size)
+                    log_text = fh.read().decode("utf-8", errors="ignore")
+
+                prior_logs[path] = current_size
 
                 task_id = _parse_remote_task_id(
                     log_text,
@@ -229,7 +235,8 @@ def build_copilot_command(
 
 def _log_dir() -> Path:
     """Return (and create) the copilot log directory."""
-    d = Path.home() / ".hermes" / "logs"
+    from hermes_constants import get_hermes_home
+    d = get_hermes_home() / "logs"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -438,6 +445,7 @@ def launch_copilot(
         prompt,
         copilot_bin=_resolve_copilot_bin(copilot_bin),
         model=model,
+        session_id=session_id,
     )
 
     if dry_run:
@@ -481,7 +489,10 @@ def launch_copilot(
             # Real path: fully detached process via shell wrapper.
             # Interactive mode (-i) needs a PTY for its TUI to render and
             # for --remote to register with the cloud relay, so wrap with
-            # ``script -qfc`` which allocates a PTY and captures output.
+            # script(1) which allocates a PTY and captures output.
+            # util-linux script: -e propagates child exit code, -q quiet,
+            # -f flush, -c command.  BSD script (macOS): no -e/-f/-c flags;
+            # command follows logfile; exit code propagates by default.
             prior_logs = _snapshot_process_logs()
             log_path = _log_dir() / f"copilot-{session_id}.log"
             complete_script = str(
@@ -489,13 +500,12 @@ def launch_copilot(
             )
             python_bin = sys.executable
 
-            script_inner = shlex.join(cmd)
-            script_cmd = [
-                "script",
-                "-eqfc",
-                script_inner,
-                str(log_path),
-            ]
+            if sys.platform == "darwin":
+                # BSD script(1): script [-q] logfile command [args...]
+                script_cmd = ["script", "-q", str(log_path)] + cmd
+            else:
+                # util-linux script(1): -e propagates exit code
+                script_cmd = ["script", "-eqfc", shlex.join(cmd), str(log_path)]
 
             # Shell command: run copilot under script(1), capture exit
             # code, then update the DB via complete_job.py.

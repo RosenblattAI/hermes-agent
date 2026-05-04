@@ -4016,24 +4016,33 @@ class GatewayRunner:
         if canonical == "btw":
             return await self._handle_btw_command(event)
 
-        if canonical == "copilot_remote":
-            from hermes_cli.copilot_cmd import handle_copilot_remote_slash
+        if canonical == "copilot":
+            # Also handles /copilot_remote (registered as an alias of /copilot).
+            from hermes_cli.copilot_cmd import handle_copilot_slash
             import io, contextlib
-
-            # handle_copilot_remote_slash() does filesystem scans, an LLM
-            # router call, and several seconds of stdout polling/HTTP
-            # verification. Run it in a worker thread so the event loop
-            # stays responsive to other inbound messages.
-            def _run_copilot_remote_command(command_text: str) -> str:
+            # handle_copilot_slash() can do filesystem scans, subprocess spawning,
+            # and LLM calls; run in a thread to avoid blocking the asyncio loop.
+            def _run_copilot_command(command_text: str) -> str:
                 buf = io.StringIO()
                 with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
                     try:
-                        handle_copilot_remote_slash(command_text)
+                        handle_copilot_slash(command_text)
                     except SystemExit:
                         pass
+                    except Exception as exc:
+                        from hermes_logging import sanitize_for_log as _slf
+                        logger.error(
+                            "Unhandled error in /copilot slash handler: %s: %s",
+                            type(exc).__name__,
+                            _slf(str(exc)),
+                        )
+                        return "Error: /copilot command failed — see server logs for details."
                 return buf.getvalue().strip() or "Done."
 
-            return await asyncio.to_thread(_run_copilot_remote_command, event.text)
+            return await asyncio.to_thread(_run_copilot_command, event.text)
+
+        if canonical == "btw":
+            return await self._handle_btw_command(event)
 
         if canonical == "steer":
             # No active agent — /steer has no tool call to inject into.
