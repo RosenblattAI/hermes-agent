@@ -334,7 +334,7 @@ def _find_copilot_pids(job_id: str) -> list:
             timeout=5,
         )
     except Exception as exc:
-        raise RuntimeError(f"ps invocation failed: {exc}") from exc
+        raise RuntimeError(f"ps invocation failed: {_sanitize_for_log(repr(exc))}") from exc
 
     if result.returncode != 0:
         stderr_snippet = _sanitize_for_log(result.stderr.strip()[:200])
@@ -559,7 +559,7 @@ def handle_copilot_slash(raw_command: str) -> None:
     try:
         parts = shlex.split(raw_command.strip())
     except ValueError as e:
-        print(f"Error: could not parse /copilot command: {e}", file=sys.stderr)
+        print(f"Error: could not parse /copilot command: {_sanitize_for_log(str(e))}", file=sys.stderr)
         return
     subcmd = parts[1] if len(parts) > 1 else "list"
     args_rest = parts[2:]

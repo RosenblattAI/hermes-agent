@@ -1896,8 +1896,14 @@ class SessionDB:
         self._execute_write(_do)
         return job_id
 
-    def finish_copilot_remote(self, job_id, state, exit_code=None, error_text=None) -> int:
-        """Mark a copilot remote as a terminal state (done, failed, stopped, timed_out).
+    def finish_copilot_remote(
+        self,
+        job_id: str,
+        state: str,
+        exit_code: Optional[int] = None,
+        error_text: Optional[str] = None,
+    ) -> int:
+        """Mark a copilot remote as a terminal state (done, failed, stopped).
         Only transitions from 'running', making this idempotent.
         Returns rowcount (1 on success, 0 if already terminal)."""
         now = time.time()
