@@ -1226,7 +1226,7 @@ class TestSchemaInit:
         assert "messages" in tables
         assert "schema_version" in tables
 
-    def test_schema_version_is_13(self, db):
+    def test_schema_version_matches_constant(self, db):
         from hermes_state import SCHEMA_VERSION
         cursor = db._conn.execute("SELECT version FROM schema_version")
         version = cursor.fetchone()[0]
@@ -1898,7 +1898,7 @@ class TestConcurrentWriteSafety:
 # =========================================================================
 
 class TestCopilotRemoteLifecycle:
-    def test_schema_version_is_13(self, db):
+    def test_schema_version_matches_constant(self, db):
         cursor = db._conn.execute("SELECT version FROM schema_version")
         from hermes_state import SCHEMA_VERSION
         assert cursor.fetchone()[0] == SCHEMA_VERSION
@@ -2075,11 +2075,11 @@ class TestCopilotJobMigrationFromV6:
 
 
 # =========================================================================
-# Schema v13 — new copilot_jobs fields and copilot_job_hooks
+# Schema v13 — new copilot_remote fields and lifecycle hooks
 # =========================================================================
 
 class TestCopilotJobV13Fields:
-    """Tests for the new fields added in schema v14 (formerly v13 copilot_jobs)."""
+    """Tests for the new fields and hooks added in schema v13 (copilot_remote extensions)."""
 
     @pytest.fixture()
     def db(self, tmp_path):
@@ -2103,14 +2103,14 @@ class TestCopilotJobV13Fields:
 
     def test_create_remote_with_all_new_fields(self, db):
         db.create_copilot_remote(
-            job_id="cj_v14",
+            job_id="cr_v13_ext",
             repo_slug="my-repo",
             repo_path="/repos/my-repo",
             connect_handle="task-abc-123",
             jira_issue_key="PROJ-42",
             deadline_at=9999999999.0,
         )
-        job = db.get_copilot_remote("cj_v14")
+        job = db.get_copilot_remote("cr_v13_ext")
         assert job["connect_handle"] == "task-abc-123"
         assert job["jira_issue_key"] == "PROJ-42"
         assert job["deadline_at"] == 9999999999.0

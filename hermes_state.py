@@ -1922,15 +1922,15 @@ class SessionDB:
         job_id: str,
         repo_slug: str,
         repo_path: str,
-        prompt: str = None,
-        signal_source: str = None,
-        signal_ref: str = None,
-        hermes_session_id: str = None,
-        connect_handle: str = None,
-        jira_issue_key: str = None,
-        deadline_at: float = None,
-        retry_of: str = None,
-        pid: int = None,
+        prompt: Optional[str] = None,
+        signal_source: Optional[str] = None,
+        signal_ref: Optional[str] = None,
+        hermes_session_id: Optional[str] = None,
+        connect_handle: Optional[str] = None,
+        jira_issue_key: Optional[str] = None,
+        deadline_at: Optional[float] = None,
+        retry_of: Optional[str] = None,
+        pid: Optional[int] = None,
     ) -> str:
         """Create a new copilot remote in 'running' state. Returns the job_id.
 
@@ -1970,8 +1970,9 @@ class SessionDB:
         return job_id
 
     def finish_copilot_remote(self, job_id, state, exit_code=None, error_text=None) -> int:
-        """Mark a copilot remote as done or failed. Only transitions from 'running',
-        making this idempotent. Returns rowcount (1 on success, 0 if already terminal)."""
+        """Mark a copilot remote as a terminal state (done, failed, stopped, timed_out).
+        Only transitions from 'running', making this idempotent.
+        Returns rowcount (1 on success, 0 if already terminal)."""
         now = time.time()
         def _do(conn):
             cursor = conn.execute(
@@ -1988,10 +1989,12 @@ class SessionDB:
         job_id: str,
         connect_handle: str,
     ) -> None:
-        """Update the Copilot reconnect handle for a copilot remote.
+        """Update the cloud relay task handle for a copilot remote.
 
-        This is the value used for ``copilot --connect=<handle>`` /
-        ``--resume=<handle>``. It is distinct from ``signal_ref``
+        ``connect_handle`` is the value used for ``copilot --connect=<handle>``
+        to re-attach from any terminal.  It is the cloud task ID returned by
+        Copilot at launch and is distinct from the Hermes job UUID (which is
+        passed via ``--resume`` at launch time) and from ``signal_ref``
         (caller-supplied metadata such as a Jira ticket ID).
         """
         def _do(conn):
