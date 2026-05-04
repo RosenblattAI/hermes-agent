@@ -4041,9 +4041,6 @@ class GatewayRunner:
 
             return await asyncio.to_thread(_run_copilot_command, event.text)
 
-        if canonical == "btw":
-            return await self._handle_btw_command(event)
-
         if canonical == "steer":
             # No active agent — /steer has no tool call to inject into.
             # Strip the prefix so downstream treats it as a normal user
