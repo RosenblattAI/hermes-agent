@@ -93,7 +93,6 @@ def _state_badge(state: str) -> str:
         "done": "✅ done",
         "failed": "🔴 failed",
         "stopped": "🛑 stopped",
-        "timed_out": "⏱️ timed_out",
     }
     return badges.get(state, state)
 
@@ -499,8 +498,6 @@ def copilot_stop(args):
             exit_code=-1,
             error_text="stopped by user",
         )
-        if updated:
-            db.skip_remote_hooks(job_id)
 
         if killed:
             print(f"  Process tree terminated.")

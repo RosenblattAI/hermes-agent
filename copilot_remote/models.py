@@ -14,9 +14,7 @@ class JobState(str, Enum):
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
-    # Wall-clock deadline elapsed before the job finished.
-    TIMED_OUT = "timed_out"
-    # Explicitly stopped (e.g. by operator or merge-gate veto).
+    # Explicitly stopped (e.g. by operator or hermes copilot stop).
     STOPPED = "stopped"
 
     @property
@@ -25,24 +23,8 @@ class JobState(str, Enum):
         return self in (
             JobState.DONE,
             JobState.FAILED,
-            JobState.TIMED_OUT,
             JobState.STOPPED,
         )
-
-
-class HookType(str, Enum):
-    """Types of lifecycle hooks that can be registered for a copilot job."""
-    MERGE_GATE = "merge_gate"
-    POST_TASK = "post_task"
-
-
-class HookState(str, Enum):
-    """Execution state of a single hook invocation."""
-    PENDING = "pending"
-    FIRED = "fired"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-
 
 @dataclass
 class RepoEntry:
