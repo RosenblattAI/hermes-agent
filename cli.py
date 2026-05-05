@@ -6210,7 +6210,7 @@ class HermesCLI:
             self._handle_snapshot_command(cmd_original)
         elif canonical == "stop":
             self._handle_stop_command()
-        elif canonical == "copilot":
+        elif canonical == "copilot_remote":
             from hermes_cli.copilot_cmd import handle_copilot_slash
             handle_copilot_slash(cmd_original)
         elif canonical == "agents":

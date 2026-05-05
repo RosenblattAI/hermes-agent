@@ -361,7 +361,10 @@ def _find_copilot_pids(job_id: str) -> list:
         raise RuntimeError("ps not found on PATH; cannot scan for copilot processes")
     try:
         result = subprocess.run(
-            [ps_bin, "ax", "-o", "pid=,args="],
+            # "-A eww" requests all processes with environment + unlimited
+            # command-line width so long prompts don't truncate --resume <id>.
+            # Mirrors the pattern used in hermes_cli/gateway.py.
+            [ps_bin, "-A", "eww", "-o", "pid=,command="],
             capture_output=True,
             text=True,
             timeout=5,
@@ -509,23 +512,27 @@ def _pgid_has_living_members(pgid: int) -> bool:
     """Return True if the process group contains at least one non-zombie process.
 
     ``os.killpg(pgid, 0)`` succeeds for groups that consist entirely of
-    zombie processes.  This helper checks ``/proc/*/status`` on Linux to
+    zombie processes.  This helper scans ``/proc/*/stat`` on Linux (the
+    ``stat`` file exposes PGID; ``status`` does not on modern kernels) to
     confirm at least one living member exists.  On non-Linux platforms
     (where ``/proc`` is unavailable) it conservatively returns True so that
     callers treat the group as still alive and attempt a SIGKILL.
+
+    ``/proc/<pid>/stat`` format: ``pid (comm) state ppid pgrp ...``
+    We split from the last ``)``) to handle comms that contain spaces/parens.
     """
     found_living = False
     try:
-        for status_path in pathlib.Path("/proc").glob("*/status"):
+        for stat_path in pathlib.Path("/proc").glob("*/stat"):
             try:
-                text = status_path.read_text()
-                fields: dict = {}
-                for line in text.splitlines():
-                    if ":\t" in line:
-                        k, _, v = line.partition(":\t")
-                        fields[k] = v
-                if int(fields.get("Pgrp", -1)) == pgid:
-                    state = fields.get("State", "")
+                text = stat_path.read_text()
+                # Split on the LAST ')' to safely skip the comm field.
+                after_comm = text[text.rfind(")") + 1:].split()
+                # after_comm: [state, ppid, pgrp, ...]
+                if len(after_comm) < 3:
+                    continue
+                if int(after_comm[2]) == pgid:
+                    state = after_comm[0]
                     if not state.startswith("Z"):
                         found_living = True
                         break
@@ -543,8 +550,9 @@ def _pid_exists(pid: int) -> bool:
     ``os.kill(pid, 0)`` succeeds for zombie processes (they retain their PID
     entry until waited on).  Since copilot launches are detached and never
     waited on by this process, a dead bash wrapper can linger as a zombie and
-    fool the check.  On Linux we confirm via ``/proc/{pid}/status``; on other
-    platforms we fall back to the signal-0 result alone.
+    fool the check.  On Linux we confirm via ``/proc/{pid}/stat`` (field layout:
+    ``pid (comm) state ppid pgrp ...``); on other platforms we fall back to the
+    signal-0 result alone.
     """
     try:
         os.kill(pid, 0)
@@ -554,10 +562,11 @@ def _pid_exists(pid: int) -> bool:
         return False
     # Signal 0 succeeded — verify the process is not a zombie on Linux.
     try:
-        status_text = pathlib.Path(f"/proc/{pid}/status").read_text()
-        for line in status_text.splitlines():
-            if line.startswith("State:"):
-                return not line.split()[1].startswith("Z")
+        stat_text = pathlib.Path(f"/proc/{pid}/stat").read_text()
+        after_comm = stat_text[stat_text.rfind(")") + 1:].split()
+        # after_comm[0] is the state character; 'Z' means zombie.
+        if after_comm and after_comm[0].startswith("Z"):
+            return False
     except OSError:
         pass  # non-Linux or /proc entry already gone
     return True

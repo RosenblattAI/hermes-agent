@@ -4016,8 +4016,8 @@ class GatewayRunner:
         if canonical == "btw":
             return await self._handle_btw_command(event)
 
-        if canonical == "copilot":
-            # Also handles /copilot_remote (registered as an alias of /copilot).
+        if canonical == "copilot_remote":
+            # Handles both /copilot_remote (canonical) and /copilot (alias).
             from hermes_cli.copilot_cmd import handle_copilot_slash
             import io, contextlib
             # handle_copilot_slash() can do filesystem scans, subprocess spawning,
