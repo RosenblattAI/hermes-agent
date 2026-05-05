@@ -45,9 +45,9 @@ def test_launch_explicit_repo_dry_run(db):
     # Copilot via --resume, so it would be a non-functional command.
     assert result["job"]["connect_handle"] is None
     assert result["job"]["connect_command"] is None
-    # resume_command uses the job UUID (launcher always passes --resume <session_id>)
-    assert result["job"]["resume_command"] is not None
-    assert "resume" in result["job"]["resume_command"]
+    # Dry-run job finishes immediately as 'done'; resume_command is None for
+    # terminal states since --resume would start a new unrelated session.
+    assert result["job"]["resume_command"] is None
     # Without a connect handle there is no web_url.
     assert result["job"]["web_url"] is None
 

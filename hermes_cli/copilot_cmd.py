@@ -132,7 +132,15 @@ def copilot_launch(args):
     if not repo_path:
         # Try to resolve repo_path from the slug via workspace discovery.
         from copilot_remote.router import _discover_repos
-        entries = _discover_repos()
+        try:
+            entries = _discover_repos()
+        except OSError as exc:
+            print(
+                f"Error: workspace discovery failed ({_sanitize_for_log(repr(exc))}). "
+                "Use --repo-path to specify the path explicitly.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         matched = next((e for e in entries if e.slug.lower() == repo.lower()), None)
         if matched:
             repo_path = matched.path
@@ -387,15 +395,15 @@ def _find_copilot_pids(job_id: str) -> list:
         args_part = parts[1] if len(parts) == 2 else ""
         # Only match the Copilot CLI process itself (--resume <job_id>).
         #
-        # The bash wrapper spawned by launcher.py is:
+        # Both wrapper processes embed the Copilot command in their own args:
         #   bash -c "script ... --resume <job_id> ...; complete_job.py ..."
-        # Its full -c argument embeds the Copilot command, so `--resume <job_id>`
-        # appears in the bash process's command line too.  If Copilot has already
-        # finished but complete_job.py is still running, matching bash would cause
-        # _kill_copilot_procs to SIGKILL the post-exit DB callback and race the
-        # running→stopped update.  Skip any process whose executable is bash.
+        #   script -eqfc "copilot ... --resume <job_id>" /logpath
+        # If Copilot has already exited but one of these wrappers is still alive
+        # (e.g. script waiting for its child, or bash running complete_job.py),
+        # matching them would signal the whole PGID and race the terminal-state write.
+        # Skip any process whose executable is a known shell/pty wrapper.
         executable = args_part.split(None, 1)[0].rsplit("/", 1)[-1] if args_part else ""
-        if executable == "bash":
+        if executable in ("bash", "script"):
             continue
         if (f"--resume {job_id}" not in args_part
                 and f"--resume={job_id}" not in args_part):

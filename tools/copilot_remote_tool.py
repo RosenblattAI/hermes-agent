@@ -161,8 +161,16 @@ def _serialize_job(job: Dict[str, Any], *, include_web_url: bool = True) -> Dict
         "connect_command": f"copilot --connect={handle}" if handle else None,
         # The job UUID is the --resume handle: launcher.py always passes
         # --resume <session_id> to Copilot so the session can be re-attached
-        # by job ID.  connect_handle is the separate cloud-relay task ID.
-        "resume_command": f"copilot --resume={job.get('id')}" if job.get("id") else None,
+        # by job ID — but only while the session is still running.  For
+        # terminal states (done/failed/stopped) the remote session is gone;
+        # --resume would start a new unrelated session instead of reopening
+        # the completed one.  Emit None so callers are not handed a misleading
+        # reconnect command.
+        "resume_command": (
+            f"copilot --resume={job.get('id')}"
+            if job.get("id") and job.get("state") == "running"
+            else None
+        ),
         "pid": job.get("pid"),
         "web_url": (
             build_github_task_web_url(repo_path, repo_slug, handle)

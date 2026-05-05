@@ -393,6 +393,16 @@ class TestFindCopilotPids:
         monkeypatch.setattr("os.getpid", lambda: 999)
         assert _find_copilot_pids(self.JOB_ID) == []
 
+    def test_excludes_script_pty_wrapper(self, monkeypatch):
+        """The script(1) PTY wrapper also embeds --resume <job_id> in its args.
+        If Copilot exits but script is still draining the PTY, it must not be
+        matched so /copilot stop cannot race the terminal-state write."""
+        from hermes_cli.copilot_cmd import _find_copilot_pids
+        script_cmd = f'script -eqfc "copilot --resume {self.JOB_ID}" /tmp/log.txt'
+        self._mock_ps(monkeypatch, f"  104 {script_cmd}\n")
+        monkeypatch.setattr("os.getpid", lambda: 999)
+        assert _find_copilot_pids(self.JOB_ID) == []
+
     def test_excludes_unrelated_processes(self, monkeypatch):
         from hermes_cli.copilot_cmd import _find_copilot_pids
         self._mock_ps(monkeypatch, "  200 some other process\n  201 grep aaaabbbb\n")
