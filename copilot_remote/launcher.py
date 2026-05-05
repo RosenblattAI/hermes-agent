@@ -163,6 +163,12 @@ def _wait_for_remote_task_id(
     # second half seen in the next poll would also be incomplete.  We hold back
     # everything after the last newline and prepend it to the next chunk.
     partial_buffers: Dict[Path, str] = {}
+    # Track which log files have already had their session_id confirmed.
+    # The "Creating new session with ..." and "Remote session active ..." lines
+    # often arrive in separate polls; once the session_id has been seen in any
+    # chunk for a file, subsequent chunks from that file should be searched for
+    # the task-ID pattern without requiring the session_id to appear again.
+    session_confirmed: set = set()
 
     while time.time() < deadline:
         # Snapshot (path, mtime) up-front with try/except so a log rotated or
@@ -185,6 +191,7 @@ def _wait_for_remote_task_id(
                     previous_size = 0
                     del prior_logs[path]
                     partial_buffers.pop(path, None)
+                    session_confirmed.discard(path)
 
                 with path.open("rb") as fh:
                     fh.seek(previous_size)
@@ -204,10 +211,17 @@ def _wait_for_remote_task_id(
                     partial_buffers[path] = combined
                     to_parse = ""
 
-                task_id = _parse_remote_task_id(
-                    to_parse,
-                    requested_session_id,
+                # Once the session_id has appeared in any chunk for this file,
+                # mark it confirmed so subsequent polls aren't filtered out.
+                if requested_session_id and path not in session_confirmed:
+                    if requested_session_id in combined:
+                        session_confirmed.add(path)
+
+                # Only apply session_id filter for not-yet-confirmed files.
+                sid_filter = (
+                    None if path in session_confirmed else requested_session_id
                 )
+                task_id = _parse_remote_task_id(to_parse, sid_filter)
             except OSError:
                 continue
             if task_id:

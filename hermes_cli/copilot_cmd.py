@@ -453,33 +453,37 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
         time.sleep(0.2)
         surviving = [p for p in surviving if _pid_exists(p)]
 
-    # Force-kill entire process groups for any survivors so that child
-    # processes that don't match the ps filter are also terminated.
+    # Force-kill entire process groups for any matched survivors.
     if surviving:
         for pgid in pgids:
             try:
                 os.killpg(pgid, signal.SIGKILL)
             except OSError:
                 pass
-        # Give the kernel a moment to reap, then re-check.
+        # Give the kernel a moment to reap, then re-check matched PIDs.
         time.sleep(0.2)
         still_alive = [p for p in surviving if _pid_exists(p)]
-        # Also verify the process groups themselves are fully gone — this
-        # catches children that were not matched by the ps filter.
-        living_pgids = []
-        for pgid in pgids:
-            try:
-                os.killpg(pgid, 0)  # signal 0 = existence probe
-                living_pgids.append(pgid)
-            except ProcessLookupError:
-                pass  # entire group is gone
-            except OSError:
-                living_pgids.append(pgid)  # EPERM: group exists but not owned
-        if still_alive or living_pgids:
-            raise RuntimeError(
-                f"PIDs {still_alive} / PGIDs {living_pgids} survived SIGKILL "
-                f"for job {_sanitize_for_log(job_id)}; process may still be running."
-            )
+    else:
+        still_alive = []
+
+    # Always probe PGID liveness — even when all matched PIDs are gone,
+    # an unmatched child in the same process group might still be alive
+    # (it could have ignored SIGTERM and not appeared in _find_copilot_pids).
+    living_pgids = []
+    for pgid in pgids:
+        try:
+            os.killpg(pgid, 0)  # signal 0 = existence probe
+            living_pgids.append(pgid)
+        except ProcessLookupError:
+            pass  # entire group is gone
+        except OSError:
+            living_pgids.append(pgid)  # EPERM: group exists but not owned
+
+    if still_alive or living_pgids:
+        raise RuntimeError(
+            f"PIDs {still_alive} / PGIDs {living_pgids} survived SIGKILL "
+            f"for job {_sanitize_for_log(job_id)}; process may still be running."
+        )
 
     return True
 

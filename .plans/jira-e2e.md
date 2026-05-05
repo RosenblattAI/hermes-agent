@@ -30,7 +30,7 @@ to fill those gaps:
 New column added by this PR on `copilot_remote`:
 | Column | Type | Purpose |
 |---|---|---|
-| `pid` | INTEGER | OS process ID of the launched copilot process |
+| `pid` | INTEGER | OS process ID of the bash wrapper / PGID leader (not the inner Copilot CLI child PID) |
 
 `connect_handle` (Copilot cloud relay task ID) was already present on
 `rosenblatt/main` and is **not** a v13 addition.
@@ -52,7 +52,7 @@ present on `rosenblatt/main`).  No legacy data migration is required —
 
 | Method | Purpose |
 |---|---|
-| `update_copilot_remote_pid(remote_id, pid)` | Persist OS process ID post-launch |
+| `update_copilot_remote_pid(remote_id, pid)` | Persist bash wrapper / PGID leader PID post-launch |
 
 > **Deferred to `feat/copilot-remote-lifecycle-ext`:**
 > `expire_timed_out_remotes`, `retry_copilot_remote`, `register_remote_hook`,
@@ -62,7 +62,7 @@ present on `rosenblatt/main`).  No legacy data migration is required —
 ### `copilot_remote/launcher.py`
 
 - `connect_id` is persisted via `db.update_copilot_remote_connect_handle()` in `copilot_cmd.py` after `launch_copilot()` returns
-- `pid` is persisted via `db.update_copilot_remote_pid()` from `proc.pid` after launch
+- `pid` is persisted via `db.update_copilot_remote_pid()` from `proc.pid` (bash wrapper / PGID leader) after launch
 - `_log_dir()` uses `get_hermes_home()` instead of hardcoded `~/.hermes`
 
 ---

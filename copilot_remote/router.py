@@ -134,7 +134,7 @@ def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[Rep
         logger.warning("Router LLM returned empty/blank slug")
         return None
 
-    slug_lower = slug.lower()
+    slug_lower = slug.strip().lower()
     for entry in entries:
         if entry.slug.lower() == slug_lower:
             return entry
