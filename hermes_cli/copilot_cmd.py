@@ -473,11 +473,14 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
     # Always probe PGID liveness — even when all matched PIDs are gone,
     # an unmatched child in the same process group might still be alive
     # (it could have ignored SIGTERM and not appeared in _find_copilot_pids).
+    # Note: os.killpg(pgid, 0) also succeeds for groups that contain ONLY
+    # zombie processes; _pgid_has_living_members() filters those out on Linux.
     living_pgids = []
     for pgid in pgids:
         try:
             os.killpg(pgid, 0)  # signal 0 = existence probe
-            living_pgids.append(pgid)
+            if _pgid_has_living_members(pgid):
+                living_pgids.append(pgid)
         except ProcessLookupError:
             pass  # entire group is gone
         except OSError:
@@ -490,6 +493,38 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
         )
 
     return True
+
+
+def _pgid_has_living_members(pgid: int) -> bool:
+    """Return True if the process group contains at least one non-zombie process.
+
+    ``os.killpg(pgid, 0)`` succeeds for groups that consist entirely of
+    zombie processes.  This helper checks ``/proc/*/status`` on Linux to
+    confirm at least one living member exists.  On non-Linux platforms
+    (where ``/proc`` is unavailable) it conservatively returns True so that
+    callers treat the group as still alive and attempt a SIGKILL.
+    """
+    found_living = False
+    try:
+        for status_path in pathlib.Path("/proc").glob("*/status"):
+            try:
+                text = status_path.read_text()
+                fields: dict = {}
+                for line in text.splitlines():
+                    if ":\t" in line:
+                        k, _, v = line.partition(":\t")
+                        fields[k] = v
+                if int(fields.get("Pgrp", -1)) == pgid:
+                    state = fields.get("State", "")
+                    if not state.startswith("Z"):
+                        found_living = True
+                        break
+            except (OSError, ValueError):
+                continue
+    except OSError:
+        # /proc not available (non-Linux) — be conservative
+        return True
+    return found_living
 
 
 def _pid_exists(pid: int) -> bool:

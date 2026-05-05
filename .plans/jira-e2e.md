@@ -36,8 +36,9 @@ New column added by this PR on `copilot_remote`:
 `rosenblatt/main` and is **not** a v13 addition.
 
 Schema v13 adds `pid` to `copilot_remote` (and `connect_handle` was already
-present on `rosenblatt/main`).  No legacy data migration is required —
-`copilot_remote` never shipped in production.
+present on `rosenblatt/main`).  A v12→v13 `ALTER TABLE copilot_remote ADD COLUMN pid INTEGER`
+migration is included in `hermes_state.py` and is tested by `TestCopilotRemoteMigrationFromV12`
+in `tests/test_hermes_state.py`.
 
 ### `copilot_remote/models.py`
 

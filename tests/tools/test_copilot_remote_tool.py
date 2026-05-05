@@ -136,7 +136,7 @@ def test_launch_stores_and_serializes_pid(db, monkeypatch):
     assert shown["job"]["pid"] == 42
 
 
-
+def test_launch_routes_repo_with_web_url(db, monkeypatch):
     """When the repo path is a real git clone and connect handle exists, web_url should be present."""
     routed_repo = RepoEntry(
         slug="repo-name",

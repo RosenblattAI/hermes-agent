@@ -177,7 +177,11 @@ def route_repo(
         )
         text = response.choices[0].message.content or ""
         return _parse_routing_response(text, entries)
-    except Exception:
-        logger.exception("Router LLM call failed, returning None")
+    except Exception as exc:
+        # Avoid exc_info=True / logger.exception here: the traceback can carry
+        # attacker-controlled content (prompt or slug embedded in an LLM error
+        # response), enabling log-injection via CR/LF in server logs (CWE-117).
+        logger.warning("Router LLM call failed, returning None: %s",
+                       _sanitize_for_log(repr(exc)[:500]))
         return None
 

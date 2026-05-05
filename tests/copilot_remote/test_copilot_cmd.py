@@ -440,3 +440,67 @@ class TestKillCopilotProcs:
         with pytest.raises(RuntimeError, match="Signal delivery failed"):
             _kill_copilot_procs(self.JOB_ID)
 
+
+class TestShowResumeLine:
+    """Regression tests pinning when copilot show prints or omits the Resume: line.
+
+    Rules (from copilot_show implementation):
+    - Resume: is printed iff state == 'running'
+    - It is printed in BOTH branches: when a connect_handle is known AND when it is not
+    - Terminal states (done, failed, stopped) must NEVER show Resume:
+    """
+
+    JOB_ID_BASE = "cccc1111-0000-0000-0000-{:012d}"
+
+    def _make_job(self, db, n, *, state="running", connect_handle=None):
+        jid = self.JOB_ID_BASE.format(n)
+        db.create_copilot_remote(
+            job_id=jid,
+            repo_slug="test-repo",
+            repo_path="/workspace/test-repo",
+            connect_handle=connect_handle,
+        )
+        if state != "running":
+            db.finish_copilot_remote(jid, state=state, exit_code=0)
+        return jid
+
+    def _show(self, job_id) -> str:
+        from hermes_cli.copilot_cmd import copilot_show
+        return _capture_fn(
+            copilot_show,
+            __import__("types").SimpleNamespace(job_id=job_id),
+        )
+
+    def test_running_with_connect_handle_shows_resume(self, db):
+        jid = self._make_job(db, 1, state="running", connect_handle="task-abc")
+        out = self._show(jid)
+        assert "Resume:" in out
+
+    def test_running_without_connect_handle_shows_resume(self, db):
+        """Resume: appears even when connect handle was not extracted yet."""
+        jid = self._make_job(db, 2, state="running", connect_handle=None)
+        out = self._show(jid)
+        assert "Resume:" in out
+
+    def test_done_job_omits_resume(self, db):
+        jid = self._make_job(db, 3, state="done", connect_handle="task-done")
+        out = self._show(jid)
+        assert "Resume:" not in out
+
+    def test_failed_job_omits_resume(self, db):
+        jid = self._make_job(db, 4, connect_handle="task-fail")
+        db.finish_copilot_remote(jid, state="failed", exit_code=1)
+        out = self._show(jid)
+        assert "Resume:" not in out
+
+    def test_stopped_job_omits_resume(self, db):
+        jid = self._make_job(db, 5, connect_handle="task-stop")
+        db.finish_copilot_remote(jid, state="stopped", exit_code=-1)
+        out = self._show(jid)
+        assert "Resume:" not in out
+
+    def test_done_job_without_handle_omits_resume(self, db):
+        """Even the no-handle branch must not show Resume: for terminal states."""
+        jid = self._make_job(db, 6, state="done", connect_handle=None)
+        out = self._show(jid)
+        assert "Resume:" not in out

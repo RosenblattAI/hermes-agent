@@ -509,7 +509,7 @@ def launch_copilot(
                     if on_complete:
                         on_complete(session_id, proc.returncode)
                 except Exception as exc:
-                    logger.error("Background wait error: %s", exc)
+                    logger.error("Background wait error: %s", _sanitize_for_log(repr(exc)[:500]))
                     if on_complete:
                         on_complete(session_id, -1)
 
@@ -584,5 +584,5 @@ def launch_copilot(
     except Exception as exc:
         if not dry_run and not _spawn and "proc" in locals():
             _terminate_process_group(proc)
-        logger.error("Failed to launch copilot: %s", exc)
+        logger.error("Failed to launch copilot: %s", _sanitize_for_log(repr(exc)[:500]))
         raise
