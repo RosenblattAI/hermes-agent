@@ -5,21 +5,27 @@
 The `copilot_remote` subsystem could launch and track Copilot remote sessions,
 but lacked the architectural primitives needed for a reliable end-to-end
 Jira-driven workflow.  This PR extends `copilot_remote/` and adds schema v13
-to fill those gaps:
+to fill these gaps:
 
 - No wall-clock timeout on running sessions (a stuck session ran forever)
 - `connect_handle` (the Copilot cloud relay task ID) was resolved but not persisted
   in the DB **by `copilot_cmd.py`** until this PR (the column was already present on
   `rosenblatt/main` as a schema v9 addition; this PR wires up the write path)
-- No Jira issue linkage on sessions
-- No retry/resumability provenance tracking
-- No lifecycle hook slots for merge-gate and post-task validation callbacks
-- `JobState` enum lacked `timed_out` and `stopped` states
+- No `stopped` state in `JobState` — operator stop was unrepresentable in the DB
+- No `pid` column — the bash wrapper / PGID leader PID was not persisted for diagnostics
+- No `copilot stop` subcommand — running jobs could not be cleanly terminated
 
-## Deferred
+## Deferred (continuation branch: `feat/copilot-remote-lifecycle-ext`)
 
+The following were prototyped but are not shipped in this PR:
+
+- Jira issue linkage on sessions (`jira_issue_key`)
+- Retry / resumability provenance tracking (`retry_of`, `retry_count`)
+- Lifecycle hook slots for merge-gate and post-task validation (`copilot_remote_hooks`)
+- Wall-clock timeout enforcement (`deadline_at`, `expire_timed_out_remotes`)
+- `timed_out` state (depends on the timeout enforcer above)
 - Jira actionability rubric (comment quality, issue routing scoring)
-- HTTP hook delivery implementation (only schema + DB methods in POC)
+- HTTP hook delivery implementation
 - PR diff-quality validation logic
 - Full Jira webhook ingest flow
 

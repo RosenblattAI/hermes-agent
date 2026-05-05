@@ -207,9 +207,12 @@ def _wait_for_remote_task_id(
                     to_parse = combined[: last_nl + 1]
                     partial_buffers[path] = combined[last_nl + 1 :]
                 else:
-                    # No newline yet — carry everything forward.
+                    # No newline yet — carry everything forward, but also try
+                    # parsing the partial buffer as-is.  Copilot can write the
+                    # full task-URL line as the final EOF byte with no trailing
+                    # newline; without this probe the connect handle times out.
                     partial_buffers[path] = combined
-                    to_parse = ""
+                    to_parse = combined
 
                 # Once the session_id has appeared in any chunk for this file,
                 # mark it confirmed so subsequent polls aren't filtered out.

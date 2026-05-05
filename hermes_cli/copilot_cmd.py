@@ -136,6 +136,7 @@ def copilot_launch(args):
         matched = next((e for e in entries if e.slug.lower() == repo.lower()), None)
         if matched:
             repo_path = matched.path
+            repo = matched.slug  # normalise to the canonical casing stored in the workspace
             print(f"Resolved path for {_sanitize_for_log(repo)}: {_sanitize_for_log(str(repo_path))}")
         else:
             print(
