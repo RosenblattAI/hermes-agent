@@ -45,7 +45,9 @@ def test_launch_explicit_repo_dry_run(db):
     # Copilot via --resume, so it would be a non-functional command.
     assert result["job"]["connect_handle"] is None
     assert result["job"]["connect_command"] is None
-    assert result["job"]["resume_command"] is None
+    # resume_command uses the job UUID (launcher always passes --resume <session_id>)
+    assert result["job"]["resume_command"] is not None
+    assert "resume" in result["job"]["resume_command"]
     # Without a connect handle there is no web_url.
     assert result["job"]["web_url"] is None
 
@@ -203,7 +205,7 @@ def test_list_and_show(db):
 
     shown = json.loads(copilot_remote({"action": "show", "job_id": "job-1"}))
     assert shown["success"] is True
-    assert shown["job"]["resume_command"] == "copilot --resume=task-1"
+    assert shown["job"]["resume_command"] == "copilot --resume=job-1"
     assert shown["job"]["pid"] == 1234
     # repo_path is not a real git clone in the test environment.
     assert shown["job"]["web_url"] is None

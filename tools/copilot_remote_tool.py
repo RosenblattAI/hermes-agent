@@ -130,14 +130,15 @@ def _error(message: str) -> str:
 
 
 def _job_handle(job: Dict[str, Any]) -> Optional[str]:
-    """Return the launcher-extracted Copilot reconnect handle, or ``None``.
+    """Return the launcher-extracted Copilot cloud-relay handle, or ``None``.
 
-    The Hermes job UUID is *not* a valid Copilot ``--connect/--resume``
-    handle (the launcher does not pass it into Copilot via ``--resume``),
-    so when ``connect_handle`` is missing we return ``None`` rather than
-    falling back to ``job['id']``. ``_serialize_job()`` then omits the
-    ``connect_command``/``resume_command`` fields so model callers do
-    not get a fabricated, non-functional reconnect command.
+    The Hermes job UUID doubles as a valid ``--resume`` handle (the launcher
+    passes it to Copilot via ``--resume <session_id>``), so ``resume_command``
+    in ``_serialize_job`` is always populated from ``job['id']``.
+
+    This function returns the *connect* handle (the cloud-relay task ID emitted
+    as "Remote session active: .../tasks/...") for use in ``connect_command``
+    and ``web_url``.  It is separate from the resume handle.
     """
     handle = job.get("connect_handle")
     return str(handle) if handle else None
@@ -158,7 +159,10 @@ def _serialize_job(job: Dict[str, Any], *, include_web_url: bool = True) -> Dict
         "error_text": job.get("error_text"),
         "connect_handle": handle,
         "connect_command": f"copilot --connect={handle}" if handle else None,
-        "resume_command": f"copilot --resume={handle}" if handle else None,
+        # The job UUID is the --resume handle: launcher.py always passes
+        # --resume <session_id> to Copilot so the session can be re-attached
+        # by job ID.  connect_handle is the separate cloud-relay task ID.
+        "resume_command": f"copilot --resume={job.get('id')}" if job.get("id") else None,
         "pid": job.get("pid"),
         "web_url": (
             build_github_task_web_url(repo_path, repo_slug, handle)

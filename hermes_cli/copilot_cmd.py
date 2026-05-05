@@ -386,10 +386,17 @@ def _find_copilot_pids(job_id: str) -> list:
         parts = line.split(None, 1)
         args_part = parts[1] if len(parts) == 2 else ""
         # Only match the Copilot CLI process itself (--resume <job_id>).
-        # complete_job.py is intentionally excluded: it is a post-exit DB
-        # callback and may still be running after the Copilot child has
-        # finished.  Killing it would race with its terminal-state write and
-        # could permanently misclassify a completed job as "stopped".
+        #
+        # The bash wrapper spawned by launcher.py is:
+        #   bash -c "script ... --resume <job_id> ...; complete_job.py ..."
+        # Its full -c argument embeds the Copilot command, so `--resume <job_id>`
+        # appears in the bash process's command line too.  If Copilot has already
+        # finished but complete_job.py is still running, matching bash would cause
+        # _kill_copilot_procs to SIGKILL the post-exit DB callback and race the
+        # running→stopped update.  Skip any process whose executable is bash.
+        executable = args_part.split(None, 1)[0].rsplit("/", 1)[-1] if args_part else ""
+        if executable == "bash":
+            continue
         if (f"--resume {job_id}" not in args_part
                 and f"--resume={job_id}" not in args_part):
             continue
@@ -522,9 +529,15 @@ def _pgid_has_living_members(pgid: int) -> bool:
     ``/proc/<pid>/stat`` format: ``pid (comm) state ppid pgrp ...``
     We split from the last ``)``) to handle comms that contain spaces/parens.
     """
+    proc_root = pathlib.Path("/proc")
+    if not proc_root.is_dir():
+        # /proc not present (macOS, BSDs) — Path.glob() would silently return
+        # no entries on Python ≥ 3.12 without raising OSError, so we must
+        # guard explicitly to preserve the conservative-True behaviour.
+        return True
     found_living = False
     try:
-        for stat_path in pathlib.Path("/proc").glob("*/stat"):
+        for stat_path in proc_root.glob("*/stat"):
             try:
                 text = stat_path.read_text()
                 # Split on the LAST ')' to safely skip the comm field.

@@ -383,6 +383,16 @@ class TestFindCopilotPids:
         monkeypatch.setattr("os.getpid", lambda: 999)
         assert _find_copilot_pids(self.JOB_ID) == []
 
+    def test_excludes_bash_launcher_wrapper(self, monkeypatch):
+        """The bash -c wrapper embeds the full Copilot command in its -c arg.
+        It must be excluded so a still-running complete_job.py tail is not mistaken
+        for a live Copilot session and killed, racing the terminal-state DB write."""
+        from hermes_cli.copilot_cmd import _find_copilot_pids
+        bash_cmd = f'bash -c "script -eqfc \\"copilot --resume {self.JOB_ID}\\" /dev/null"'
+        self._mock_ps(monkeypatch, f"  103 {bash_cmd}\n")
+        monkeypatch.setattr("os.getpid", lambda: 999)
+        assert _find_copilot_pids(self.JOB_ID) == []
+
     def test_excludes_unrelated_processes(self, monkeypatch):
         from hermes_cli.copilot_cmd import _find_copilot_pids
         self._mock_ps(monkeypatch, "  200 some other process\n  201 grep aaaabbbb\n")
