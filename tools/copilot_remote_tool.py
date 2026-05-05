@@ -79,7 +79,7 @@ COPILOT_REMOTE_SCHEMA = {
             },
             "state": {
                 "type": "string",
-                "enum": ["running", "done", "failed"],
+                "enum": ["running", "done", "failed", "stopped"],
                 "description": "Optional state filter for action=list.",
             },
             "limit": {
@@ -159,6 +159,7 @@ def _serialize_job(job: Dict[str, Any], *, include_web_url: bool = True) -> Dict
         "connect_handle": handle,
         "connect_command": f"copilot --connect={handle}" if handle else None,
         "resume_command": f"copilot --resume={handle}" if handle else None,
+        "pid": job.get("pid"),
         "web_url": (
             build_github_task_web_url(repo_path, repo_slug, handle)
             if include_web_url
@@ -390,6 +391,13 @@ def _launch(args: Dict[str, Any]) -> str:
         connect_handle = result.get("connect_id")
         if connect_handle:
             db.update_copilot_remote_connect_handle(job_id, str(connect_handle))
+
+        proc = result.get("proc")
+        if proc is not None:
+            try:
+                db.update_copilot_remote_pid(job_id, proc.pid)
+            except Exception:
+                pass  # best-effort — pid is informational
 
         job = db.get_copilot_remote(job_id) or {
             "id": job_id,

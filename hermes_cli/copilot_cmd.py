@@ -132,7 +132,7 @@ def copilot_launch(args):
         # Try to resolve repo_path from the slug via workspace discovery.
         from copilot_remote.router import _discover_repos
         entries = _discover_repos()
-        matched = next((e for e in entries if e.slug == repo), None)
+        matched = next((e for e in entries if e.slug.lower() == repo.lower()), None)
         if matched:
             repo_path = matched.path
             print(f"Resolved path for {_sanitize_for_log(repo)}: {_sanitize_for_log(str(repo_path))}")
@@ -205,6 +205,9 @@ def copilot_launch(args):
     proc = result.get("proc")
     if proc is not None:
         try:
+            # proc.pid is the bash wrapper / PGID leader spawned by Popen.
+            # It is NOT the inner Copilot CLI child PID, but it IS the
+            # process-group leader used by _kill_copilot_procs for SIGTERM/SIGKILL.
             db.update_copilot_remote_pid(job_id, proc.pid)
         except Exception:
             pass  # best-effort — pid is informational
@@ -313,6 +316,8 @@ def copilot_show(args):
 
         if job.get("exit_code") is not None:
             print(f"Exit:     {job['exit_code']}")
+        if job.get("pid"):
+            print(f"Launcher PID: {job['pid']} (bash wrapper / PGID leader)")
         if job.get("error_text"):
             print(f"Error:    {_sanitize_for_log(job['error_text'])}")
         if job.get("signal_source"):
