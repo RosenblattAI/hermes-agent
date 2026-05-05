@@ -2074,9 +2074,112 @@ class TestCopilotRemoteMigrationFromV6:
         migrated_db.close()
 
 
-# =========================================================================
-# Auto-maintenance: state_meta + vacuum + maybe_auto_prune_and_vacuum
-# =========================================================================
+class TestCopilotRemoteMigrationFromV12:
+    """Verify the v12→v13 ALTER TABLE migration adds the pid column to an
+    existing copilot_remote table that was created before this PR."""
+
+    def test_migration_adds_pid_column(self, tmp_path):
+        import sqlite3
+
+        db_path = tmp_path / "migrate_v12_test.db"
+        conn = sqlite3.connect(str(db_path))
+        # Minimal v12 schema: copilot_remote with connect_handle but without pid.
+        # The sessions/messages tables need enough columns to pass _init_schema.
+        conn.executescript("""
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            INSERT INTO schema_version (version) VALUES (12);
+
+            CREATE TABLE sessions (
+                id TEXT PRIMARY KEY,
+                source TEXT NOT NULL,
+                user_id TEXT,
+                model TEXT,
+                model_config TEXT,
+                system_prompt TEXT,
+                parent_session_id TEXT,
+                started_at REAL NOT NULL,
+                ended_at REAL,
+                end_reason TEXT,
+                message_count INTEGER DEFAULT 0,
+                tool_call_count INTEGER DEFAULT 0,
+                input_tokens INTEGER DEFAULT 0,
+                output_tokens INTEGER DEFAULT 0,
+                cache_read_tokens INTEGER DEFAULT 0,
+                cache_write_tokens INTEGER DEFAULT 0,
+                reasoning_tokens INTEGER DEFAULT 0,
+                billing_provider TEXT,
+                billing_base_url TEXT,
+                billing_mode TEXT,
+                estimated_cost_usd REAL,
+                actual_cost_usd REAL,
+                cost_status TEXT,
+                cost_source TEXT,
+                pricing_version TEXT,
+                title TEXT
+            );
+
+            CREATE TABLE messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT,
+                tool_call_id TEXT,
+                tool_calls TEXT,
+                tool_name TEXT,
+                timestamp REAL NOT NULL,
+                token_count INTEGER,
+                finish_reason TEXT,
+                reasoning TEXT,
+                reasoning_details TEXT,
+                codex_reasoning_items TEXT
+            );
+
+            CREATE TABLE copilot_remote (
+                id TEXT PRIMARY KEY,
+                hermes_session_id TEXT,
+                repo_slug TEXT,
+                repo_path TEXT,
+                prompt TEXT,
+                signal_source TEXT,
+                signal_ref TEXT,
+                connect_handle TEXT,
+                state TEXT NOT NULL DEFAULT 'running',
+                created_at REAL NOT NULL,
+                finished_at REAL,
+                exit_code INTEGER,
+                error_text TEXT
+            );
+
+            INSERT INTO copilot_remote (id, state, created_at)
+            VALUES ('existing-job-1', 'running', 1000.0);
+        """)
+        conn.commit()
+        conn.close()
+
+        # Running SessionDB should apply the v12→v13 migration (ADD COLUMN pid).
+        migrated_db = SessionDB(db_path=db_path)
+
+        # Schema version must be current.
+        from hermes_state import SCHEMA_VERSION
+        cursor = migrated_db._conn.execute("SELECT version FROM schema_version")
+        assert cursor.fetchone()[0] == SCHEMA_VERSION
+
+        # pid column must now exist; existing row should have NULL pid.
+        cursor = migrated_db._conn.execute(
+            "SELECT pid FROM copilot_remote WHERE id = 'existing-job-1'"
+        )
+        row = cursor.fetchone()
+        assert row is not None
+        assert row[0] is None  # pid was NULL before migration, must stay NULL
+
+        # update_copilot_remote_pid must work on the migrated column.
+        migrated_db.update_copilot_remote_pid("existing-job-1", 9999)
+        job = migrated_db.get_copilot_remote("existing-job-1")
+        assert job["pid"] == 9999
+
+        migrated_db.close()
+
+
 
 class TestStateMeta:
     def test_get_meta_missing_returns_none(self, db):

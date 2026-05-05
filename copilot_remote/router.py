@@ -113,6 +113,14 @@ def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[Rep
         logger.warning("Router LLM returned non-JSON: %s", _sanitize_for_log(text[:200]))
         return None
 
+    if not isinstance(data, dict):
+        logger.warning(
+            "Router LLM returned non-object JSON (%s): %s",
+            type(data).__name__,
+            _sanitize_for_log(text[:200]),
+        )
+        return None
+
     slug = data.get("slug")
     if slug is None:
         return None

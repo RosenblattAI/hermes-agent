@@ -544,7 +544,10 @@ def launch_copilot(
                 start_new_session=True,
             )
 
-            connect_id = _wait_for_remote_task_id(prior_logs=prior_logs)
+            connect_id = _wait_for_remote_task_id(
+                requested_session_id=session_id,
+                prior_logs=prior_logs,
+            )
             prompt_delivery = _attempt_initial_prompt_delivery(connect_id, prompt)
             if prompt_delivery["status"]:
                 logger.info(

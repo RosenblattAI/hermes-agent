@@ -1973,7 +1973,11 @@ class SessionDB:
         job_id: str,
         pid: int,
     ) -> None:
-        """Store the OS process ID of the launched copilot process."""
+        """Store the OS process ID of the bash wrapper (PGID leader) for the given job.
+
+        This is NOT the inner Copilot CLI child PID; it is the process-group
+        leader used for signal delivery via ``os.killpg``.
+        """
         def _do(conn):
             conn.execute(
                 "UPDATE copilot_remote SET pid = ? WHERE id = ?",

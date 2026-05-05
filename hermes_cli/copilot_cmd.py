@@ -300,7 +300,11 @@ def copilot_show(args):
         sid = _connect_handle(job)
         if sid:
             print(f"Connect:  copilot --connect={sid}")
-            print(f"Resume:   copilot --resume={job['id']}")
+            # --resume only makes sense for running jobs; for terminal states
+            # the remote session is gone and --resume creates a new unrelated
+            # Copilot session instead of re-attaching to the completed one.
+            if job.get("state") == "running":
+                print(f"Resume:   copilot --resume={job['id']}")
             web = _github_task_web_url(job)
             if web:
                 print(f"Web:      {web}")
