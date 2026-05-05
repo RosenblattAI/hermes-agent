@@ -27,15 +27,13 @@ to fill those gaps:
 
 ### Schema v13 (`hermes_state.py`, migrations v10–v13)
 
-New column on `copilot_remote`:
+New column added by this PR on `copilot_remote`:
 | Column | Type | Purpose |
 |---|---|---|
-| `connect_handle` | TEXT | Persisted Copilot cloud relay task ID (`--connect` handle) |
 | `pid` | INTEGER | OS process ID of the launched copilot process |
 
-> **Note:** `jira_issue_key`, `deadline_at`, `retry_of`, `retry_count`, and the
-> `copilot_remote_hooks` table are **deferred** — they are prototyped on
-> `feat/copilot-remote-lifecycle-ext` and will land in a follow-up PR.
+`connect_handle` (Copilot cloud relay task ID) was already present on
+`rosenblatt/main` and is **not** a v13 addition.
 
 Schema v13 adds `pid` to `copilot_remote` (and `connect_handle` was already
 present on `rosenblatt/main`).  No legacy data migration is required —

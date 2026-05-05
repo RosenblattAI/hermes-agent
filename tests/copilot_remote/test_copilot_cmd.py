@@ -267,15 +267,18 @@ class TestStopCommand:
         rows = db.finish_copilot_remote(self.JOB_ID, state="done", exit_code=0)
         assert rows == 0
 
-    def test_stop_no_process_found_still_updates_db(self, db):
-        """Even with no live process, stop must write 'stopped' to the DB."""
+    def test_stop_no_process_found_does_not_update_db(self, db):
+        """When no live process is found, stop must NOT write 'stopped' to the DB.
+        The job may be running in the cloud even if no local launcher process exists."""
         self._make_running_job(db)
 
         with patch("hermes_cli.copilot_cmd._kill_copilot_procs", return_value=False):
             out = _capture_copilot_slash(f"/copilot stop {self.JOB_ID}")
 
         assert "no live process" in out.lower()
-        assert db.get_copilot_remote(self.JOB_ID)["state"] == "stopped"
+        assert "db state was not modified" in out.lower()
+        # State must remain 'running' — we did not signal anything.
+        assert db.get_copilot_remote(self.JOB_ID)["state"] == "running"
 
     def test_state_badge_stopped(self):
         """The 'stopped' state has a distinct badge."""
@@ -329,12 +332,11 @@ class TestStopCommand:
                 __import__("types").SimpleNamespace(job_id=self.JOB_ID),
             )
 
-        assert "process discovery failed" in out
-        # DB state must still be 'running' — we did not transition it.
+        assert "could not stop job" in out
         assert db.get_copilot_remote(self.JOB_ID)["state"] == "running"
 
     def test_stop_aborts_db_write_on_signal_failure(self, db):
-        """copilot_stop does NOT mark the job stopped when signals are rejected (e.g. PermissionError)."""
+        """copilot_stop does NOT mark the job stopped when signals are rejected."""
         self._make_running_job(db)
 
         with patch(
@@ -346,8 +348,57 @@ class TestStopCommand:
                 __import__("types").SimpleNamespace(job_id=self.JOB_ID),
             )
 
-        # Must abort without touching the DB.
-        assert "process discovery failed" in out
+        assert "could not stop job" in out
         assert db.get_copilot_remote(self.JOB_ID)["state"] == "running"
 
+
+class TestFindCopilotPids:
+    """Unit tests for _find_copilot_pids ps-output parsing logic."""
+
+    JOB_ID = "aaaabbbb-0000-0000-0000-000000000001"
+
+    def _mock_ps(self, monkeypatch, stdout: str):
+        import subprocess as _sp
+        result = _sp.CompletedProcess(args=[], returncode=0, stdout=stdout, stderr="")
+        monkeypatch.setattr("hermes_cli.copilot_cmd.subprocess.run", lambda *a, **kw: result)
+        monkeypatch.setattr("hermes_cli.copilot_cmd.shutil.which", lambda _: "/usr/bin/ps")
+
+    def test_matches_resume_flag_with_space(self, monkeypatch):
+        from hermes_cli.copilot_cmd import _find_copilot_pids
+        self._mock_ps(monkeypatch, f"  100 copilot -i prompt --resume {self.JOB_ID}\n")
+        monkeypatch.setattr("os.getpid", lambda: 999)
+        assert _find_copilot_pids(self.JOB_ID) == [100]
+
+    def test_matches_resume_flag_with_equals(self, monkeypatch):
+        from hermes_cli.copilot_cmd import _find_copilot_pids
+        self._mock_ps(monkeypatch, f"  101 copilot --resume={self.JOB_ID}\n")
+        monkeypatch.setattr("os.getpid", lambda: 999)
+        assert _find_copilot_pids(self.JOB_ID) == [101]
+
+    def test_matches_complete_job_watcher(self, monkeypatch):
+        from hermes_cli.copilot_cmd import _find_copilot_pids
+        self._mock_ps(monkeypatch, f"  102 python complete_job.py {self.JOB_ID} 0\n")
+        monkeypatch.setattr("os.getpid", lambda: 999)
+        assert _find_copilot_pids(self.JOB_ID) == [102]
+
+    def test_excludes_unrelated_processes(self, monkeypatch):
+        from hermes_cli.copilot_cmd import _find_copilot_pids
+        self._mock_ps(monkeypatch, "  200 some other process\n  201 grep aaaabbbb\n")
+        monkeypatch.setattr("os.getpid", lambda: 999)
+        assert _find_copilot_pids(self.JOB_ID) == []
+
+    def test_excludes_own_pid(self, monkeypatch):
+        from hermes_cli.copilot_cmd import _find_copilot_pids
+        self._mock_ps(monkeypatch, f"  999 copilot --resume {self.JOB_ID}\n")
+        monkeypatch.setattr("os.getpid", lambda: 999)
+        assert _find_copilot_pids(self.JOB_ID) == []
+
+    def test_ps_failure_raises_runtime_error(self, monkeypatch):
+        import subprocess as _sp
+        from hermes_cli.copilot_cmd import _find_copilot_pids
+        result = _sp.CompletedProcess(args=[], returncode=1, stdout="", stderr="permission denied")
+        monkeypatch.setattr("hermes_cli.copilot_cmd.subprocess.run", lambda *a, **kw: result)
+        monkeypatch.setattr("hermes_cli.copilot_cmd.shutil.which", lambda _: "/usr/bin/ps")
+        with pytest.raises(RuntimeError, match="ps exited"):
+            _find_copilot_pids(self.JOB_ID)
 

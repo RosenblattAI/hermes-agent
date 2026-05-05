@@ -138,7 +138,7 @@ def copilot_launch(args):
             print(f"Resolved path for {_sanitize_for_log(repo)}: {_sanitize_for_log(str(repo_path))}")
         else:
             print(
-                f"Error: --repo-path is required for {repo!r} "
+                f"Error: --repo-path is required for {_sanitize_for_log(repo)!r} "
                 "(could not resolve via HERMES_WORKSPACE_PATH).",
                 file=sys.stderr,
             )
@@ -235,7 +235,13 @@ def copilot_launch(args):
         if web:
             print(f"  Web:     {web}")
     else:
-        print(f"  Resume:  copilot --resume={job_id}")
+        # connect_id was not extracted; --resume with job_id is ambiguous until
+        # the cloud session confirms registration. Direct the operator to check back.
+        print(
+            f"  Note: connect handle not yet available.\n"
+            f"  Run 'hermes copilot show {job_id}' for reconnect instructions\n"
+            f"  once the session is fully established."
+        )
 
     db.close()
 
@@ -300,7 +306,10 @@ def copilot_show(args):
                 "Connect:  unavailable — Hermes did not extract a Copilot "
                 f"remote task ID. Check {display_hermes_home()}/logs/copilot-{job['id']}.log"
             )
-            print(f"Resume:   copilot --resume={job['id']}")
+            # Only suggest --resume for running jobs; for terminal states the
+            # session is gone and --resume would create an unrelated new session.
+            if job.get("state") == "running":
+                print(f"Resume:   copilot --resume={job['id']}")
 
         if job.get("exit_code") is not None:
             print(f"Exit:     {job['exit_code']}")
@@ -489,37 +498,35 @@ def copilot_stop(args):
             killed = _kill_copilot_procs(job_id)
         except RuntimeError as exc:
             print(
-                f"Error: process discovery failed — cannot safely stop job.\n"
-                f"  {exc}\n"
+                f"Error: could not stop job — {exc}\n"
                 f"Aborting without modifying the DB state.",
                 file=sys.stderr,
             )
             sys.exit(1)
 
-        updated = db.finish_copilot_remote(
-            job_id,
-            state="stopped",
-            exit_code=-1,
-            error_text="stopped by user",
-        )
-
         if killed:
+            updated = db.finish_copilot_remote(
+                job_id,
+                state="stopped",
+                exit_code=-1,
+                error_text="stopped by user",
+            )
             print(f"  Process tree terminated.")
+            if updated:
+                print(f"  State: {_state_badge('stopped')}")
+            else:
+                # complete_job.py raced and already wrote a terminal state.
+                current = db.get_copilot_remote(job_id)
+                current_state = current["state"] if current else "unknown"
+                print(
+                    f"  Job exited on its own before the DB update; "
+                    f"state is now {_state_badge(current_state)}."
+                )
         else:
             print(
                 f"  No live process found for this job — "
-                f"the job may have already exited."
-            )
-
-        if updated:
-            print(f"  State: {_state_badge('stopped')}")
-        else:
-            # complete_job.py raced and already wrote a terminal state.
-            current = db.get_copilot_remote(job_id)
-            current_state = current["state"] if current else "unknown"
-            print(
-                f"  Job exited on its own before the DB update; "
-                f"state is now {_state_badge(current_state)}."
+                f"the job may have already exited or is running in the cloud only.\n"
+                f"  DB state was not modified."
             )
     finally:
         db.close()

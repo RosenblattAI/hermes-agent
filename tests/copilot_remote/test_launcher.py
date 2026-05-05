@@ -457,3 +457,41 @@ class TestWaitForRemoteTaskIdPriorLogs:
         )
 
         assert result == "aabbccdd-1234-5678-abcd-ef0123456789"
+
+
+class TestDarwinScriptInvocation:
+    """Verify the macOS (BSD script) command form is assembled correctly."""
+
+    def test_darwin_script_uses_bsd_form(self, monkeypatch, tmp_path):
+        """On darwin, script(1) should be called as: script -q <logfile> <cmd...>"""
+        import sys as _sys
+        from copilot_remote.models import RepoEntry
+
+        repo = RepoEntry(slug="test-repo", path="/test")
+        captured = {}
+
+        class DummyProc:
+            pid = 1234
+
+        def fake_popen(args, **kwargs):
+            captured["args"] = args
+            return DummyProc()
+
+        monkeypatch.setattr("sys.platform", "darwin")
+        monkeypatch.setattr("copilot_remote.launcher._log_dir", lambda: tmp_path)
+        monkeypatch.setattr("copilot_remote.launcher._snapshot_process_logs", lambda: {})
+        monkeypatch.setattr("copilot_remote.launcher.subprocess.Popen", fake_popen)
+        monkeypatch.setattr("copilot_remote.launcher.shutil.which", lambda name: "/usr/local/bin/copilot")
+        monkeypatch.setattr("copilot_remote.launcher._wait_for_remote_task_id", lambda **kwargs: None)
+        monkeypatch.setattr(
+            "copilot_remote.launcher._attempt_initial_prompt_delivery",
+            lambda *a, **kw: {"status": None, "warning": None},
+        )
+
+        from copilot_remote.launcher import launch_copilot
+        launch_copilot(repo, "hello", session_id="test-session-id")
+
+        shell_cmd = captured["args"][2]
+        # BSD form: script -q <logfile> <cmd...> — NOT -eqfc
+        assert "script -q" in shell_cmd
+        assert "-eqfc" not in shell_cmd
