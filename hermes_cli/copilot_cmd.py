@@ -418,18 +418,25 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
 
     # Graceful shutdown first.
     any_signaled = False
+    any_vanished = False  # process group was already gone before our signal
     for pgid in pgids:
         try:
             os.killpg(pgid, signal.SIGTERM)
             any_signaled = True
         except ProcessLookupError:
-            # Process group already exited between pgid collection and kill —
-            # treat as "gone", not a signal failure.
-            any_signaled = True
+            # Process group already exited between pgid collection and kill.
+            # Do NOT count as a delivered signal — the job may have finished
+            # on its own rather than being stopped by us.
+            any_vanished = True
         except OSError:
             pass
 
     if not any_signaled:
+        if any_vanished:
+            # All pgids were gone before we could signal them — the job
+            # finished on its own.  Return False so the caller does not
+            # write 'stopped' to the DB.
+            return False
         raise RuntimeError(
             f"Signal delivery failed for all process groups {pgids} "
             f"(job {_sanitize_for_log(job_id)}); job may still be running."
@@ -453,10 +460,21 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
         # Give the kernel a moment to reap, then re-check.
         time.sleep(0.2)
         still_alive = [p for p in surviving if _pid_exists(p)]
-        if still_alive:
+        # Also verify the process groups themselves are fully gone — this
+        # catches children that were not matched by the ps filter.
+        living_pgids = []
+        for pgid in pgids:
+            try:
+                os.killpg(pgid, 0)  # signal 0 = existence probe
+                living_pgids.append(pgid)
+            except ProcessLookupError:
+                pass  # entire group is gone
+            except OSError:
+                living_pgids.append(pgid)  # EPERM: group exists but not owned
+        if still_alive or living_pgids:
             raise RuntimeError(
-                f"PIDs {still_alive} survived SIGKILL for job {_sanitize_for_log(job_id)}; "
-                f"process may still be running."
+                f"PIDs {still_alive} / PGIDs {living_pgids} survived SIGKILL "
+                f"for job {_sanitize_for_log(job_id)}; process may still be running."
             )
 
     return True

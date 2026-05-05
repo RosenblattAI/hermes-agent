@@ -402,3 +402,39 @@ class TestFindCopilotPids:
         with pytest.raises(RuntimeError, match="ps exited"):
             _find_copilot_pids(self.JOB_ID)
 
+
+class TestKillCopilotProcs:
+    """Unit tests for _kill_copilot_procs process-group logic."""
+
+    JOB_ID = "aaaabbbb-0000-0000-0000-000000000099"
+
+    def test_process_lookup_error_returns_false_not_stopped(self, monkeypatch):
+        """If all pgids are already gone when we try to SIGTERM, the job finished
+        on its own.  _kill_copilot_procs must return False so the caller does NOT
+        mark the DB stopped."""
+        import signal as _sig
+        from hermes_cli.copilot_cmd import _kill_copilot_procs
+
+        monkeypatch.setattr("hermes_cli.copilot_cmd._find_copilot_pids", lambda jid: [1234])
+        monkeypatch.setattr("os.getpgid", lambda pid: pid)
+
+        def raise_lookup(pgid, sig):
+            raise ProcessLookupError("no such process group")
+
+        monkeypatch.setattr("os.killpg", raise_lookup)
+
+        result = _kill_copilot_procs(self.JOB_ID)
+        assert result is False
+
+    def test_oserror_raises_runtime_error(self, monkeypatch):
+        """An OSError on killpg (e.g. PermissionError) should propagate as
+        RuntimeError so the caller does not silently swallow a failed stop."""
+        from hermes_cli.copilot_cmd import _kill_copilot_procs
+
+        monkeypatch.setattr("hermes_cli.copilot_cmd._find_copilot_pids", lambda jid: [5678])
+        monkeypatch.setattr("os.getpgid", lambda pid: pid)
+        monkeypatch.setattr("os.killpg", lambda pgid, sig: (_ for _ in ()).throw(PermissionError("denied")))
+
+        with pytest.raises(RuntimeError, match="Signal delivery failed"):
+            _kill_copilot_procs(self.JOB_ID)
+

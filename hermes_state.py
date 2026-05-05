@@ -1880,7 +1880,9 @@ class SessionDB:
         which is passed to Copilot via ``--resume`` at launch time to register
         the session under a known ID.
 
-        *pid*: OS process ID of the launched copilot process.
+        *pid*: OS process ID of the bash wrapper (PGID leader) spawned by
+        the launcher; used for process-group signal delivery via ``os.killpg``.
+        This is NOT the inner Copilot CLI child PID.
         """
         now = time.time()
         def _do(conn):

@@ -157,6 +157,12 @@ def _wait_for_remote_task_id(
         logs_dir = Path.home() / ".copilot" / "logs"
     deadline = time.time() + timeout
     prior_logs = {} if prior_logs is None else prior_logs
+    # Carry-over buffer for incomplete trailing lines: Copilot can flush a log
+    # line in two separate writes.  Without buffering the first half would be
+    # parsed without a newline terminator, the regex would never match, and the
+    # second half seen in the next poll would also be incomplete.  We hold back
+    # everything after the last newline and prepend it to the next chunk.
+    partial_buffers: Dict[Path, str] = {}
 
     while time.time() < deadline:
         # Snapshot (path, mtime) up-front with try/except so a log rotated or
@@ -178,15 +184,28 @@ def _wait_for_remote_task_id(
                 if current_size < previous_size:
                     previous_size = 0
                     del prior_logs[path]
+                    partial_buffers.pop(path, None)
 
                 with path.open("rb") as fh:
                     fh.seek(previous_size)
-                    log_text = fh.read().decode("utf-8", errors="ignore")
+                    raw_chunk = fh.read().decode("utf-8", errors="ignore")
 
                 prior_logs[path] = current_size
 
+                # Merge with any carry-over from the previous poll, then split
+                # on the last newline so we only parse complete lines.
+                combined = partial_buffers.get(path, "") + raw_chunk
+                last_nl = combined.rfind("\n")
+                if last_nl >= 0:
+                    to_parse = combined[: last_nl + 1]
+                    partial_buffers[path] = combined[last_nl + 1 :]
+                else:
+                    # No newline yet — carry everything forward.
+                    partial_buffers[path] = combined
+                    to_parse = ""
+
                 task_id = _parse_remote_task_id(
-                    log_text,
+                    to_parse,
                     requested_session_id,
                 )
             except OSError:

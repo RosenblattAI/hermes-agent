@@ -90,6 +90,8 @@ def test_launch_routes_repo_and_stores_connect_handle(db, monkeypatch):
     assert result["job"]["repo"] == "repo-name"
     assert result["job"]["connect_handle"] == "task-123"
     assert result["job"]["connect_command"] == "copilot --connect=task-123"
+    # proc=None in fake_launch, so pid should be absent/null in the serialized job.
+    assert result["job"]["pid"] is None
     # repo_path is not a real git clone in the test environment, so the shared
     # GitHub task URL helper cannot derive an origin-backed web_url.
     assert result["job"]["web_url"] is None
@@ -101,7 +103,40 @@ def test_launch_routes_repo_and_stores_connect_handle(db, monkeypatch):
     assert jobs[0]["connect_handle"] == "task-123"
 
 
-def test_launch_routes_repo_with_web_url(db, monkeypatch):
+def test_launch_stores_and_serializes_pid(db, monkeypatch):
+    """When launch_copilot returns a proc with a pid, the serialized job includes it."""
+    import types
+
+    routed_repo = RepoEntry(slug="pid-repo", path="/workspace/pid-repo")
+    monkeypatch.setattr("tools.copilot_remote_tool._route_repo", lambda prompt: routed_repo)
+
+    fake_proc = types.SimpleNamespace(pid=42)
+
+    def fake_launch(repo, prompt, *, session_id, model=None, dry_run=False, on_complete=None):
+        return {
+            "session_id": session_id,
+            "connect_id": "task-pid",
+            "cmd": ["copilot"],
+            "proc": fake_proc,
+            "prompt_delivery_status": None,
+            "prompt_delivery_warning": None,
+        }
+
+    monkeypatch.setattr("copilot_remote.launcher.launch_copilot", fake_launch)
+
+    result = json.loads(
+        copilot_remote({"action": "launch", "prompt": "build something"}, task_id="s-pid")
+    )
+    assert result["success"] is True
+    assert result["job"]["pid"] == 42
+
+    # show action should also surface the pid
+    job_id = result["job"]["job_id"]
+    shown = json.loads(copilot_remote({"action": "show", "job_id": job_id}))
+    assert shown["job"]["pid"] == 42
+
+
+
     """When the repo path is a real git clone and connect handle exists, web_url should be present."""
     routed_repo = RepoEntry(
         slug="repo-name",
@@ -159,14 +194,17 @@ def test_list_and_show(db):
         prompt="Build page",
         connect_handle="task-1",
     )
+    db.update_copilot_remote_pid("job-1", 1234)
 
     listing = json.loads(copilot_remote({"action": "list"}))
     assert listing["success"] is True
     assert listing["jobs"][0]["job_id"] == "job-1"
+    assert listing["jobs"][0]["pid"] == 1234
 
     shown = json.loads(copilot_remote({"action": "show", "job_id": "job-1"}))
     assert shown["success"] is True
     assert shown["job"]["resume_command"] == "copilot --resume=task-1"
+    assert shown["job"]["pid"] == 1234
     # repo_path is not a real git clone in the test environment.
     assert shown["job"]["web_url"] is None
 
