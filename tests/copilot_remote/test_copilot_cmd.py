@@ -375,11 +375,13 @@ class TestFindCopilotPids:
         monkeypatch.setattr("os.getpid", lambda: 999)
         assert _find_copilot_pids(self.JOB_ID) == [101]
 
-    def test_matches_complete_job_watcher(self, monkeypatch):
+    def test_excludes_complete_job_watcher(self, monkeypatch):
+        """complete_job.py is intentionally excluded to avoid killing the post-exit
+        DB callback and permanently misclassifying a completed job as stopped."""
         from hermes_cli.copilot_cmd import _find_copilot_pids
         self._mock_ps(monkeypatch, f"  102 python complete_job.py {self.JOB_ID} 0\n")
         monkeypatch.setattr("os.getpid", lambda: 999)
-        assert _find_copilot_pids(self.JOB_ID) == [102]
+        assert _find_copilot_pids(self.JOB_ID) == []
 
     def test_excludes_unrelated_processes(self, monkeypatch):
         from hermes_cli.copilot_cmd import _find_copilot_pids

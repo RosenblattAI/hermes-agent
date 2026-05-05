@@ -8,6 +8,7 @@ ID printed after a successful launch.
 """
 
 import os
+import pathlib
 import shutil
 import signal
 import subprocess
@@ -370,10 +371,13 @@ def _find_copilot_pids(job_id: str) -> list:
             continue
         parts = line.split(None, 1)
         args_part = parts[1] if len(parts) == 2 else ""
-        # Only match known copilot process patterns to avoid false positives.
+        # Only match the Copilot CLI process itself (--resume <job_id>).
+        # complete_job.py is intentionally excluded: it is a post-exit DB
+        # callback and may still be running after the Copilot child has
+        # finished.  Killing it would race with its terminal-state write and
+        # could permanently misclassify a completed job as "stopped".
         if (f"--resume {job_id}" not in args_part
-                and f"--resume={job_id}" not in args_part
-                and f"complete_job.py" not in args_part):
+                and f"--resume={job_id}" not in args_part):
             continue
         if not parts[0].strip():
             continue
@@ -489,14 +493,29 @@ def _kill_copilot_procs(job_id: str, *, timeout: float = 5.0) -> bool:
 
 
 def _pid_exists(pid: int) -> bool:
-    """Return True if the process still exists."""
+    """Return True if the process still exists and is not a zombie.
+
+    ``os.kill(pid, 0)`` succeeds for zombie processes (they retain their PID
+    entry until waited on).  Since copilot launches are detached and never
+    waited on by this process, a dead bash wrapper can linger as a zombie and
+    fool the check.  On Linux we confirm via ``/proc/{pid}/status``; on other
+    platforms we fall back to the signal-0 result alone.
+    """
     try:
         os.kill(pid, 0)
-        return True
     except PermissionError:
-        return True  # Process exists but we don't own it
+        return True  # process exists but we don't own it
     except OSError:
         return False
+    # Signal 0 succeeded — verify the process is not a zombie on Linux.
+    try:
+        status_text = pathlib.Path(f"/proc/{pid}/status").read_text()
+        for line in status_text.splitlines():
+            if line.startswith("State:"):
+                return not line.split()[1].startswith("Z")
+    except OSError:
+        pass  # non-Linux or /proc entry already gone
+    return True
 
 
 def copilot_stop(args):
@@ -567,7 +586,7 @@ def copilot_command(args):
     """Route copilot subcommands."""
     subcmd = getattr(args, "copilot_action", None)
 
-    if subcmd is None or subcmd == "list":
+    if subcmd is None or subcmd in ("list", "ls"):
         copilot_list(args)
         return
 
@@ -607,7 +626,7 @@ def handle_copilot_slash(raw_command: str) -> None:
     args_rest = parts[2:]
 
     try:
-        if subcmd == "list":
+        if subcmd in ("list", "ls"):
             ns = SimpleNamespace(state=None, limit=20)
             i = 0
             while i < len(args_rest):

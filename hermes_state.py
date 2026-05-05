@@ -1881,7 +1881,8 @@ class SessionDB:
         the session under a known ID.
 
         *pid*: OS process ID of the bash wrapper (PGID leader) spawned by
-        the launcher; used for process-group signal delivery via ``os.killpg``.
+        the launcher; stored for observability (``show``/tool serialization).
+        The stop path uses a live ``ps`` scan and does NOT read this column.
         This is NOT the inner Copilot CLI child PID.
         """
         now = time.time()
@@ -1975,8 +1976,10 @@ class SessionDB:
     ) -> None:
         """Store the OS process ID of the bash wrapper (PGID leader) for the given job.
 
-        This is NOT the inner Copilot CLI child PID; it is the process-group
-        leader used for signal delivery via ``os.killpg``.
+        This is NOT the inner Copilot CLI child PID.  The stored value is
+        surfaced by ``copilot show`` and tool serialization for observability;
+        the stop path discovers processes via a live ``ps`` scan and does NOT
+        read this column.
         """
         def _do(conn):
             conn.execute(
