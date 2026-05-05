@@ -125,7 +125,7 @@ def copilot_launch(args):
             sys.exit(1)
         repo = entry.slug
         repo_path = repo_path or entry.path
-        print(f"Router selected: {repo} ({repo_path})")
+        print(f"Router selected: {_sanitize_for_log(repo)} ({_sanitize_for_log(str(repo_path))})")
 
     if not repo_path:
         # Try to resolve repo_path from the slug via workspace discovery.
@@ -134,7 +134,7 @@ def copilot_launch(args):
         matched = next((e for e in entries if e.slug == repo), None)
         if matched:
             repo_path = matched.path
-            print(f"Resolved path for {repo}: {repo_path}")
+            print(f"Resolved path for {_sanitize_for_log(repo)}: {_sanitize_for_log(str(repo_path))}")
         else:
             print(
                 f"Error: --repo-path is required for {repo!r} "

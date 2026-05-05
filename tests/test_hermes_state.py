@@ -1991,7 +1991,7 @@ class TestCopilotRemoteLifecycle:
         assert len(jobs) == 3
 
 
-class TestCopilotJobMigrationFromV6:
+class TestCopilotRemoteMigrationFromV6:
     def test_migration_from_v6(self, tmp_path):
         """Simulate a v6 database and verify migration to current schema adds copilot tables."""
         import sqlite3
