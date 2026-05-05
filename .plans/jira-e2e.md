@@ -8,7 +8,9 @@ Jira-driven workflow.  This PR extends `copilot_remote/` and adds schema v13
 to fill those gaps:
 
 - No wall-clock timeout on running sessions (a stuck session ran forever)
-- `connect_handle` (the Copilot cloud relay task ID) was resolved but not persisted in the DB
+- `connect_handle` (the Copilot cloud relay task ID) was resolved but not persisted
+  in the DB **by `copilot_cmd.py`** until this PR (the column was already present on
+  `rosenblatt/main` as a schema v9 addition; this PR wires up the write path)
 - No Jira issue linkage on sessions
 - No retry/resumability provenance tracking
 - No lifecycle hook slots for merge-gate and post-task validation callbacks

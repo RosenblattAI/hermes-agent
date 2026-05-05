@@ -4031,11 +4031,13 @@ class GatewayRunner:
                         pass
                     except Exception as exc:
                         from hermes_logging import sanitize_for_log as _slf
+                        # Do NOT use exc_info=True: the traceback can carry
+                        # attacker-controlled content (prompt/repo slug embedded
+                        # in LLM errors).  The sanitised repr is sufficient.
                         logger.error(
                             "Unhandled error in /copilot slash handler: %s: %s",
                             type(exc).__name__,
                             _slf(str(exc)),
-                            exc_info=True,
                         )
                         return "Error: /copilot command failed — see server logs for details."
                 return buf.getvalue().strip() or "Done."

@@ -457,9 +457,53 @@ class TestWaitForRemoteTaskIdPriorLogs:
         )
 
         assert result == "aabbccdd-1234-5678-abcd-ef0123456789"
+    def test_session_confirmed_across_polls(self, tmp_path):
+        """Regression: session_id and task-ID arrive in separate polls.
+
+        poll 1: log contains only the session-ID line (no task URL yet)
+        poll 2: log contains only the task-URL line (no session-ID in this chunk)
+
+        Without the session_confirmed set, poll-2's chunk would be rejected
+        because it doesn't contain the session_id — the task-ID would be
+        silently missed and _wait_for_remote_task_id would return None.
+        """
+        import threading, time
+        from copilot_remote.launcher import _wait_for_remote_task_id
+
+        SESSION_ID = "hermes-session-xxyyzz"
+        TASK_ID = "aabb1234-dead-beef-cafe-000000000099"
+        TASK_LINE = (
+            f"Remote session active (steerable): "
+            f"https://github.com/copilot/tasks/{TASK_ID}\n"
+        )
+
+        log = tmp_path / "process-twopoll.log"
+        # Write poll-1 content (session-ID line only, no task URL).
+        log.write_text(f"Creating new session with ID: {SESSION_ID}\n")
+
+        def _append_task_line():
+            time.sleep(0.15)
+            with log.open("a") as fh:
+                fh.write(TASK_LINE)
+
+        t = threading.Thread(target=_append_task_line, daemon=True)
+        t.start()
+
+        result = _wait_for_remote_task_id(
+            logs_dir=tmp_path,
+            timeout=2.0,
+            poll_interval=0.05,
+            requested_session_id=SESSION_ID,
+        )
+        t.join()
+
+        assert result == TASK_ID, (
+            "session_confirmed set should allow task-URL detection in a later "
+            "poll even when the session-ID line appeared in an earlier chunk"
+        )
 
 
-class TestDarwinScriptInvocation:
+
     """Verify the macOS (BSD script) command form is assembled correctly."""
 
     def test_darwin_script_uses_bsd_form(self, monkeypatch, tmp_path):

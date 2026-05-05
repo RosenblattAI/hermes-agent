@@ -253,7 +253,13 @@ def copilot_launch(args):
 def copilot_list(args):
     """List copilot jobs."""
     state = getattr(args, "state", None)
-    limit = getattr(args, "limit", 20)
+    # Clamp limit on both CLI (argparse) and slash-command paths so that
+    # negative values (e.g. --limit -1) cannot trigger an unbounded SQLite
+    # LIMIT and dump the full table.
+    try:
+        limit = max(1, min(int(getattr(args, "limit", 20) or 20), 1000))
+    except (TypeError, ValueError):
+        limit = 20
 
     db = _get_db()
     try:
@@ -335,11 +341,15 @@ def copilot_show(args):
 
 
 def _find_copilot_pids(job_id: str) -> list:
-    """Return PIDs of processes that are part of the copilot job.
+    """Return PIDs of the Copilot CLI process associated with the job.
 
-    Matches lines containing ``--resume <job_id>`` (the copilot process) or
-    ``complete_job.py`` with the job_id (the watcher process).  The current
-    process is always excluded so ``copilot stop`` never signals itself.
+    Only matches lines containing ``--resume <job_id>`` or
+    ``--resume=<job_id>`` (the Copilot CLI process itself).
+    ``complete_job.py`` is intentionally excluded: it is a post-exit DB
+    callback and may still be running after the Copilot child has finished.
+    Killing it would race with its terminal-state write and could permanently
+    misclassify a completed job as ``stopped``.  The current process is
+    always excluded so ``copilot stop`` never signals itself.
 
     Raises ``RuntimeError`` when the ``ps`` invocation itself fails (non-zero
     exit, timeout, or binary not found) so callers can distinguish a scan
