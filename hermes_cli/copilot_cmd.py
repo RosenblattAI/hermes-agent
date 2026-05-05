@@ -8,6 +8,7 @@ ID printed after a successful launch.
 """
 
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -326,9 +327,12 @@ def _find_copilot_pids(job_id: str) -> list:
     failure from "no matching process".
     """
     own_pid = os.getpid()
+    ps_bin = shutil.which("ps")
+    if ps_bin is None:
+        raise RuntimeError("ps not found on PATH; cannot scan for copilot processes")
     try:
         result = subprocess.run(
-            ["ps", "ax", "-o", "pid=,args="],
+            [ps_bin, "ax", "-o", "pid=,args="],
             capture_output=True,
             text=True,
             timeout=5,
