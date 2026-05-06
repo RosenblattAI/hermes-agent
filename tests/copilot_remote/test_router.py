@@ -144,6 +144,20 @@ class TestParseRoutingResponse:
         assert result is not None
         assert result.slug == "app-backend"
 
+    def test_parses_json_in_single_line_code_fence(self):
+        """Some LLMs emit inline fences: ```json {"slug": "..."} ```"""
+        text = '```json {"slug": "app-frontend"} ```'
+        result = _parse_routing_response(text, self._entries())
+        assert result is not None
+        assert result.slug == "app-frontend"
+
+    def test_parses_json_in_plain_fence_no_lang(self):
+        """Fence with no language tag should also be stripped."""
+        text = '```\n{"slug": "app-agent"}\n```'
+        result = _parse_routing_response(text, self._entries())
+        assert result is not None
+        assert result.slug == "app-agent"
+
     def test_null_slug_returns_none(self):
         result = _parse_routing_response('{"slug": null}', self._entries())
         assert result is None

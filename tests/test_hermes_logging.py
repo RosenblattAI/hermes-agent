@@ -771,3 +771,42 @@ class TestReadLoggingConfig:
 
         level, max_size, backup = hermes_logging._read_logging_config()
         assert level is None
+
+
+class TestSanitizeForLog:
+    """Unit tests for hermes_logging.sanitize_for_log (CWE-117 guard)."""
+
+    def _fn(self):
+        from hermes_logging import sanitize_for_log
+        return sanitize_for_log
+
+    def test_strips_newline(self):
+        assert self._fn()("foo\nbar") == "foo bar"
+
+    def test_strips_carriage_return(self):
+        assert self._fn()("foo\rbar") == "foo bar"
+
+    def test_strips_null_byte(self):
+        assert self._fn()("foo\x00bar") == "foo bar"
+
+    def test_strips_escape(self):
+        assert self._fn()("foo\x1bbar") == "foo bar"
+
+    def test_strips_del(self):
+        assert self._fn()("foo\x7fbar") == "foo bar"
+
+    def test_passes_normal_text(self):
+        assert self._fn()("hello world 123!") == "hello world 123!"
+
+    def test_none_returns_empty_string(self):
+        assert self._fn()(None) == ""
+
+    def test_non_string_coerced(self):
+        assert self._fn()(42) == "42"
+
+    def test_all_control_chars_replaced(self):
+        """Every byte 0x00–0x1F should be replaced with a space."""
+        fn = self._fn()
+        for code in range(0x20):
+            result = fn(chr(code))
+            assert result == " ", f"Expected space for 0x{code:02X}, got {result!r}"

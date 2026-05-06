@@ -8,40 +8,14 @@ matching repository for a given prompt.
 import json
 import logging
 import os
-import subprocess
+import re
 from pathlib import Path
 from typing import List, Optional
 
 from copilot_remote.models import RepoEntry
+from hermes_logging import sanitize_for_log as _sanitize_for_log
 
 logger = logging.getLogger(__name__)
-
-
-def _sanitize_for_log(value) -> str:
-    """Strip CR/LF/control chars before logging untrusted strings.
-
-    Prevents log-injection / multiline log spoofing per the Rosenblatt
-    log-sanitization rule (CWE-117).
-    """
-    if value is None:
-        return ""
-    text = str(value)
-    # Drop ASCII control chars (0x00-0x1F) and DEL (0x7F) except space; keep tabs as space.
-    return "".join(" " if (ord(c) < 0x20 or ord(c) == 0x7F) else c for c in text)
-
-
-def _get_default_branch(repo_path: Path) -> str:
-    """Detect default branch from git remote HEAD. Falls back to 'main'."""
-    try:
-        result = subprocess.run(
-            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
-            capture_output=True, text=True, cwd=repo_path, timeout=5,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip().rsplit("/", 1)[-1]
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        pass
-    return "main"
 
 
 def _discover_repos(workspace_path: Path = None) -> List[RepoEntry]:
@@ -77,17 +51,15 @@ def _discover_repos(workspace_path: Path = None) -> List[RepoEntry]:
                     with readme_path.open("r", encoding="utf-8", errors="replace") as readme_file:
                         readme_text = readme_file.read(2000)
                 except OSError:
-                    readme_text = ""
+                    pass
 
             slug = repo_dir.name
-            default_branch = _get_default_branch(repo_dir)
 
             entries.append(RepoEntry(
                 slug=slug,
                 path=str(repo_dir),
                 readme_summary=readme_text[:2000],
                 description="",
-                default_branch=default_branch,
             ))
 
     return entries
@@ -127,9 +99,10 @@ def _build_routing_messages(prompt: str, repo_context: str) -> list:
 def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[RepoEntry]:
     """Parse the LLM's JSON response into a RepoEntry."""
     text = text.strip()
-    # Strip markdown code fences if present
+    # Strip markdown code fences robustly — handles both multi-line
+    # (```json\n{...}\n```) and single-line (```json {...} ```) forms.
     if text.startswith("```"):
-        text = "\n".join(text.split("\n")[1:])
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
         if text.endswith("```"):
             text = text[:-3]
         text = text.strip()
@@ -140,11 +113,28 @@ def _parse_routing_response(text: str, entries: List[RepoEntry]) -> Optional[Rep
         logger.warning("Router LLM returned non-JSON: %s", _sanitize_for_log(text[:200]))
         return None
 
-    slug = data.get("slug")
-    if not slug:
+    if not isinstance(data, dict):
+        logger.warning(
+            "Router LLM returned non-object JSON (%s): %s",
+            type(data).__name__,
+            _sanitize_for_log(text[:200]),
+        )
         return None
 
-    slug_lower = slug.lower()
+    slug = data.get("slug")
+    if slug is None:
+        return None
+    if not isinstance(slug, str):
+        logger.warning(
+            "Router LLM returned non-string slug type: %s",
+            _sanitize_for_log(str(slug)[:100]),
+        )
+        return None
+    if not slug.strip():
+        logger.warning("Router LLM returned empty/blank slug")
+        return None
+
+    slug_lower = slug.strip().lower()
     for entry in entries:
         if entry.slug.lower() == slug_lower:
             return entry
@@ -187,6 +177,11 @@ def route_repo(
         )
         text = response.choices[0].message.content or ""
         return _parse_routing_response(text, entries)
-    except Exception:
-        logger.exception("Router LLM call failed, returning None")
+    except Exception as exc:
+        # Avoid exc_info=True / logger.exception here: the traceback can carry
+        # attacker-controlled content (prompt or slug embedded in an LLM error
+        # response), enabling log-injection via CR/LF in server logs (CWE-117).
+        logger.warning("Router LLM call failed, returning None: %s",
+                       _sanitize_for_log(repr(exc)[:500]))
         return None
+

@@ -6,7 +6,7 @@ from typing import Optional
 
 
 class JobState(str, Enum):
-    """Valid states for a copilot remote.
+    """Valid states for a copilot job.
 
     Simplified: copilot sessions are cloud-managed via --remote/--connect,
     so we only track whether we've launched and whether it finished.
@@ -14,7 +14,17 @@ class JobState(str, Enum):
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
+    # Explicitly stopped (e.g. by operator or hermes copilot stop).
+    STOPPED = "stopped"
 
+    @property
+    def is_terminal(self) -> bool:
+        """Return True if this state is a terminal (non-resumable) state."""
+        return self in (
+            JobState.DONE,
+            JobState.FAILED,
+            JobState.STOPPED,
+        )
 
 @dataclass
 class RepoEntry:

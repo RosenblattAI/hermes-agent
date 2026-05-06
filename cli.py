@@ -6211,8 +6211,8 @@ class HermesCLI:
         elif canonical == "stop":
             self._handle_stop_command()
         elif canonical == "copilot_remote":
-            from hermes_cli.copilot_cmd import handle_copilot_remote_slash
-            handle_copilot_remote_slash(cmd_original)
+            from hermes_cli.copilot_cmd import handle_copilot_slash
+            handle_copilot_slash(cmd_original)
         elif canonical == "agents":
             self._handle_agents_command()
         elif canonical == "background":

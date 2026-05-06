@@ -1226,10 +1226,11 @@ class TestSchemaInit:
         assert "messages" in tables
         assert "schema_version" in tables
 
-    def test_schema_version(self, db):
+    def test_schema_version_matches_constant(self, db):
+        from hermes_state import SCHEMA_VERSION
         cursor = db._conn.execute("SELECT version FROM schema_version")
         version = cursor.fetchone()[0]
-        assert version == 9
+        assert version == SCHEMA_VERSION
 
     def test_title_column_exists(self, db):
         """Verify the title column was created in the sessions table."""
@@ -1285,12 +1286,13 @@ class TestSchemaInit:
         conn.commit()
         conn.close()
 
-        # Open with SessionDB — should migrate to v9
+        # Open with SessionDB — should migrate to current SCHEMA_VERSION
         migrated_db = SessionDB(db_path=db_path)
 
         # Verify migration
         cursor = migrated_db._conn.execute("SELECT version FROM schema_version")
-        assert cursor.fetchone()[0] == 9
+        from hermes_state import SCHEMA_VERSION
+        assert cursor.fetchone()[0] == SCHEMA_VERSION
 
         # Verify title column exists and is NULL for existing sessions
         session = migrated_db.get_session("existing")
@@ -1892,8 +1894,292 @@ class TestConcurrentWriteSafety:
 
 
 # =========================================================================
-# Auto-maintenance: state_meta + vacuum + maybe_auto_prune_and_vacuum
+# Copilot job lifecycle
 # =========================================================================
+
+class TestCopilotRemoteLifecycle:
+    def test_schema_version_matches_constant(self, db):
+        cursor = db._conn.execute("SELECT version FROM schema_version")
+        from hermes_state import SCHEMA_VERSION
+        assert cursor.fetchone()[0] == SCHEMA_VERSION
+
+    def test_copilot_tables_exist(self, db):
+        cursor = db._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
+        tables = {row[0] for row in cursor.fetchall()}
+        assert "copilot_remote" in tables
+
+    def test_create_and_get_job(self, db):
+        job_id = db.create_copilot_remote(
+            job_id="cj_test_001",
+            repo_slug="test",
+            repo_path="/repos/test",
+            prompt="Fix the login bug",
+            signal_source="cli",
+        )
+        assert job_id == "cj_test_001"
+
+        job = db.get_copilot_remote("cj_test_001")
+        assert job is not None
+        assert job["repo_slug"] == "test"
+        assert job["state"] == "running"
+        assert job["prompt"] == "Fix the login bug"
+
+    def test_get_nonexistent_job(self, db):
+        assert db.get_copilot_remote("nonexistent") is None
+
+    def test_list_jobs(self, db):
+        db.create_copilot_remote(
+            job_id="cj_a", repo_slug="repo-a", repo_path="/a"
+        )
+        db.create_copilot_remote(
+            job_id="cj_b", repo_slug="repo-b", repo_path="/b"
+        )
+        jobs = db.list_copilot_remote()
+        assert len(jobs) == 2
+
+    def test_list_jobs_by_state(self, db):
+        db.create_copilot_remote(
+            job_id="cj_a", repo_slug="repo-a", repo_path="/a"
+        )
+        db.create_copilot_remote(
+            job_id="cj_b", repo_slug="repo-b", repo_path="/b"
+        )
+        db.finish_copilot_remote("cj_a", state="done", exit_code=0)
+        running = db.list_copilot_remote(state="running")
+        done = db.list_copilot_remote(state="done")
+        assert len(running) == 1
+        assert running[0]["id"] == "cj_b"
+        assert len(done) == 1
+        assert done[0]["id"] == "cj_a"
+
+    def test_finish_job_done(self, db):
+        db.create_copilot_remote(
+            job_id="cj_1", repo_slug="repo", repo_path="/r"
+        )
+        db.finish_copilot_remote(
+            "cj_1", state="done",
+            exit_code=0,
+        )
+        job = db.get_copilot_remote("cj_1")
+        assert job["state"] == "done"
+        assert job["exit_code"] == 0
+        assert job["finished_at"] is not None
+
+    def test_finish_job_failed(self, db):
+        db.create_copilot_remote(
+            job_id="cj_1", repo_slug="repo", repo_path="/r"
+        )
+        db.finish_copilot_remote(
+            "cj_1", state="failed",
+            exit_code=1,
+            error_text="subprocess died",
+        )
+        job = db.get_copilot_remote("cj_1")
+        assert job["state"] == "failed"
+        assert job["exit_code"] == 1
+        assert job["error_text"] == "subprocess died"
+        assert job["finished_at"] is not None
+
+    def test_list_limit(self, db):
+        for i in range(5):
+            db.create_copilot_remote(
+                job_id=f"cj_{i}", repo_slug="repo", repo_path="/r"
+            )
+        jobs = db.list_copilot_remote(limit=3)
+        assert len(jobs) == 3
+
+
+class TestCopilotRemoteMigrationFromV6:
+    def test_migration_from_v6(self, tmp_path):
+        """Simulate a v6 database and verify migration to current schema adds copilot tables."""
+        import sqlite3
+
+        db_path = tmp_path / "migrate_v6_test.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.executescript("""
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            INSERT INTO schema_version (version) VALUES (6);
+
+            CREATE TABLE sessions (
+                id TEXT PRIMARY KEY,
+                source TEXT NOT NULL,
+                user_id TEXT,
+                model TEXT,
+                model_config TEXT,
+                system_prompt TEXT,
+                parent_session_id TEXT,
+                started_at REAL NOT NULL,
+                ended_at REAL,
+                end_reason TEXT,
+                message_count INTEGER DEFAULT 0,
+                tool_call_count INTEGER DEFAULT 0,
+                input_tokens INTEGER DEFAULT 0,
+                output_tokens INTEGER DEFAULT 0,
+                cache_read_tokens INTEGER DEFAULT 0,
+                cache_write_tokens INTEGER DEFAULT 0,
+                reasoning_tokens INTEGER DEFAULT 0,
+                billing_provider TEXT,
+                billing_base_url TEXT,
+                billing_mode TEXT,
+                estimated_cost_usd REAL,
+                actual_cost_usd REAL,
+                cost_status TEXT,
+                cost_source TEXT,
+                pricing_version TEXT,
+                title TEXT
+            );
+
+            CREATE TABLE messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT,
+                tool_call_id TEXT,
+                tool_calls TEXT,
+                tool_name TEXT,
+                timestamp REAL NOT NULL,
+                token_count INTEGER,
+                finish_reason TEXT,
+                reasoning TEXT,
+                reasoning_details TEXT,
+                codex_reasoning_items TEXT
+            );
+        """)
+        conn.commit()
+        conn.close()
+
+        # Open with SessionDB — should migrate to current SCHEMA_VERSION
+        migrated_db = SessionDB(db_path=db_path)
+
+        cursor = migrated_db._conn.execute("SELECT version FROM schema_version")
+        from hermes_state import SCHEMA_VERSION
+        assert cursor.fetchone()[0] == SCHEMA_VERSION
+
+        # Verify copilot tables exist
+        cursor = migrated_db._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
+        tables = {row[0] for row in cursor.fetchall()}
+        assert "copilot_remote" in tables
+
+        # Verify we can create a job on the migrated DB
+        job_id = migrated_db.create_copilot_remote(
+            job_id="cj_migrated",
+            repo_slug="test-repo",
+            repo_path="/test",
+        )
+        assert migrated_db.get_copilot_remote(job_id) is not None
+        migrated_db.close()
+
+
+class TestCopilotRemoteMigrationFromV12:
+    """Verify the v12→v13 ALTER TABLE migration adds the pid column to an
+    existing copilot_remote table that was created before this PR."""
+
+    def test_migration_adds_pid_column(self, tmp_path):
+        import sqlite3
+
+        db_path = tmp_path / "migrate_v12_test.db"
+        conn = sqlite3.connect(str(db_path))
+        # Minimal v12 schema: copilot_remote with connect_handle but without pid.
+        # The sessions/messages tables need enough columns to pass _init_schema.
+        conn.executescript("""
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            INSERT INTO schema_version (version) VALUES (12);
+
+            CREATE TABLE sessions (
+                id TEXT PRIMARY KEY,
+                source TEXT NOT NULL,
+                user_id TEXT,
+                model TEXT,
+                model_config TEXT,
+                system_prompt TEXT,
+                parent_session_id TEXT,
+                started_at REAL NOT NULL,
+                ended_at REAL,
+                end_reason TEXT,
+                message_count INTEGER DEFAULT 0,
+                tool_call_count INTEGER DEFAULT 0,
+                input_tokens INTEGER DEFAULT 0,
+                output_tokens INTEGER DEFAULT 0,
+                cache_read_tokens INTEGER DEFAULT 0,
+                cache_write_tokens INTEGER DEFAULT 0,
+                reasoning_tokens INTEGER DEFAULT 0,
+                billing_provider TEXT,
+                billing_base_url TEXT,
+                billing_mode TEXT,
+                estimated_cost_usd REAL,
+                actual_cost_usd REAL,
+                cost_status TEXT,
+                cost_source TEXT,
+                pricing_version TEXT,
+                title TEXT
+            );
+
+            CREATE TABLE messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT,
+                tool_call_id TEXT,
+                tool_calls TEXT,
+                tool_name TEXT,
+                timestamp REAL NOT NULL,
+                token_count INTEGER,
+                finish_reason TEXT,
+                reasoning TEXT,
+                reasoning_details TEXT,
+                codex_reasoning_items TEXT
+            );
+
+            CREATE TABLE copilot_remote (
+                id TEXT PRIMARY KEY,
+                hermes_session_id TEXT,
+                repo_slug TEXT,
+                repo_path TEXT,
+                prompt TEXT,
+                signal_source TEXT,
+                signal_ref TEXT,
+                connect_handle TEXT,
+                state TEXT NOT NULL DEFAULT 'running',
+                created_at REAL NOT NULL,
+                finished_at REAL,
+                exit_code INTEGER,
+                error_text TEXT
+            );
+
+            INSERT INTO copilot_remote (id, state, created_at)
+            VALUES ('existing-job-1', 'running', 1000.0);
+        """)
+        conn.commit()
+        conn.close()
+
+        # Running SessionDB should apply the v12→v13 migration (ADD COLUMN pid).
+        migrated_db = SessionDB(db_path=db_path)
+
+        # Schema version must be current.
+        from hermes_state import SCHEMA_VERSION
+        cursor = migrated_db._conn.execute("SELECT version FROM schema_version")
+        assert cursor.fetchone()[0] == SCHEMA_VERSION
+
+        # pid column must now exist; existing row should have NULL pid.
+        cursor = migrated_db._conn.execute(
+            "SELECT pid FROM copilot_remote WHERE id = 'existing-job-1'"
+        )
+        row = cursor.fetchone()
+        assert row is not None
+        assert row[0] is None  # pid was NULL before migration, must stay NULL
+
+        # update_copilot_remote_pid must work on the migrated column.
+        migrated_db.update_copilot_remote_pid("existing-job-1", 9999)
+        job = migrated_db.get_copilot_remote("existing-job-1")
+        assert job["pid"] == 9999
+
+        migrated_db.close()
+
+
 
 class TestStateMeta:
     def test_get_meta_missing_returns_none(self, db):
@@ -2064,4 +2350,5 @@ class TestAutoMaintenance:
         assert count == 1
         assert not (sessions_dir / "old.jsonl").exists()
         assert (sessions_dir / "active.jsonl").exists()
+
 

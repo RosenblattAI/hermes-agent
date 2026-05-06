@@ -7,12 +7,12 @@ against a persistent session — the non-interactive ``-p`` flag exits as
 soon as the prompt completes and never registers with the cloud relay.
 
 Because interactive mode renders a TUI, copilot is wrapped in
-``script -qfc`` to allocate a PTY, with stdout/stderr captured to a log
-file. Hermes keeps its own pre-generated job ID for bookkeeping, but it
-does not force that UUID into Copilot via ``--resume``. Recent Copilot
-CLI builds treat ``--resume`` as a resume path where startup prompts do
-not auto-run, which would make ``/copilot_remote launch <prompt>`` open a
-remote session without executing the requested work.
+``script`` to allocate a PTY, with stdout/stderr captured to a log
+file (``script -eqfc <cmd> <log>`` on Linux/util-linux;
+``script -q <log> <cmd>`` on macOS). The pre-generated job UUID is passed to Copilot via ``--resume``
+so the session is registered under a known ID (enabling later
+``--connect`` calls).  Supplying ``--resume`` with a *new* UUID acts as a
+session *create*, not a *restore*, so startup prompts run normally.
 
 When launched for real (not via ``_spawn`` or ``dry_run``), the wrapper
 is fully detached (``start_new_session=True``). A shell wrapper runs
@@ -38,7 +38,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from copilot_remote.models import RepoEntry
-from copilot_remote.router import _sanitize_for_log
+from hermes_logging import sanitize_for_log as _sanitize_for_log
 
 logger = logging.getLogger(__name__)
 
@@ -150,11 +150,25 @@ def _wait_for_remote_task_id(
     timeout: float = 5.0,
     poll_interval: float = 0.1,
     prior_logs: Optional[Dict[Path, int]] = None,
+    logs_dir: Optional[Path] = None,
 ) -> Optional[str]:
     """Poll Copilot process logs for the exported remote task ID."""
-    logs_dir = Path.home() / ".copilot" / "logs"
+    if logs_dir is None:
+        logs_dir = Path.home() / ".copilot" / "logs"
     deadline = time.time() + timeout
-    prior_logs = prior_logs or {}
+    prior_logs = {} if prior_logs is None else prior_logs
+    # Carry-over buffer for incomplete trailing lines: Copilot can flush a log
+    # line in two separate writes.  Without buffering the first half would be
+    # parsed without a newline terminator, the regex would never match, and the
+    # second half seen in the next poll would also be incomplete.  We hold back
+    # everything after the last newline and prepend it to the next chunk.
+    partial_buffers: Dict[Path, str] = {}
+    # Track which log files have already had their session_id confirmed.
+    # The "Creating new session with ..." and "Remote session active ..." lines
+    # often arrive in separate polls; once the session_id has been seen in any
+    # chunk for a file, subsequent chunks from that file should be searched for
+    # the task-ID pattern without requiring the session_id to appear again.
+    session_confirmed: set = set()
 
     while time.time() < deadline:
         # Snapshot (path, mtime) up-front with try/except so a log rotated or
@@ -168,20 +182,49 @@ def _wait_for_remote_task_id(
 
         for path, _mtime in sorted(log_paths_with_mtime, key=lambda item: item[1], reverse=True):
             try:
-                previous_size = prior_logs.get(path)
+                previous_size = prior_logs.get(path, 0)
                 current_size = path.stat().st_size
-                if previous_size is not None and current_size <= previous_size:
+                if current_size == previous_size:
                     continue
+                # Truncation/rotation: size shrank — reset to read from start.
+                if current_size < previous_size:
+                    previous_size = 0
+                    del prior_logs[path]
+                    partial_buffers.pop(path, None)
+                    session_confirmed.discard(path)
 
-                if previous_size is None:
-                    log_text = path.read_text(encoding="utf-8", errors="ignore")
+                with path.open("rb") as fh:
+                    fh.seek(previous_size)
+                    raw_chunk = fh.read().decode("utf-8", errors="ignore")
+
+                prior_logs[path] = current_size
+
+                # Merge with any carry-over from the previous poll, then split
+                # on the last newline so we only parse complete lines.
+                combined = partial_buffers.get(path, "") + raw_chunk
+                last_nl = combined.rfind("\n")
+                if last_nl >= 0:
+                    to_parse = combined[: last_nl + 1]
+                    partial_buffers[path] = combined[last_nl + 1 :]
                 else:
-                    log_text = path.read_bytes()[previous_size:].decode("utf-8", errors="ignore")
+                    # No newline yet — carry everything forward, but also try
+                    # parsing the partial buffer as-is.  Copilot can write the
+                    # full task-URL line as the final EOF byte with no trailing
+                    # newline; without this probe the connect handle times out.
+                    partial_buffers[path] = combined
+                    to_parse = combined
 
-                task_id = _parse_remote_task_id(
-                    log_text,
-                    requested_session_id,
+                # Once the session_id has appeared in any chunk for this file,
+                # mark it confirmed so subsequent polls aren't filtered out.
+                if requested_session_id and path not in session_confirmed:
+                    if requested_session_id in combined:
+                        session_confirmed.add(path)
+
+                # Only apply session_id filter for not-yet-confirmed files.
+                sid_filter = (
+                    None if path in session_confirmed else requested_session_id
                 )
+                task_id = _parse_remote_task_id(to_parse, sid_filter)
             except OSError:
                 continue
             if task_id:
@@ -229,7 +272,8 @@ def build_copilot_command(
 
 def _log_dir() -> Path:
     """Return (and create) the copilot log directory."""
-    d = Path.home() / ".hermes" / "logs"
+    from hermes_constants import get_hermes_home
+    d = get_hermes_home() / "logs"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -438,6 +482,7 @@ def launch_copilot(
         prompt,
         copilot_bin=_resolve_copilot_bin(copilot_bin),
         model=model,
+        session_id=session_id,
     )
 
     if dry_run:
@@ -467,7 +512,7 @@ def launch_copilot(
                     if on_complete:
                         on_complete(session_id, proc.returncode)
                 except Exception as exc:
-                    logger.error("Background wait error: %s", exc)
+                    logger.error("Background wait error: %s", _sanitize_for_log(repr(exc)[:500]))
                     if on_complete:
                         on_complete(session_id, -1)
 
@@ -481,7 +526,10 @@ def launch_copilot(
             # Real path: fully detached process via shell wrapper.
             # Interactive mode (-i) needs a PTY for its TUI to render and
             # for --remote to register with the cloud relay, so wrap with
-            # ``script -qfc`` which allocates a PTY and captures output.
+            # script(1) which allocates a PTY and captures output.
+            # util-linux script: -e propagates child exit code, -q quiet,
+            # -f flush, -c command.  BSD script (macOS): no -e/-f/-c flags;
+            # command follows logfile; exit code propagates by default.
             prior_logs = _snapshot_process_logs()
             log_path = _log_dir() / f"copilot-{session_id}.log"
             complete_script = str(
@@ -489,13 +537,12 @@ def launch_copilot(
             )
             python_bin = sys.executable
 
-            script_inner = shlex.join(cmd)
-            script_cmd = [
-                "script",
-                "-eqfc",
-                script_inner,
-                str(log_path),
-            ]
+            if sys.platform == "darwin":
+                # BSD script(1): script [-q] logfile command [args...]
+                script_cmd = ["script", "-q", str(log_path)] + cmd
+            else:
+                # util-linux script(1): -e propagates exit code
+                script_cmd = ["script", "-eqfc", shlex.join(cmd), str(log_path)]
 
             # Shell command: run copilot under script(1), capture exit
             # code, then update the DB via complete_job.py.
@@ -514,7 +561,10 @@ def launch_copilot(
                 start_new_session=True,
             )
 
-            connect_id = _wait_for_remote_task_id(prior_logs=prior_logs)
+            connect_id = _wait_for_remote_task_id(
+                requested_session_id=session_id,
+                prior_logs=prior_logs,
+            )
             prompt_delivery = _attempt_initial_prompt_delivery(connect_id, prompt)
             if prompt_delivery["status"]:
                 logger.info(
@@ -537,5 +587,5 @@ def launch_copilot(
     except Exception as exc:
         if not dry_run and not _spawn and "proc" in locals():
             _terminate_process_group(proc)
-        logger.error("Failed to launch copilot: %s", exc)
+        logger.error("Failed to launch copilot: %s", _sanitize_for_log(repr(exc)[:500]))
         raise

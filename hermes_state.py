@@ -29,9 +29,11 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+
+
 DEFAULT_DB_PATH = get_hermes_home() / "state.db"
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -106,6 +108,7 @@ CREATE TABLE IF NOT EXISTS copilot_remote (
     signal_source TEXT,
     signal_ref TEXT,
     connect_handle TEXT,
+    pid INTEGER,
     state TEXT NOT NULL DEFAULT 'running',
     exit_code INTEGER,
     created_at REAL NOT NULL,
@@ -431,52 +434,43 @@ class SessionDB:
                 cursor.execute("UPDATE schema_version SET version = 9")
             if current_version < 10:
                 # v10: drop copilot_session_id — the job id IS the session UUID.
-                cursor.executescript("""
-                    CREATE TABLE IF NOT EXISTS copilot_remote (
-                        id TEXT PRIMARY KEY,
-                        hermes_session_id TEXT REFERENCES sessions(id),
-                        repo_slug TEXT NOT NULL,
-                        repo_path TEXT NOT NULL,
-                        prompt TEXT,
-                        signal_source TEXT,
-                        signal_ref TEXT,
-                        copilot_session_id TEXT,
-                        state TEXT NOT NULL DEFAULT 'running',
-                        exit_code INTEGER,
-                        created_at REAL NOT NULL,
-                        finished_at REAL,
-                        error_text TEXT
-                    );
-                    CREATE TABLE IF NOT EXISTS copilot_remote_v10 (
-                        id TEXT PRIMARY KEY,
-                        hermes_session_id TEXT REFERENCES sessions(id),
-                        repo_slug TEXT NOT NULL,
-                        repo_path TEXT NOT NULL,
-                        prompt TEXT,
-                        signal_source TEXT,
-                        signal_ref TEXT,
-                        state TEXT NOT NULL DEFAULT 'running',
-                        exit_code INTEGER,
-                        created_at REAL NOT NULL,
-                        finished_at REAL,
-                        error_text TEXT
-                    );
-                    INSERT OR IGNORE INTO copilot_remote_v10
-                        (id, hermes_session_id, repo_slug, repo_path, prompt,
-                         signal_source, signal_ref, state, exit_code,
-                         created_at, finished_at, error_text)
-                        SELECT COALESCE(copilot_session_id, id),
-                               hermes_session_id, repo_slug, repo_path, prompt,
-                               signal_source, signal_ref, state, exit_code,
-                               created_at, finished_at, error_text
-                        FROM copilot_remote;
-                    DROP TABLE copilot_remote;
-                    ALTER TABLE copilot_remote_v10 RENAME TO copilot_remote;
-                    CREATE INDEX IF NOT EXISTS idx_copilot_remote_state
-                        ON copilot_remote(state);
-                    CREATE INDEX IF NOT EXISTS idx_copilot_remote_repo
-                        ON copilot_remote(repo_slug, state);
-                """)
+                # Guard: SCHEMA_SQL may have already created copilot_remote with the
+                # modern schema (no copilot_session_id), so only rebuild when the
+                # legacy column actually exists.
+                legacy_cols_v10 = {
+                    row[1]
+                    for row in cursor.execute("PRAGMA table_info(copilot_remote)")
+                }
+                if "copilot_session_id" in legacy_cols_v10:
+                    cursor.executescript("""
+                        CREATE TABLE IF NOT EXISTS copilot_remote_v10 (
+                            id TEXT PRIMARY KEY,
+                            hermes_session_id TEXT REFERENCES sessions(id),
+                            repo_slug TEXT NOT NULL,
+                            repo_path TEXT NOT NULL,
+                            prompt TEXT,
+                            signal_source TEXT,
+                            signal_ref TEXT,
+                            state TEXT NOT NULL DEFAULT 'running',
+                            exit_code INTEGER,
+                            created_at REAL NOT NULL,
+                            finished_at REAL,
+                            error_text TEXT
+                        );
+                        INSERT OR IGNORE INTO copilot_remote_v10
+                            (id, hermes_session_id, repo_slug, repo_path, prompt,
+                             signal_source, signal_ref, state, exit_code,
+                             created_at, finished_at, error_text)
+                            SELECT COALESCE(copilot_session_id, id),
+                                   hermes_session_id, repo_slug, repo_path, prompt,
+                                   signal_source, signal_ref, state, exit_code,
+                                   created_at, finished_at, error_text
+                            FROM copilot_remote;
+                        DROP TABLE copilot_remote;
+                        ALTER TABLE copilot_remote_v10 RENAME TO copilot_remote;
+                        CREATE INDEX IF NOT EXISTS idx_copilot_remote_state ON copilot_remote(state);
+                        CREATE INDEX IF NOT EXISTS idx_copilot_remote_repo ON copilot_remote(repo_slug, state);
+                    """)
                 cursor.execute("UPDATE schema_version SET version = 10")
             if current_version < 11:
                 # v11: rename the storage table to match the public
@@ -547,6 +541,13 @@ class SessionDB:
                     "WHERE connect_handle IS NULL AND signal_ref IS NOT NULL"
                 )
                 cursor.execute("UPDATE schema_version SET version = 12")
+            if current_version < 13:
+                # v13: add pid column to copilot_remote for process tracking.
+                try:
+                    cursor.execute("ALTER TABLE copilot_remote ADD COLUMN pid INTEGER")
+                except sqlite3.OperationalError:
+                    pass
+                cursor.execute("UPDATE schema_version SET version = 13")
 
         # Unique title index — always ensure it exists (safe to run after migrations
         # since the title column is guaranteed to exist at this point)
@@ -1863,28 +1864,37 @@ class SessionDB:
         job_id: str,
         repo_slug: str,
         repo_path: str,
-        prompt: str = None,
-        signal_source: str = None,
-        signal_ref: str = None,
-        hermes_session_id: str = None,
-        connect_handle: str = None,
+        prompt: Optional[str] = None,
+        signal_source: Optional[str] = None,
+        signal_ref: Optional[str] = None,
+        hermes_session_id: Optional[str] = None,
+        connect_handle: Optional[str] = None,
+        pid: Optional[int] = None,
     ) -> str:
         """Create a new copilot remote in 'running' state. Returns the job_id.
 
         ``signal_ref`` stores caller-supplied metadata (e.g. a Jira ticket
         ID) and is never overwritten by the launcher. ``connect_handle``
-        stores the value used for ``copilot --connect=<handle>`` /
-        ``--resume=<handle>`` and is set / updated by the launcher only.
+        stores the cloud relay task ID used for ``copilot --connect=<handle>``
+        (re-attach from any terminal). It is distinct from the Hermes job UUID,
+        which is passed to Copilot via ``--resume`` at launch time to register
+        the session under a known ID.
+
+        *pid*: OS process ID of the bash wrapper (PGID leader) spawned by
+        the launcher; stored for observability (``show``/tool serialization).
+        The stop path uses a live ``ps`` scan and does NOT read this column.
+        This is NOT the inner Copilot CLI child PID.
         """
         now = time.time()
         def _do(conn):
             conn.execute(
                 """INSERT INTO copilot_remote
                    (id, hermes_session_id, repo_slug, repo_path, prompt,
-                    signal_source, signal_ref, connect_handle, state, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running', ?)""",
+                    signal_source, signal_ref, connect_handle, pid,
+                    state, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', ?)""",
                 (job_id, hermes_session_id, repo_slug, repo_path, prompt,
-                 signal_source, signal_ref, connect_handle, now),
+                 signal_source, signal_ref, connect_handle, pid, now),
             )
         self._execute_write(_do)
         return job_id
@@ -1893,30 +1903,34 @@ class SessionDB:
         self,
         job_id: str,
         state: str,
-        exit_code: int = None,
-        error_text: str = None,
-    ) -> None:
-        """Mark a copilot remote as done or failed with results."""
+        exit_code: Optional[int] = None,
+        error_text: Optional[str] = None,
+    ) -> int:
+        """Mark a copilot remote as a terminal state (done, failed, stopped).
+        Only transitions from 'running', making this idempotent.
+        Returns rowcount (1 on success, 0 if already terminal)."""
         now = time.time()
         def _do(conn):
-            conn.execute(
+            cursor = conn.execute(
                 """UPDATE copilot_remote
-                   SET state = ?, exit_code = ?,
-                       finished_at = ?, error_text = ?
-                   WHERE id = ?""",
+                   SET state = ?, exit_code = ?, finished_at = ?, error_text = ?
+                   WHERE id = ? AND state = 'running'""",
                 (state, exit_code, now, error_text, job_id),
             )
-        self._execute_write(_do)
+            return cursor.rowcount
+        return self._execute_write(_do)
 
     def update_copilot_remote_connect_handle(
         self,
         job_id: str,
         connect_handle: str,
     ) -> None:
-        """Update the Copilot reconnect handle for a copilot remote.
+        """Update the cloud relay task handle for a copilot remote.
 
-        This is the value used for ``copilot --connect=<handle>`` /
-        ``--resume=<handle>``. It is distinct from ``signal_ref``
+        ``connect_handle`` is the value used for ``copilot --connect=<handle>``
+        to re-attach from any terminal.  It is the cloud task ID returned by
+        Copilot at launch and is distinct from the Hermes job UUID (which is
+        passed via ``--resume`` at launch time) and from ``signal_ref``
         (caller-supplied metadata such as a Jira ticket ID).
         """
         def _do(conn):
@@ -1954,6 +1968,25 @@ class SessionDB:
                     (limit,),
                 )
             return [dict(row) for row in cursor.fetchall()]
+
+    def update_copilot_remote_pid(
+        self,
+        job_id: str,
+        pid: int,
+    ) -> None:
+        """Store the OS process ID of the bash wrapper (PGID leader) for the given job.
+
+        This is NOT the inner Copilot CLI child PID.  The stored value is
+        surfaced by ``copilot show`` and tool serialization for observability;
+        the stop path discovers processes via a live ``ps`` scan and does NOT
+        read this column.
+        """
+        def _do(conn):
+            conn.execute(
+                "UPDATE copilot_remote SET pid = ? WHERE id = ?",
+                (pid, job_id),
+            )
+        self._execute_write(_do)
 
     # ── Meta key/value (for scheduler bookkeeping) ──
 
@@ -2074,3 +2107,4 @@ class SessionDB:
             result["error"] = str(exc)
 
         return result
+

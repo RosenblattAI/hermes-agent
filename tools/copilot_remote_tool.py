@@ -79,7 +79,7 @@ COPILOT_REMOTE_SCHEMA = {
             },
             "state": {
                 "type": "string",
-                "enum": ["running", "done", "failed"],
+                "enum": ["running", "done", "failed", "stopped"],
                 "description": "Optional state filter for action=list.",
             },
             "limit": {
@@ -130,14 +130,16 @@ def _error(message: str) -> str:
 
 
 def _job_handle(job: Dict[str, Any]) -> Optional[str]:
-    """Return the launcher-extracted Copilot reconnect handle, or ``None``.
+    """Return the launcher-extracted Copilot cloud-relay handle, or ``None``.
 
-    The Hermes job UUID is *not* a valid Copilot ``--connect/--resume``
-    handle (the launcher does not pass it into Copilot via ``--resume``),
-    so when ``connect_handle`` is missing we return ``None`` rather than
-    falling back to ``job['id']``. ``_serialize_job()`` then omits the
-    ``connect_command``/``resume_command`` fields so model callers do
-    not get a fabricated, non-functional reconnect command.
+    This is the *connect* handle (the cloud-relay task ID emitted as
+    "Remote session active: .../tasks/..."), used for ``connect_command``
+    and ``web_url``.
+
+    Note: ``connect_command`` and ``resume_command`` in ``_serialize_job`` are
+    both ``None`` for terminal states (``done``/``failed``/``stopped``) — the
+    remote session is gone and neither ``--connect`` nor ``--resume`` can
+    reopen it.  Only running jobs surface these commands.
     """
     handle = job.get("connect_handle")
     return str(handle) if handle else None
@@ -157,8 +159,24 @@ def _serialize_job(job: Dict[str, Any], *, include_web_url: bool = True) -> Dict
         "exit_code": job.get("exit_code"),
         "error_text": job.get("error_text"),
         "connect_handle": handle,
-        "connect_command": f"copilot --connect={handle}" if handle else None,
-        "resume_command": f"copilot --resume={handle}" if handle else None,
+        # Both --connect and --resume are only valid while the remote session
+        # is alive.  For terminal states (done/failed/stopped) the relay has
+        # shut down; emit None for both so callers are not handed stale
+        # reconnect commands.
+        "connect_command": (
+            f"copilot --connect={handle}"
+            if handle and job.get("state") == "running"
+            else None
+        ),
+        # The job UUID is the --resume handle: launcher.py always passes
+        # --resume <session_id> to Copilot so the session can be re-attached
+        # by job ID — but only while the session is still running.
+        "resume_command": (
+            f"copilot --resume={job.get('id')}"
+            if job.get("id") and job.get("state") == "running"
+            else None
+        ),
+        "pid": job.get("pid"),
         "web_url": (
             build_github_task_web_url(repo_path, repo_slug, handle)
             if include_web_url
@@ -390,6 +408,13 @@ def _launch(args: Dict[str, Any]) -> str:
         connect_handle = result.get("connect_id")
         if connect_handle:
             db.update_copilot_remote_connect_handle(job_id, str(connect_handle))
+
+        proc = result.get("proc")
+        if proc is not None:
+            try:
+                db.update_copilot_remote_pid(job_id, proc.pid)
+            except Exception:
+                pass  # best-effort — pid is informational
 
         job = db.get_copilot_remote(job_id) or {
             "id": job_id,
