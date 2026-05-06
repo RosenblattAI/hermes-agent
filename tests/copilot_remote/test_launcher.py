@@ -503,7 +503,7 @@ class TestWaitForRemoteTaskIdPriorLogs:
         )
 
 
-
+class TestDarwinScriptInvocation:
     """Verify the macOS (BSD script) command form is assembled correctly."""
 
     def test_darwin_script_uses_bsd_form(self, monkeypatch, tmp_path):
