@@ -132,13 +132,14 @@ def _error(message: str) -> str:
 def _job_handle(job: Dict[str, Any]) -> Optional[str]:
     """Return the launcher-extracted Copilot cloud-relay handle, or ``None``.
 
-    The Hermes job UUID doubles as a valid ``--resume`` handle (the launcher
-    passes it to Copilot via ``--resume <session_id>``), so ``resume_command``
-    in ``_serialize_job`` is always populated from ``job['id']``.
+    This is the *connect* handle (the cloud-relay task ID emitted as
+    "Remote session active: .../tasks/..."), used for ``connect_command``
+    and ``web_url``.
 
-    This function returns the *connect* handle (the cloud-relay task ID emitted
-    as "Remote session active: .../tasks/...") for use in ``connect_command``
-    and ``web_url``.  It is separate from the resume handle.
+    Note: ``connect_command`` and ``resume_command`` in ``_serialize_job`` are
+    both ``None`` for terminal states (``done``/``failed``/``stopped``) — the
+    remote session is gone and neither ``--connect`` nor ``--resume`` can
+    reopen it.  Only running jobs surface these commands.
     """
     handle = job.get("connect_handle")
     return str(handle) if handle else None
@@ -158,14 +159,18 @@ def _serialize_job(job: Dict[str, Any], *, include_web_url: bool = True) -> Dict
         "exit_code": job.get("exit_code"),
         "error_text": job.get("error_text"),
         "connect_handle": handle,
-        "connect_command": f"copilot --connect={handle}" if handle else None,
+        # Both --connect and --resume are only valid while the remote session
+        # is alive.  For terminal states (done/failed/stopped) the relay has
+        # shut down; emit None for both so callers are not handed stale
+        # reconnect commands.
+        "connect_command": (
+            f"copilot --connect={handle}"
+            if handle and job.get("state") == "running"
+            else None
+        ),
         # The job UUID is the --resume handle: launcher.py always passes
         # --resume <session_id> to Copilot so the session can be re-attached
-        # by job ID — but only while the session is still running.  For
-        # terminal states (done/failed/stopped) the remote session is gone;
-        # --resume would start a new unrelated session instead of reopening
-        # the completed one.  Emit None so callers are not handed a misleading
-        # reconnect command.
+        # by job ID — but only while the session is still running.
         "resume_command": (
             f"copilot --resume={job.get('id')}"
             if job.get("id") and job.get("state") == "running"

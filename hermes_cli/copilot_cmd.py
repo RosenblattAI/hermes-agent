@@ -141,7 +141,17 @@ def copilot_launch(args):
                 file=sys.stderr,
             )
             sys.exit(1)
-        matched = next((e for e in entries if e.slug.lower() == repo.lower()), None)
+        matched_all = [e for e in entries if e.slug.lower() == repo.lower()]
+        if len(matched_all) > 1:
+            paths = ", ".join(_sanitize_for_log(str(e.path)) for e in matched_all)
+            print(
+                f"Error: slug {_sanitize_for_log(repo)!r} is ambiguous — matches "
+                f"multiple workspace repos ({paths}). "
+                "Use --repo-path to specify which one.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        matched = matched_all[0] if matched_all else None
         if matched:
             repo_path = matched.path
             repo = matched.slug  # normalise to the canonical casing stored in the workspace
@@ -248,12 +258,13 @@ def copilot_launch(args):
         if web:
             print(f"  Web:     {web}")
     else:
-        # connect_id was not extracted; --resume with job_id is ambiguous until
-        # the cloud session confirms registration. Direct the operator to check back.
+        # connect_id was not extracted — the 5-second task-ID scan timed out.
+        # copilot_show reads only the DB, so re-running it will not help.
+        # Direct the operator to the log file for the raw Copilot output.
         print(
             f"  Note: connect handle not yet available.\n"
-            f"  Run 'hermes copilot show {job_id}' for reconnect instructions\n"
-            f"  once the session is fully established."
+            f"  Check {display_hermes_home()}/logs/copilot-{job_id}.log "
+            f"for the raw Copilot session output."
         )
 
     db.close()
@@ -315,11 +326,11 @@ def copilot_show(args):
 
         sid = _connect_handle(job)
         if sid:
-            print(f"Connect:  copilot --connect={sid}")
-            # --resume only makes sense for running jobs; for terminal states
-            # the remote session is gone and --resume creates a new unrelated
-            # Copilot session instead of re-attaching to the completed one.
+            # --connect and --resume are only valid while the remote session is
+            # alive.  For terminal states the relay has shut down; suppress both
+            # commands so operators are not handed stale reconnect instructions.
             if job.get("state") == "running":
+                print(f"Connect:  copilot --connect={sid}")
                 print(f"Resume:   copilot --resume={job['id']}")
             web = _github_task_web_url(job)
             if web:

@@ -524,3 +524,83 @@ class TestShowResumeLine:
         jid = self._make_job(db, 6, state="done", connect_handle=None)
         out = self._show(jid)
         assert "Resume:" not in out
+
+    # Connect: line gating tests -------------------------------------------
+
+    def test_running_job_shows_connect_line(self, db):
+        """Connect: is printed for running jobs with a known handle."""
+        jid = self._make_job(db, 7, state="running", connect_handle="task-run")
+        out = self._show(jid)
+        assert "Connect:" in out
+        assert "copilot --connect=task-run" in out
+
+    def test_done_job_omits_connect_line(self, db):
+        """Connect: must be suppressed for done jobs; the relay is gone."""
+        jid = self._make_job(db, 8, state="done", connect_handle="task-done-c")
+        out = self._show(jid)
+        assert "Connect:" not in out
+
+    def test_failed_job_omits_connect_line(self, db):
+        """Connect: must be suppressed for failed jobs."""
+        jid = self._make_job(db, 9, connect_handle="task-fail-c")
+        db.finish_copilot_remote(jid, state="failed", exit_code=1)
+        out = self._show(jid)
+        assert "Connect:" not in out
+
+    def test_stopped_job_omits_connect_line(self, db):
+        """Connect: must be suppressed for stopped jobs."""
+        jid = self._make_job(db, 10, connect_handle="task-stop-c")
+        db.finish_copilot_remote(jid, state="stopped", exit_code=-1)
+        out = self._show(jid)
+        assert "Connect:" not in out
+
+    def test_running_no_handle_shows_log_hint_not_rerun_hint(self, db):
+        """When handle unavailable, hint points to log file, not to re-run show."""
+        jid = self._make_job(db, 11, state="running", connect_handle=None)
+        out = self._show(jid)
+        assert "hermes copilot show" not in out
+        assert ".log" in out
+
+
+class TestSlugAmbiguity:
+    """copilot launch must reject ambiguous slugs that match multiple orgs."""
+
+    def _launch_slug(self, slug, monkeypatch, *, entries):
+        """Invoke copilot_launch with a slug-only arg and capture output."""
+        from copilot_remote.router import RepoEntry
+        monkeypatch.setattr(
+            "copilot_remote.router._discover_repos",
+            lambda: [RepoEntry(slug=e[0], path=e[1]) for e in entries],
+        )
+        from hermes_cli.copilot_cmd import copilot_launch
+        ns = __import__("types").SimpleNamespace(
+            repo=slug,
+            repo_path=None,
+            prompt="test prompt",
+            dry_run=True,
+        )
+        return _capture_fn(copilot_launch, ns)
+
+    def test_unique_slug_resolves(self, monkeypatch):
+        """A slug matching exactly one entry passes the ambiguity check and proceeds."""
+        out = self._launch_slug(
+            "repo-name",
+            monkeypatch,
+            entries=[("repo-name", "/workspace/org-a/repo-name")],
+        )
+        # Ambiguity guard must not fire; some other error (missing DB, etc.) may
+        # follow but the key invariant is that we did not reject with 'ambiguous'.
+        assert "ambiguous" not in out.lower()
+
+    def test_ambiguous_slug_errors(self, monkeypatch):
+        """A slug matching two workspace entries must error rather than pick one."""
+        out = self._launch_slug(
+            "repo-name",
+            monkeypatch,
+            entries=[
+                ("repo-name", "/workspace/org-a/repo-name"),
+                ("repo-name", "/workspace/org-b/repo-name"),
+            ],
+        )
+        assert "ambiguous" in out.lower()
+        assert "--repo-path" in out
