@@ -3,8 +3,8 @@
 
 The flow is intentionally non-interactive: the agent prints an authorization
 URL, the user authorizes in a browser, then the agent exchanges the pasted
-redirect URL or authorization code. Tokens are scoped to the current Hermes
-profile and this module only requests delegated read permissions.
+redirect URL. Tokens are scoped to the current Hermes profile and this module
+only requests delegated read permissions.
 """
 
 from __future__ import annotations
@@ -46,7 +46,10 @@ except ModuleNotFoundError:
 
 
 def _sanitize_line(value: object) -> str:
-    return str(value).replace("\r", "\\r").replace("\n", "\\n")
+    if value is None:
+        return ""
+    text = str(value)
+    return "".join(" " if (ord(char) < 0x20 or ord(char) == 0x7F) else char for char in text)
 
 
 def _token_endpoint(tenant: str) -> str:
@@ -158,9 +161,10 @@ def _save_pending_auth(*, state: str, code_verifier: str, config: dict) -> None:
         {
             "state": state,
             "code_verifier": code_verifier,
-            # Snapshot the tenant and redirect_uri used for this specific
-            # authorization request so the token exchange later matches the
-            # authorize call exactly, even if the client config changes.
+            # Snapshot the auth request fields so the token exchange later
+            # matches the authorize call exactly, even if the client config
+            # changes before the callback is pasted back in.
+            "client_id": config["client_id"],
             "tenant": config["tenant"],
             "redirect_uri": config["redirect_uri"],
             "created_at": int(time.time()),
@@ -273,7 +277,7 @@ def exchange_auth_code(auth_response: str) -> None:
     config = _load_client_config()
     pending = _load_pending_auth()
     code, returned_state = _extract_code_and_state(auth_response)
-    if not returned_state:
+    if returned_state is None:
         print("ERROR: Paste the full Microsoft redirect URL so the OAuth state can be validated.")
         sys.exit(1)
     if returned_state != pending["state"]:
@@ -283,7 +287,7 @@ def exchange_auth_code(auth_response: str) -> None:
     token_response = _request_token(
         pending.get("tenant") or config["tenant"],
         {
-            "client_id": config["client_id"],
+            "client_id": pending.get("client_id") or config["client_id"],
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": pending.get("redirect_uri") or config["redirect_uri"],
@@ -317,7 +321,7 @@ def refresh_token(*, emit_status: bool = True) -> bool:
     token_response = _request_token(
         current.get("tenant") or config["tenant"],
         {
-            "client_id": config["client_id"],
+            "client_id": current.get("client_id") or config["client_id"],
             "grant_type": "refresh_token",
             "refresh_token": refresh,
             "scope": _scope_param(),
@@ -384,7 +388,7 @@ def main() -> None:
     group.add_argument("--configure", action="store_true", help="Store Entra public-client app metadata")
     group.add_argument("--check", action="store_true", help="Check if auth is valid (exit 0=yes, 1=no)")
     group.add_argument("--auth-url", action="store_true", help="Print OAuth URL for user to visit")
-    group.add_argument("--auth-code", metavar="CODE", help="Exchange auth code or redirect URL for a token")
+    group.add_argument("--auth-code", metavar="REDIRECT_URL", help="Exchange the full redirect URL for a token")
     group.add_argument("--revoke", action="store_true", help="Delete local token state")
     parser.add_argument("--client-id", help="Microsoft Entra application/client ID")
     parser.add_argument("--tenant", help="Tenant ID/domain, common, organizations, or consumers")

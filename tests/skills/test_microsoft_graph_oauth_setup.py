@@ -74,13 +74,14 @@ def test_get_auth_url_persists_state_and_pkce(auth_module, monkeypatch, capsys):
     pending = json.loads(auth_module.PENDING_AUTH_PATH.read_text())
     assert pending["state"] == "saved-state"
     assert pending["code_verifier"] == "saved-verifier"
+    assert pending["client_id"] == "client-id"
     assert stat.S_IMODE(auth_module.PENDING_AUTH_PATH.stat().st_mode) == 0o600
 
 
 def test_exchange_auth_code_reuses_pending_pkce_without_secret(auth_module, monkeypatch):
     auth_module.configure_client("client-id", tenant="tenant-id")
     auth_module.PENDING_AUTH_PATH.write_text(
-        json.dumps({"state": "saved-state", "code_verifier": "saved-verifier", "tenant": "tenant-id", "redirect_uri": "http://localhost:1"})
+        json.dumps({"state": "saved-state", "code_verifier": "saved-verifier", "client_id": "client-id", "tenant": "tenant-id", "redirect_uri": "http://localhost:1"})
     )
     captured = {}
 
@@ -129,20 +130,20 @@ def test_exchange_auth_code_rejects_state_mismatch(auth_module, capsys):
 def test_exchange_auth_code_rejects_missing_state_from_callback_url(auth_module, capsys):
     auth_module.configure_client("client-id")
     auth_module.PENDING_AUTH_PATH.write_text(
-        json.dumps({"state": "saved-state", "code_verifier": "saved-verifier"})
+        json.dumps({"state": "saved-state", "code_verifier": "saved-verifier", "client_id": "client-id"})
     )
 
     with pytest.raises(SystemExit):
         auth_module.exchange_auth_code("http://localhost:1/?code=auth-code")
 
-    assert "state mismatch" in capsys.readouterr().out.lower()
+    assert "full microsoft redirect url" in capsys.readouterr().out.lower()
     assert not auth_module.TOKEN_PATH.exists()
 
 
 def test_exchange_auth_code_rejects_missing_mail_scope(auth_module, monkeypatch, capsys):
     auth_module.configure_client("client-id")
     auth_module.PENDING_AUTH_PATH.write_text(
-        json.dumps({"state": "saved-state", "code_verifier": "saved-verifier"})
+        json.dumps({"state": "saved-state", "code_verifier": "saved-verifier", "client_id": "client-id"})
     )
     monkeypatch.setattr(
         auth_module,
@@ -200,7 +201,7 @@ def test_check_auth_refreshes_expired_token(auth_module, monkeypatch):
 def test_exchange_auth_code_writes_token_with_owner_only_permissions(auth_module, monkeypatch):
     auth_module.configure_client("client-id", tenant="tenant-id")
     auth_module.PENDING_AUTH_PATH.write_text(
-        json.dumps({"state": "saved-state", "code_verifier": "saved-verifier", "tenant": "tenant-id", "redirect_uri": "http://localhost:1"})
+        json.dumps({"state": "saved-state", "code_verifier": "saved-verifier", "client_id": "client-id", "tenant": "tenant-id", "redirect_uri": "http://localhost:1"})
     )
     monkeypatch.setattr(
         auth_module,
@@ -255,8 +256,73 @@ def test_auth_error_callback_is_sanitized(auth_module, capsys):
         )
 
     out = capsys.readouterr().out
-    assert "line1\\nline2" in out
+    assert "line1 line2" in out
     assert "line1\nline2" not in out
+
+
+def test_exchange_auth_code_uses_client_id_from_pending_auth(auth_module, monkeypatch):
+    auth_module.configure_client("new-client-id", tenant="new-tenant")
+    auth_module.PENDING_AUTH_PATH.write_text(
+        json.dumps(
+            {
+                "state": "saved-state",
+                "code_verifier": "saved-verifier",
+                "client_id": "original-client-id",
+                "tenant": "original-tenant",
+                "redirect_uri": "http://localhost:1",
+            }
+        )
+    )
+    captured = {}
+
+    def fake_request_token(tenant, data):
+        captured["tenant"] = tenant
+        captured["data"] = data
+        return {
+            "access_token": "access-token",
+            "refresh_token": "refresh-token",
+            "expires_in": 3600,
+            "scope": "Mail.Read User.Read openid profile",
+        }
+
+    monkeypatch.setattr(auth_module, "_request_token", fake_request_token)
+
+    auth_module.exchange_auth_code("http://localhost:1/?code=auth-code&state=saved-state")
+
+    assert captured["tenant"] == "original-tenant"
+    assert captured["data"]["client_id"] == "original-client-id"
+
+
+def test_refresh_token_uses_stored_client_id(auth_module, monkeypatch):
+    auth_module.configure_client("new-client-id", tenant="tenant-id")
+    auth_module.TOKEN_PATH.write_text(
+        json.dumps(
+            {
+                "access_token": "old-token",
+                "refresh_token": "refresh-token",
+                "expires_at": 1,
+                "scope": "Mail.Read User.Read",
+                "tenant": "tenant-id",
+                "client_id": "original-client-id",
+            }
+        )
+    )
+    captured = {}
+
+    def fake_request_token(tenant, data):
+        captured["tenant"] = tenant
+        captured["data"] = data
+        return {
+            "access_token": "new-token",
+            "expires_in": 3600,
+            "scope": "Mail.Read User.Read",
+        }
+
+    monkeypatch.setattr(auth_module, "_request_token", fake_request_token)
+
+    assert auth_module.refresh_token(emit_status=False) is True
+    assert captured["tenant"] == "tenant-id"
+    assert captured["data"]["client_id"] == "original-client-id"
 
 
 def test_helper_fallback_normalizes_relative_hermes_home(monkeypatch, tmp_path):

@@ -205,6 +205,21 @@ def test_graph_errors_do_not_print_access_token(graph_module, monkeypatch, capsy
     assert "secret-token" not in err
 
 
+def test_graph_errors_strip_control_characters(graph_module, monkeypatch, capsys):
+    factory = FakeClientFactory(
+        [FakeResponse(status_code=403, payload={"error": {"message": "Denied\x1b[31m\nnext"}})]
+    )
+    monkeypatch.setattr(graph_module.httpx, "Client", factory)
+
+    with pytest.raises(SystemExit):
+        graph_module.list_messages(argparse.Namespace(max=1))
+
+    err = capsys.readouterr().err
+    assert "Denied [31m next" in err
+    assert "\x1b" not in err
+    assert "Denied\nnext" not in err
+
+
 def test_limits_requested_result_count(graph_module, monkeypatch):
     factory = FakeClientFactory([FakeResponse(payload={"value": []})])
     monkeypatch.setattr(graph_module.httpx, "Client", factory)

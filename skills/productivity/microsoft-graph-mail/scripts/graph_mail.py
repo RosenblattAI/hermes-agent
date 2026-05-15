@@ -64,7 +64,10 @@ class _HTMLTextExtractor(HTMLParser):
 
 
 def _sanitize_line(value: object) -> str:
-    return str(value).replace("\r", "\\r").replace("\n", "\\n")
+    if value is None:
+        return ""
+    text = str(value)
+    return "".join(" " if (ord(char) < 0x20 or ord(char) == 0x7F) else char for char in text)
 
 
 def _strip_html(value: str) -> str:
