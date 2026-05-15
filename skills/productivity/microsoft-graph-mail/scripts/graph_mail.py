@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import html
 import importlib
 import json
 import re
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -30,18 +30,60 @@ except ModuleNotFoundError:
     httpx = None
 
 
+class _HTMLTextExtractor(HTMLParser):
+    """Convert Graph HTML bodies into plain text without script/style content."""
+
+    _BLOCK_TAGS = {"br", "div", "li", "p", "tr"}
+    _SKIP_TAGS = {"script", "style"}
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._parts: list[str] = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs) -> None:  # type: ignore[override]
+        if tag in self._SKIP_TAGS:
+            self._skip_depth += 1
+            return
+        if self._skip_depth == 0 and tag in self._BLOCK_TAGS:
+            self._parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:  # type: ignore[override]
+        if tag in self._SKIP_TAGS and self._skip_depth > 0:
+            self._skip_depth -= 1
+            return
+        if self._skip_depth == 0 and tag in {"div", "li", "p", "tr"}:
+            self._parts.append("\n")
+
+    def handle_data(self, data: str) -> None:  # type: ignore[override]
+        if self._skip_depth == 0 and data:
+            self._parts.append(data)
+
+    def get_text(self) -> str:
+        return "".join(self._parts)
+
+
 def _sanitize_line(value: object) -> str:
     return str(value).replace("\r", "\\r").replace("\n", "\\n")
 
 
 def _strip_html(value: str) -> str:
-    text = re.sub(r"<br\s*/?>", "\n", value, flags=re.IGNORECASE)
-    text = re.sub(r"<p[^>]*>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</p>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"<[^>]+>", "", text)
-    text = html.unescape(text).replace("\xa0", " ")
+    parser = _HTMLTextExtractor()
+    parser.feed(value)
+    parser.close()
+    text = parser.get_text().replace("\xa0", " ")
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
+
+
+def _json_dump(value: Any) -> str:
+    serialized = json.dumps(value, indent=2, ensure_ascii=False)
+    return (
+        serialized
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+    )
 
 
 def _bounded_text(value: str, limit: int = MAX_BODY_LENGTH) -> str:
@@ -155,7 +197,7 @@ def list_messages(args) -> None:
     }
     with httpx_module.Client(timeout=30) as client:
         messages = _collect_messages(client, token, params, limit)
-    print(json.dumps([_summarize_message(message) for message in messages], indent=2, ensure_ascii=False))
+    print(_json_dump([_summarize_message(message) for message in messages]))
 
 
 def search_messages(args) -> None:
@@ -169,7 +211,7 @@ def search_messages(args) -> None:
     }
     with httpx_module.Client(timeout=30) as client:
         messages = _collect_messages(client, token, params, limit)
-    print(json.dumps([_summarize_message(message) for message in messages], indent=2, ensure_ascii=False))
+    print(_json_dump([_summarize_message(message) for message in messages]))
 
 
 def get_message(args) -> None:
@@ -181,7 +223,7 @@ def get_message(args) -> None:
     }
     with httpx_module.Client(timeout=30) as client:
         message = _graph_get(client, token, f"/me/messages/{message_id}", params=params)
-    print(json.dumps(_full_message(message), indent=2, ensure_ascii=False))
+    print(_json_dump(_full_message(message)))
 
 
 def main() -> None:

@@ -14,6 +14,7 @@ SCRIPT_DIR = (
     / "skills/productivity/microsoft-graph-mail/scripts"
 )
 AUTH_PATH = SCRIPT_DIR / "microsoft_auth.py"
+HELPER_PATH = SCRIPT_DIR / "_hermes_home.py"
 
 
 @pytest.fixture
@@ -190,3 +191,19 @@ def test_auth_error_callback_is_sanitized(auth_module, capsys):
     out = capsys.readouterr().out
     assert "line1\\nline2" in out
     assert "line1\nline2" not in out
+
+
+def test_helper_fallback_normalizes_relative_hermes_home(monkeypatch, tmp_path):
+    monkeypatch.setitem(sys.modules, "hermes_constants", None)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.chdir(workspace)
+    monkeypatch.setenv("HERMES_HOME", "../profiles/../custom-hermes")
+
+    spec = importlib.util.spec_from_file_location("microsoft_hermes_home_test", HELPER_PATH)
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    assert module.get_hermes_home() == (tmp_path / "custom-hermes").resolve()

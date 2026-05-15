@@ -157,6 +157,40 @@ def test_get_message_strips_html_and_url_encodes_id(graph_module, monkeypatch, c
     assert output["webLink"] == "https://outlook.office.com/mail/item"
 
 
+def test_get_message_escapes_html_sensitive_output(graph_module, monkeypatch, capsys):
+    factory = FakeClientFactory(
+        [
+            FakeResponse(
+                payload={
+                    "id": "encoded-html",
+                    "conversationId": "thread",
+                    "from": {"emailAddress": {"address": "alice@example.com"}},
+                    "toRecipients": [],
+                    "ccRecipients": [],
+                    "subject": "Encoded",
+                    "receivedDateTime": "2026-05-14T12:00:00Z",
+                    "bodyPreview": "Preview &lt;script&gt;alert(1)&lt;/script&gt;",
+                    "body": {
+                        "contentType": "html",
+                        "content": "<script>alert(1)</script><p>&lt;b&gt;safe&lt;/b&gt;</p>",
+                    },
+                    "webLink": "https://outlook.office.com/mail/item",
+                }
+            )
+        ]
+    )
+    monkeypatch.setattr(graph_module.httpx, "Client", factory)
+
+    graph_module.get_message(argparse.Namespace(message_id="encoded-html"))
+
+    raw = capsys.readouterr().out
+    assert "<script>" not in raw
+    assert "<b>safe</b>" not in raw
+
+    output = json.loads(raw)
+    assert output["body"] == "<b>safe</b>"
+
+
 def test_graph_errors_do_not_print_access_token(graph_module, monkeypatch, capsys):
     factory = FakeClientFactory(
         [FakeResponse(status_code=403, payload={"error": {"message": "Denied"}})]
