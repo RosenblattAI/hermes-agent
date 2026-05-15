@@ -140,6 +140,9 @@ def _save_pending_auth(*, state: str, code_verifier: str, config: dict) -> None:
             {
                 "state": state,
                 "code_verifier": code_verifier,
+                # Snapshot the tenant and redirect_uri used for this specific
+                # authorization request so the token exchange later matches the
+                # authorize call exactly, even if the client config changes.
                 "tenant": config["tenant"],
                 "redirect_uri": config["redirect_uri"],
                 "created_at": int(time.time()),

@@ -140,7 +140,7 @@ def test_exchange_auth_code_rejects_missing_mail_scope(auth_module, monkeypatch,
     )
 
     with pytest.raises(SystemExit):
-        auth_module.exchange_auth_code("auth-code")
+        auth_module.exchange_auth_code("http://localhost:1/?code=auth-code&state=saved-state")
 
     out = capsys.readouterr().out
     assert "Mail.Read" in out

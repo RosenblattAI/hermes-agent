@@ -6,8 +6,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-pytest = importlib.import_module("pytest")
-
+import pytest
 
 SCRIPT_DIR = (
     Path(__file__).resolve().parents[2]
