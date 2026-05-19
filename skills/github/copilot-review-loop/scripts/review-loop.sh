@@ -25,7 +25,7 @@ done
 # check_pr_status — Verify PR is open and get branch name
 # Args: owner repo pr_number
 # Stdout: JSON {state, draft, branch, mergeable_state}
-# Exit 1 if PR is not open or is a draft
+# Exit 1 if PR is not open, is a draft, or has merge conflicts
 ###############################################################################
 check_pr_status() {
   local owner="$1" repo="$2" pr="$3"
@@ -82,9 +82,9 @@ request_review() {
   local response
   response=$(gh api "/repos/${owner}/${repo}/pulls/${pr}/requested_reviewers" \
     -X POST -f 'reviewers[]=Copilot' 2>&1) || {
-    # Sanitize: collapse to single line, strip control chars
+    # Sanitize: collapse to single line, strip control chars, truncate
     local sanitized
-    sanitized=$(echo "$response" | tr '\n' ' ' | tr -d '[:cntrl:]' | cut -c1-200)
+    sanitized=$(printf '%s' "$response" | tr '\n\r' '  ' | LC_ALL=C tr -d '[:cntrl:]' | cut -c1-200)
     echo "ERROR: Failed to request Copilot review: $sanitized" >&2
     return 1
   }
@@ -149,18 +149,17 @@ get_comments() {
     return 0
   fi
 
-  # Format each comment as a structured block, escaping triple backticks
-  # in body/diff_hunk to prevent breaking the markdown fences
-  local total
-  total=$(echo "$raw_comments" | jq 'length')
-
-  echo "$raw_comments" | jq -r --argjson total "$total" '
+  # Format each comment as a structured block.
+  # - Use @json on body/diff_hunk to safely escape all special chars
+  #   including triple backticks and newlines.
+  # - Properly escape the "N/A" fallback for original_line.
+  echo "$raw_comments" | jq -r --argjson total "$count" '
     to_entries[] |
     "## Review Comment \(.key + 1)/\($total)\n" +
     "**File:** `\(.value.path)`\n" +
-    "**Line:** \(.value.original_line // "N/A")\n" +
+    "**Line:** \(.value.original_line // "N\/A")\n" +
     "**Copilot says:** \(.value.body | gsub("```"; "` ` `"))\n" +
-    "**Diff context:**\n```diff\n\(.value.diff_hunk | gsub("```"; "` ` `"))\n```\n"
+    "**Diff context:**\n````diff\n\(.value.diff_hunk | gsub("```"; "` ` `"))\n````\n"
   '
 }
 
@@ -172,10 +171,11 @@ get_comments() {
 check_duplicate_comments() {
   local prev_file="$1" current_json="$2"
 
+  # Use @base64 to encode each comment into a single line for hashing,
+  # avoiding newlines in body text splitting one comment into multiple lines.
   if [[ ! -f "$prev_file" ]]; then
-    # No previous round — save current hashes per comment and return OK
-    echo "$current_json" | jq -r '.[] | "\(.path):\(.original_line):\(.body)"' | \
-      while IFS= read -r line; do echo "$line" | md5sum | cut -d' ' -f1; done > "$prev_file"
+    echo "$current_json" | jq -r '.[] | "\(.path):\(.original_line):\(.body)" | @base64' | \
+      while IFS= read -r line; do printf '%s' "$line" | md5sum | cut -d' ' -f1; done > "$prev_file"
     echo "OK"
     return 0
   fi
@@ -185,12 +185,12 @@ check_duplicate_comments() {
   current_hashes_file=$(mktemp)
   trap "rm -f '$current_hashes_file'" EXIT
 
-  echo "$current_json" | jq -r '.[] | "\(.path):\(.original_line):\(.body)"' | \
-    while IFS= read -r line; do echo "$line" | md5sum | cut -d' ' -f1; done > "$current_hashes_file"
+  echo "$current_json" | jq -r '.[] | "\(.path):\(.original_line):\(.body)" | @base64' | \
+    while IFS= read -r line; do printf '%s' "$line" | md5sum | cut -d' ' -f1; done > "$current_hashes_file"
 
   local duplicates=0
   while IFS= read -r hash; do
-    if grep -q "$hash" "$prev_file" 2>/dev/null; then
+    if grep -Fxq "$hash" "$prev_file" 2>/dev/null; then
       duplicates=$((duplicates + 1))
     fi
   done < "$current_hashes_file"

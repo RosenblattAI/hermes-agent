@@ -164,7 +164,7 @@ a review with no inline feedback). Exit the loop with SUCCESS.
 
 For each comment, create a structured block:
 
-```
+````
 ## Review Comment {n}/{total}
 **File:** `{path}`
 **Line:** {line}
@@ -173,7 +173,7 @@ For each comment, create a structured block:
 ```diff
 {diff_hunk}
 ```
-```
+````
 
 Concatenate all blocks into a single `FORMATTED_COMMENTS` string.
 
