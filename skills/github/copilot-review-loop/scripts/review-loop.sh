@@ -9,17 +9,28 @@
 #   poll_review      RosenblattAI hermes-agent 42 12345 600
 #   get_comments     RosenblattAI hermes-agent 42 67890
 
-set -euo pipefail
+# When executed directly, enable strict mode, run preflight, and dispatch.
+# When sourced, only export functions — do NOT modify the caller's shell options.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  set -euo pipefail
+  # Preflight is defined below; bash parses the whole file before executing,
+  # so forward references work when the script is run (not sourced).
+  _preflight
+  "$@"
+fi
 
 ###############################################################################
-# Preflight — verify required tools are available
+# _preflight — verify required tools are available
+# Call this explicitly before using other functions.
 ###############################################################################
-for cmd in gh jq md5sum; do
-  if ! command -v "$cmd" &>/dev/null; then
-    echo "ERROR: required command '$cmd' is not installed" >&2
-    exit 1
-  fi
-done
+_preflight() {
+  for cmd in gh jq md5sum; do
+    if ! command -v "$cmd" &>/dev/null; then
+      echo "ERROR: required command '$cmd' is not installed" >&2
+      return 1
+    fi
+  done
+}
 
 ###############################################################################
 # check_pr_status — Verify PR is open and get branch name
@@ -206,7 +217,5 @@ check_duplicate_comments() {
   fi
 }
 
-# If sourced, functions are available. If run directly, execute the given function.
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  "$@"
-fi
+# If sourced, functions are available. Caller should invoke _preflight first.
+# Direct execution is handled by the guard at the top of the file.
