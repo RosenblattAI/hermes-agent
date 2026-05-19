@@ -98,7 +98,13 @@ gh api /repos/{owner}/{repo}/pulls/{pr_number}/requested_reviewers \
   -X POST -f 'reviewers[]=Copilot'
 ```
 
-**Success:** Response includes `"reviewers"` array with a Copilot entry.
+**Success:** Response returns 201. Note: the `requested_reviewers` array in the
+response body will be empty — this is a known quirk with bot reviewers. A 201
+status confirms the request was accepted.
+
+**Known issue:** The API request may not reliably trigger Copilot re-reviews on
+subsequent rounds. If polling times out after a re-request, the agent should
+notify the user to manually request the review from the GitHub UI as a fallback.
 
 **Error handling:**
 - `422 Unprocessable Entity` → Copilot may already be requested or not available on this repo. Check the error message.
