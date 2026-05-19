@@ -127,8 +127,9 @@ echo "$NEW_REVIEW"
 **When a new review appears:**
 - Extract `REVIEW_ID` from the response: `.id`
 - Extract `REVIEW_STATE` from the response: `.state`
-- If `state` is `"APPROVED"` → clean review, exit SUCCESS
-- If `state` is `"COMMENTED"` or `"CHANGES_REQUESTED"` → proceed to parse comments
+- Regardless of `state` (`APPROVED`, `COMMENTED`, or `CHANGES_REQUESTED`), always
+  proceed to Step 4 to check the actual inline comment count. An `APPROVED` review
+  can still contain inline comments, so never skip the comment check based on state alone.
 
 ### Step 4: Parse Review Comments
 
@@ -161,7 +162,7 @@ For each comment, create a structured block:
 **Diff context:**
 ```diff
 {diff_hunk}
-`` `
+```
 ```
 
 Concatenate all blocks into a single `FORMATTED_COMMENTS` string.
@@ -267,9 +268,9 @@ If merge conflicts are detected:
 ### API Rate Limiting
 
 If any `gh api` call returns 403 with rate limit headers:
-1. Read `X-RateLimit-Reset` header for reset time
-2. Wait until reset (or max 5 minutes)
-3. Retry the call (max 3 retries per API call)
+1. Wait 30 seconds, then retry
+2. If still rate-limited, wait 60 seconds (doubling — exponential backoff)
+3. Third retry after 120 seconds
 4. If still rate-limited after 3 retries, abort with notification
 
 ### Copilot Remote Failure

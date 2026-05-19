@@ -38,6 +38,13 @@ check_pr_status() {
     return 1
   fi
 
+  local mergeable_state
+  mergeable_state=$(echo "$pr_data" | jq -r '.mergeable_state')
+  if [[ "$mergeable_state" == "dirty" ]]; then
+    echo "ERROR: PR #${pr} has merge conflicts. Resolve conflicts before continuing." >&2
+    return 1
+  fi
+
   echo "$pr_data"
 }
 
@@ -130,9 +137,12 @@ get_comments() {
   fi
 
   # Format each comment as a structured block
-  echo "$raw_comments" | jq -r '
+  local total
+  total=$(echo "$raw_comments" | jq 'length')
+
+  echo "$raw_comments" | jq -r --argjson total "$total" '
     to_entries[] |
-    "## Review Comment \(.key + 1)/\(length)\n" +
+    "## Review Comment \(.key + 1)/\($total)\n" +
     "**File:** `\(.value.path)`\n" +
     "**Line:** \(.value.original_line // "N/A")\n" +
     "**Copilot says:** \(.value.body)\n" +
@@ -149,8 +159,9 @@ check_duplicate_comments() {
   local prev_file="$1" current_json="$2"
 
   if [[ ! -f "$prev_file" ]]; then
-    # No previous round — save current hashes and return OK
-    echo "$current_json" | jq -r '.[] | "\(.path):\(.original_line):\(.body)"' | md5sum | cut -d' ' -f1 > "$prev_file.new"
+    # No previous round — save current hashes per comment and return OK
+    echo "$current_json" | jq -r '.[] | "\(.path):\(.original_line):\(.body)"' | \
+      while IFS= read -r line; do echo "$line" | md5sum | cut -d' ' -f1; done > "$prev_file"
     echo "OK"
     return 0
   fi
