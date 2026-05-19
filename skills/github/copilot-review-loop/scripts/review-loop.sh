@@ -12,6 +12,16 @@
 set -euo pipefail
 
 ###############################################################################
+# Preflight — verify required tools are available
+###############################################################################
+for cmd in gh jq md5sum; do
+  if ! command -v "$cmd" &>/dev/null; then
+    echo "ERROR: required command '$cmd' is not installed" >&2
+    exit 1
+  fi
+done
+
+###############################################################################
 # check_pr_status — Verify PR is open and get branch name
 # Args: owner repo pr_number
 # Stdout: JSON {state, draft, branch, mergeable_state}
@@ -72,7 +82,10 @@ request_review() {
   local response
   response=$(gh api "/repos/${owner}/${repo}/pulls/${pr}/requested_reviewers" \
     -X POST -f 'reviewers[]=Copilot' 2>&1) || {
-    echo "ERROR: Failed to request Copilot review: $response" >&2
+    # Sanitize: collapse to single line, strip control chars
+    local sanitized
+    sanitized=$(echo "$response" | tr '\n' ' ' | tr -d '[:cntrl:]' | cut -c1-200)
+    echo "ERROR: Failed to request Copilot review: $sanitized" >&2
     return 1
   }
 
@@ -136,7 +149,8 @@ get_comments() {
     return 0
   fi
 
-  # Format each comment as a structured block
+  # Format each comment as a structured block, escaping triple backticks
+  # in body/diff_hunk to prevent breaking the markdown fences
   local total
   total=$(echo "$raw_comments" | jq 'length')
 
@@ -145,8 +159,8 @@ get_comments() {
     "## Review Comment \(.key + 1)/\($total)\n" +
     "**File:** `\(.value.path)`\n" +
     "**Line:** \(.value.original_line // "N/A")\n" +
-    "**Copilot says:** \(.value.body)\n" +
-    "**Diff context:**\n```diff\n\(.value.diff_hunk)\n```\n"
+    "**Copilot says:** \(.value.body | gsub("```"; "` ` `"))\n" +
+    "**Diff context:**\n```diff\n\(.value.diff_hunk | gsub("```"; "` ` `"))\n```\n"
   '
 }
 
@@ -166,8 +180,10 @@ check_duplicate_comments() {
     return 0
   fi
 
-  local total current_hashes_file="/tmp/review_hashes_current_$$"
+  local total current_hashes_file
   total=$(echo "$current_json" | jq 'length')
+  current_hashes_file=$(mktemp)
+  trap "rm -f '$current_hashes_file'" EXIT
 
   echo "$current_json" | jq -r '.[] | "\(.path):\(.original_line):\(.body)"' | \
     while IFS= read -r line; do echo "$line" | md5sum | cut -d' ' -f1; done > "$current_hashes_file"

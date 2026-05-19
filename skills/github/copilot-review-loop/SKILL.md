@@ -51,7 +51,11 @@ Hermes (orchestrator)
 ## Prerequisites
 
 - `gh` CLI authenticated with access to the target repository
-- `copilot_remote` tool available and functional for the target repo
+- `jq` installed (used by the helper script for JSON parsing)
+- `md5sum` installed (standard on GNU/Linux; on macOS use `md5 -r` or install coreutils)
+- `copilot_remote` tool available and functional for the target repo (this is a
+  built-in Hermes tool registered in the `copilot` toolset — it is NOT a standalone
+  CLI command; it is invoked by the Hermes agent via `copilot_remote(action="launch", ...)`)
 - PR must be open and not in draft state
 
 ---
@@ -68,7 +72,7 @@ Before starting the loop, confirm the PR is open and get the branch name.
 ```bash
 # Get PR state and branch
 PR_DATA=$(gh api /repos/{owner}/{repo}/pulls/{pr_number} \
-  --jq '{state: .state, draft: .draft, branch: .head.ref, mergeable: .mergeable_state}')
+  --jq '{state: .state, draft: .draft, branch: .head.ref, mergeable_state: .mergeable_state}')
 
 echo "$PR_DATA"
 ```
@@ -118,7 +122,7 @@ Copilot reviews typically take 1–5 minutes. Poll with 30-second intervals.
 ```bash
 # Poll loop — run this repeatedly with 30s sleep between attempts
 NEW_REVIEW=$(gh api /repos/{owner}/{repo}/pulls/{pr_number}/reviews \
-  --jq "[.[] | select(.user.login == \"Copilot\" and (.id > $BASELINE_REVIEW_ID))] | sort_by(.submitted_at) | last")
+  --jq "[.[] | select(.user.login == \"Copilot\" and (.id > $BASELINE_REVIEW_ID))] | sort_by(.submitted_at) | last // empty")
 
 echo "$NEW_REVIEW"
 ```
@@ -176,6 +180,12 @@ Concatenate all blocks into a single `FORMATTED_COMMENTS` string.
 ### Step 5: Delegate Fixes to Copilot Remote
 
 Construct a prompt and launch `copilot_remote`.
+
+> **Note:** `copilot_remote` is a built-in Hermes agent tool (registered in the
+> `copilot` toolset at runtime). It is NOT a CLI command or script in this repo.
+> The Hermes agent invokes it programmatically during conversation. If `copilot_remote`
+> is unavailable, fall back to `delegate_task` with `toolsets=["terminal", "file"]`
+> and pass the same prompt — the subagent can clone the repo and apply fixes directly.
 
 **Prompt template:**
 
