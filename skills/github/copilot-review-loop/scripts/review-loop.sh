@@ -161,8 +161,8 @@ get_comments() {
   fi
 
   # Format each comment as a structured block.
-  # - Use @json on body/diff_hunk to safely escape all special chars
-  #   including triple backticks and newlines.
+  # - Use gsub to break up triple backticks in body/diff_hunk so they
+  #   don't clash with our fenced code blocks in the output.
   # - Properly escape the "N/A" fallback for original_line.
   echo "$raw_comments" | jq -r --argjson total "$count" '
     to_entries[] |
@@ -191,24 +191,31 @@ check_duplicate_comments() {
     return 0
   fi
 
-  local total current_hashes_file
+  local total
   total=$(echo "$current_json" | jq 'length')
-  current_hashes_file=$(mktemp)
-  trap "rm -f '$current_hashes_file'" EXIT
 
-  echo "$current_json" | jq -r '.[] | "\(.path):\(.original_line):\(.body)" | @base64' | \
-    while IFS= read -r line; do printf '%s' "$line" | md5sum | cut -d' ' -f1; done > "$current_hashes_file"
+  # Run temp-file work in a subshell so the trap doesn't clobber the
+  # caller's EXIT handler (traps are per-shell, not per-function).
+  local duplicates
+  duplicates=$(
+    current_hashes_file=$(mktemp)
+    trap "rm -f '$current_hashes_file'" EXIT
 
-  local duplicates=0
-  while IFS= read -r hash; do
-    if grep -Fxq "$hash" "$prev_file" 2>/dev/null; then
-      duplicates=$((duplicates + 1))
-    fi
-  done < "$current_hashes_file"
+    echo "$current_json" | jq -r '.[] | "\(.path):\(.original_line):\(.body)" | @base64' | \
+      while IFS= read -r line; do printf '%s' "$line" | md5sum | cut -d' ' -f1; done > "$current_hashes_file"
 
-  # Update previous hashes for next round
-  cp "$current_hashes_file" "$prev_file"
-  rm -f "$current_hashes_file"
+    local dup_count=0
+    while IFS= read -r hash; do
+      if grep -Fxq "$hash" "$prev_file" 2>/dev/null; then
+        dup_count=$((dup_count + 1))
+      fi
+    done < "$current_hashes_file"
+
+    # Update previous hashes for next round
+    cp "$current_hashes_file" "$prev_file"
+
+    echo "$dup_count"
+  )
 
   if [[ $total -gt 0 ]] && [[ $((duplicates * 100 / total)) -gt 50 ]]; then
     echo "DUPLICATE"
