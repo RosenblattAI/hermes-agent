@@ -80,6 +80,7 @@ echo "$PR_DATA"
 **Checks:**
 - `state` must be `"open"` → if not, abort: "PR is not open (state: {state})"
 - `draft` must be `false` → if true, abort: "PR is a draft — mark as ready for review first"
+- `mergeable_state` must not be `"dirty"` → if dirty, abort: "⚠️ PR #{pr} has merge conflicts. Resolve conflicts before continuing the review loop."
 - Save `branch` for use in subsequent steps
 
 ### Step 1: Capture Baseline Review ID
