@@ -642,8 +642,11 @@ class CheckpointManager:
 
         abs_dir = str(_normalize_path(working_dir))
 
-        # Skip root, home, and other overly broad directories
-        if abs_dir in {"/", str(Path.home())}:
+        # Skip root, home, and other overly broad directories. Normalize the
+        # home path too so symlinked homes (or profile-local HOME overrides)
+        # compare correctly against the normalized working dir.
+        normalized_home = str(_normalize_path(str(Path.home())))
+        if abs_dir in {"/", normalized_home}:
             logger.debug("Checkpoint skipped: directory too broad (%s)", abs_dir)
             return False
 
