@@ -1,4 +1,5 @@
 import asyncio
+import os
 import shutil
 import subprocess
 from datetime import datetime
@@ -16,9 +17,15 @@ from tests.gateway.restart_test_helpers import make_restart_runner, make_restart
 
 @pytest.mark.asyncio
 async def test_restart_command_while_busy_requests_drain_without_interrupt(monkeypatch):
-    # Ensure INVOCATION_ID is NOT set — systemd sets this in service mode,
-    # which changes the restart call signature.
+    # Ensure we exercise the non-service, non-container branch explicitly.
+    # systemd sets INVOCATION_ID in service mode, and container detection now
+    # also routes restarts through the service-style path.
     monkeypatch.delenv("INVOCATION_ID", raising=False)
+    original_exists = os.path.exists
+    monkeypatch.setattr(
+        "gateway.slash_commands.os.path.exists",
+        lambda path: False if path in ("/.dockerenv", "/run/.containerenv") else original_exists(path),
+    )
     runner, _adapter = make_restart_runner()
     runner.request_restart = MagicMock(return_value=True)
     event = MessageEvent(
