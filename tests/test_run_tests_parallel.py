@@ -227,16 +227,49 @@ def test_exit4_retry_recovers_when_file_exists(tmp_path, monkeypatch):
     monkeypatch.setattr(rtp, "_spawn_pytest_once", fake_spawn)
     monkeypatch.setattr(rtp, "_EXIT4_RETRY_BACKOFF_SECONDS", 0.0)  # no real sleep
 
-    file, rc, output, summary, _wall = rtp._run_one_file(f, [], tmp_path, 30.0)
+    file, rc, output, summary, _wall = rtp._run_one_file(
+        f, [], tmp_path, 30.0, known_present=True
+    )
     assert rc == 0, f"expected recovery to pass, got rc={rc}, output={output!r}"
     assert calls["n"] == 3, f"expected 3 attempts (1 + 2 retries), got {calls['n']}"
+
+
+def test_exit4_retry_uses_known_present_to_survive_flaky_exists(tmp_path, monkeypatch):
+    """Runner-discovered files should retry even if follow-up stats flake False.
+
+    In CI the file was already enumerated into the slice, but a subsequent
+    ``Path.exists()`` inside the exit-4 handler transiently returned False and
+    prevented any retry. ``known_present=True`` must bypass that re-stat gate.
+    """
+    rtp = _load_runner_module()
+    f = tmp_path / "test_known_present.py"
+    f.write_text("def test_ok():\n    assert True\n")
+
+    calls = {"n": 0}
+
+    def fake_spawn(cmd, repo_root, file_timeout, *, timeout_note="per-file timeout"):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return 4, "ERROR: file or directory not found\nno tests ran in 0.00s"
+        return 0, "1 passed"
+
+    monkeypatch.setattr(rtp, "_spawn_pytest_once", fake_spawn)
+    monkeypatch.setattr(rtp, "_EXIT4_RETRY_BACKOFF_SECONDS", 0.0)
+    monkeypatch.setattr(rtp, "_file_present", lambda *a, **k: False)
+
+    _file, rc, _output, _summary, _wall = rtp._run_one_file(
+        f, [], tmp_path, 30.0, known_present=True
+    )
+    assert rc == 0
+    assert calls["n"] == 2, f"expected one retry via known_present, got {calls['n']} calls"
 
 
 def test_exit4_no_retry_when_file_genuinely_missing(tmp_path, monkeypatch):
     """Exit 4 on a file that does NOT exist must fail fast without retrying.
 
-    Guards the narrowing: we only retry while the file is present on disk, so a
-    real typo / deleted file surfaces immediately instead of looping.
+    Guards the narrower direct-call path: without ``known_present`` we only
+    retry while the file is present on disk, so a real typo / deleted file
+    surfaces immediately instead of looping.
     """
     rtp = _load_runner_module()
     missing = tmp_path / "test_does_not_exist.py"  # never created

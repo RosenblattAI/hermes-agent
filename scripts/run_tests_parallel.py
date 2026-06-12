@@ -343,6 +343,8 @@ def _run_one_file(
     pytest_args: List[str],
     repo_root: Path,
     file_timeout: float,
+    *,
+    known_present: bool = False,
 ) -> Tuple[Path, int, str, dict[str, int], float]:
     """Run ``python -m pytest <file> <pytest_args>`` in a fresh subprocess.
 
@@ -379,15 +381,18 @@ def _run_one_file(
     # counted via --collect-only) but the per-file subprocess fail to stat it
     # moments later — a transient the deterministic LPT slicer otherwise
     # reproduces on every rerun (same file set → same shard). Re-run the file a
-    # few times with a short backoff so the I/O pressure has time to settle,
-    # but ONLY while the file demonstrably exists on disk. A single immediate
-    # retry (the old behaviour) could land in the same brief high-load window
-    # and fail again; a single Path.exists() check could itself be a flaky stat
-    # under that load, so we re-check existence across spaced attempts.
-    # We do NOT widen the exit-5 rule: exit 4 on a file that genuinely does not
-    # exist must still fail.
+    # few times with a short backoff so the I/O pressure has time to settle.
+    #
+    # ``known_present`` is used by the main threaded runner, which already
+    # discovered the concrete file path up front. In the CI failure mode we are
+    # defending against, a fresh ``Path.exists()`` can transiently return False
+    # under the same runner load that made pytest return exit 4, so re-statting
+    # here can suppress the retries we explicitly wanted. When the caller has
+    # already enumerated the file, trust that prior discovery and keep retrying.
+    # Direct unit tests and ad-hoc calls still default to the narrower
+    # ``_file_present(file)`` gate so genuinely missing files fail fast.
     attempt = 0
-    while rc == 4 and attempt < _EXIT4_RETRY_ATTEMPTS and _file_present(file):
+    while rc == 4 and attempt < _EXIT4_RETRY_ATTEMPTS and (known_present or _file_present(file)):
         attempt += 1
         time.sleep(_EXIT4_RETRY_BACKOFF_SECONDS * attempt)
         rc, output = _spawn_pytest_once(
@@ -405,7 +410,9 @@ def _run_one_file(
         # the next occurrence is attributable.)
         forensics = [f"--- exit-4 forensics for {file} ---"]
         try:
-            forensics.append(f"exists={file.exists()} retries_used={attempt}")
+            forensics.append(
+                f"exists={file.exists()} retries_used={attempt} known_present={known_present}"
+            )
             parent = file.parent
             if parent.exists():
                 names = sorted(p.name for p in parent.iterdir())
@@ -873,7 +880,12 @@ def main() -> int:
         for file in files:
             t0 = time.monotonic()
             fut = pool.submit(
-                _run_one_file, file, pytest_passthrough, repo_root, args.file_timeout
+                _run_one_file,
+                file,
+                pytest_passthrough,
+                repo_root,
+                args.file_timeout,
+                known_present=True,
             )
             fut.add_done_callback(lambda f, file=file, t0=t0: _on_done(file, t0, f))
             futures.append(fut)
