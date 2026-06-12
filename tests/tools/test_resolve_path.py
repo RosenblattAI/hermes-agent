@@ -40,8 +40,10 @@ class TestResolvePath:
         from tools.file_tools import _resolve_path
 
         result = _resolve_path("~/notes.txt")
-        # After expanduser, ~/notes.txt becomes absolute → TERMINAL_CWD ignored
-        assert result == Path.home() / "notes.txt"
+        # After expanduser, ~/notes.txt becomes absolute → TERMINAL_CWD ignored.
+        # _resolve_path() also resolves the path, so compare against the
+        # normalized real home path rather than the raw Path.home() spelling.
+        assert result == (Path.home() / "notes.txt").resolve()
 
     def test_result_is_resolved(self, monkeypatch, tmp_path):
         """Output path has no '..' components."""

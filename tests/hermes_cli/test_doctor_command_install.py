@@ -258,6 +258,16 @@ class TestDoctorCommandInstallation:
             TOOLSET_REQUIREMENTS={},
         )
         monkeypatch.setitem(sys.modules, "model_tools", fake_model_tools)
+        # This test only asserts the Windows-specific omission of the
+        # Command Installation section. Keep unrelated platform probes and
+        # optional imports from wandering into Linux-host/Windows-monkeypatch
+        # edge cases (e.g. discord/aiohttp SSL imports or gateway service
+        # manager checks pulling in Windows-only stdlib modules).
+        monkeypatch.setattr(doctor_mod, "_check_gateway_service_linger", lambda issues: None)
+        monkeypatch.setattr(doctor_mod, "_check_s6_supervision", lambda issues: None)
+        monkeypatch.setitem(sys.modules, "discord", types.ModuleType("discord"))
+        monkeypatch.setitem(sys.modules, "telegram", types.ModuleType("telegram"))
+        monkeypatch.setitem(sys.modules, "croniter", types.ModuleType("croniter"))
         try:
             from hermes_cli import auth as _auth_mod
             monkeypatch.setattr(_auth_mod, "get_nous_auth_status", lambda: {})

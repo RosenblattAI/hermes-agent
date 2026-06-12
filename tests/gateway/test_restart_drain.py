@@ -1,4 +1,5 @@
 import asyncio
+import os
 import shutil
 import subprocess
 from datetime import datetime
@@ -16,9 +17,15 @@ from tests.gateway.restart_test_helpers import make_restart_runner, make_restart
 
 @pytest.mark.asyncio
 async def test_restart_command_while_busy_requests_drain_without_interrupt(monkeypatch):
-    # Ensure INVOCATION_ID is NOT set — systemd sets this in service mode,
-    # which changes the restart call signature.
+    # Ensure we exercise the non-service, non-container branch explicitly.
+    # systemd sets INVOCATION_ID in service mode, and container detection now
+    # also routes restarts through the service-style path.
     monkeypatch.delenv("INVOCATION_ID", raising=False)
+    original_exists = os.path.exists
+    monkeypatch.setattr(
+        "gateway.slash_commands.os.path.exists",
+        lambda path: False if path in ("/.dockerenv", "/run/.containerenv") else original_exists(path),
+    )
     runner, _adapter = make_restart_runner()
     runner.request_restart = MagicMock(return_value=True)
     event = MessageEvent(
@@ -116,22 +123,37 @@ def test_load_busy_input_mode_prefers_env_then_config_then_default(tmp_path, mon
     assert gateway_run.GatewayRunner._load_busy_input_mode() == "interrupt"
 
 
-def test_load_busy_text_mode_defaults_to_queue_and_allows_interrupt(tmp_path, monkeypatch):
+def test_load_busy_text_mode_follows_input_mode_and_honors_legacy(tmp_path, monkeypatch):
     monkeypatch.setattr(gateway_run, "_hermes_home", tmp_path)
     monkeypatch.delenv("HERMES_GATEWAY_BUSY_TEXT_MODE", raising=False)
+    monkeypatch.delenv("HERMES_GATEWAY_BUSY_INPUT_MODE", raising=False)
 
-    assert gateway_run.GatewayRunner._load_busy_text_mode() == "queue"
-
-    (tmp_path / "config.yaml").write_text(
-        "display:\n  busy_text_mode: interrupt\n", encoding="utf-8"
-    )
+    # No knobs set → follows busy_input_mode, which defaults to interrupt.
     assert gateway_run.GatewayRunner._load_busy_text_mode() == "interrupt"
 
+    # busy_input_mode=queue propagates to text handling (single source of truth).
+    (tmp_path / "config.yaml").write_text(
+        "display:\n  busy_input_mode: queue\n", encoding="utf-8"
+    )
+    assert gateway_run.GatewayRunner._load_busy_text_mode() == "queue"
+
+    # Legacy explicit busy_text_mode still wins for backward compat.
+    (tmp_path / "config.yaml").write_text(
+        "display:\n  busy_input_mode: interrupt\n  busy_text_mode: queue\n",
+        encoding="utf-8",
+    )
+    assert gateway_run.GatewayRunner._load_busy_text_mode() == "queue"
+
+    # Legacy env override wins too.
+    (tmp_path / "config.yaml").write_text(
+        "display:\n  busy_input_mode: interrupt\n", encoding="utf-8"
+    )
     monkeypatch.setenv("HERMES_GATEWAY_BUSY_TEXT_MODE", "queue")
     assert gateway_run.GatewayRunner._load_busy_text_mode() == "queue"
 
+    # Bogus legacy value is ignored → falls through to busy_input_mode (interrupt).
     monkeypatch.setenv("HERMES_GATEWAY_BUSY_TEXT_MODE", "bogus")
-    assert gateway_run.GatewayRunner._load_busy_text_mode() == "queue"
+    assert gateway_run.GatewayRunner._load_busy_text_mode() == "interrupt"
 
 
 def test_load_restart_drain_timeout_prefers_env_then_config_then_default(
