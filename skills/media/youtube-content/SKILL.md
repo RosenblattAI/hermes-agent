@@ -18,6 +18,15 @@ Extract transcripts from YouTube videos and convert them into useful formats.
 pip install youtube-transcript-api
 ```
 
+If transcript requests are made from a cloud IP (AWS, GCP, Azure), YouTube may
+block them even when network egress is open. This helper supports:
+
+- Standard `HTTP_PROXY` / `HTTPS_PROXY` env vars for generic proxies.
+- `YOUTUBE_TRANSCRIPT_WEBSHARE_USERNAME` /
+	`YOUTUBE_TRANSCRIPT_WEBSHARE_PASSWORD` for Webshare residential proxies.
+- Optional `YOUTUBE_TRANSCRIPT_WEBSHARE_LOCATIONS` (comma-separated country
+	codes) and `YOUTUBE_TRANSCRIPT_WEBSHARE_RETRIES`.
+
 ## Helper Script
 
 `SKILL_DIR` is the directory containing this SKILL.md file. The script accepts any standard YouTube URL format, short links (youtu.be), shorts, embeds, live links, or a raw 11-character video ID.
@@ -35,6 +44,10 @@ python3 SKILL_DIR/scripts/fetch_transcript.py "URL" --timestamps
 # Specific language with fallback chain
 python3 SKILL_DIR/scripts/fetch_transcript.py "URL" --language tr,en
 ```
+
+If YouTube blocks the current IP, set proxy env vars before running the helper.
+For generic proxies, `HTTP_PROXY` / `HTTPS_PROXY` are enough. For Webshare,
+set the `YOUTUBE_TRANSCRIPT_WEBSHARE_*` env vars listed above.
 
 ## Output Formats
 
@@ -71,3 +84,4 @@ After fetching the transcript, format it based on what the user asks for:
 - **Private/unavailable video**: relay the error and ask the user to verify the URL.
 - **No matching language**: retry without `--language` to fetch any available transcript, then note the actual language to the user.
 - **Dependency missing**: run `pip install youtube-transcript-api` and retry.
+- **Blocked cloud IP**: configure `HTTP_PROXY` / `HTTPS_PROXY`, or use a rotating residential proxy via the `YOUTUBE_TRANSCRIPT_WEBSHARE_*` env vars.

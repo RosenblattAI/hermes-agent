@@ -22,6 +22,8 @@ import json
 import re
 import sys
 
+from proxy_config import blocked_request_hint, build_proxy_config_from_env
+
 
 def extract_video_id(url_or_id: str) -> str:
     """Extract the 11-character video ID from various YouTube URL formats."""
@@ -60,7 +62,8 @@ def fetch_transcript(video_id: str, languages: list = None):
               file=sys.stderr)
         sys.exit(1)
 
-    api = YouTubeTranscriptApi()
+    # ROSENBLATT: allow optional proxy-backed requests when YouTube blocks cloud IPs.
+    api = YouTubeTranscriptApi(proxy_config=build_proxy_config_from_env())
     if languages:
         result = api.fetch(video_id, languages=languages)
     else:
@@ -91,7 +94,16 @@ def main():
         segments = fetch_transcript(video_id, languages)
     except Exception as e:
         error_msg = str(e)
-        if "disabled" in error_msg.lower():
+        if e.__class__.__name__ in {"IpBlocked", "RequestBlocked"}:
+            print(
+                json.dumps(
+                    {
+                        "error": "YouTube blocked requests from this IP.",
+                        "hint": blocked_request_hint(),
+                    }
+                )
+            )
+        elif "disabled" in error_msg.lower():
             print(json.dumps({"error": "Transcripts are disabled for this video."}))
         elif "no transcript" in error_msg.lower():
             print(json.dumps({"error": f"No transcript found. Try specifying a language with --language."}))
