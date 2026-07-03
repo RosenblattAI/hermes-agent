@@ -13,6 +13,7 @@ import {
 } from '@/lib/storage'
 import { $gateway, ensureGatewayForProfile } from '@/store/gateway'
 import { setConnection } from '@/store/session'
+import { resetStarmapGraph } from '@/store/starmap'
 import type { ProfileInfo } from '@/types/hermes'
 
 // Canonical key for a profile: trimmed, empty → "default". Used everywhere we
@@ -35,6 +36,13 @@ export const $profiles = atom<ProfileInfo[]>([])
 
 export function setActiveProfile(name: string): void {
   $activeProfile.set(name || 'default')
+}
+
+export async function refreshProfiles(): Promise<ProfileInfo[]> {
+  const { profiles } = await getProfiles()
+  $profiles.set(profiles)
+
+  return profiles
 }
 
 // ── Rail order ─────────────────────────────────────────────────────────────
@@ -110,8 +118,7 @@ export async function refreshActiveProfile(): Promise<void> {
   }
 
   try {
-    const { profiles } = await getProfiles()
-    $profiles.set(profiles)
+    await refreshProfiles()
   } catch {
     // Leave the cached list in place.
   }
@@ -168,6 +175,7 @@ $activeGatewayProfile.subscribe(value => {
   if (_lastRoutedProfile !== null && _lastRoutedProfile !== key) {
     // Profile-scoped settings + the unified session list are now stale.
     void queryClient.invalidateQueries()
+    resetStarmapGraph()
   }
 
   _lastRoutedProfile = key
