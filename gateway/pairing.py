@@ -33,7 +33,7 @@ from gateway.whatsapp_identity import (
     expand_whatsapp_aliases,
     normalize_whatsapp_identifier,
 )
-from hermes_constants import get_hermes_dir
+from hermes_constants import get_hermes_dir, get_hermes_home
 from utils import atomic_replace
 
 logger = logging.getLogger(__name__)
@@ -53,16 +53,6 @@ MAX_PENDING_PER_PLATFORM = 3        # Max pending codes per platform
 MAX_FAILED_ATTEMPTS = 5             # Failed approvals before lockout
 
 PAIRING_DIR = get_hermes_dir("platforms/pairing", "pairing")
-
-
-def _resolve_pairing_dir(home: Optional[Path] = None) -> Path:
-    """Resolve the pairing directory for a specific Hermes home."""
-    if home is None:
-        return PAIRING_DIR
-    legacy_path = home / "pairing"
-    if legacy_path.exists():
-        return legacy_path
-    return home / "platforms" / "pairing"
 
 
 # Platform value -> its per-platform allowlist env var. When an operator has
@@ -171,6 +161,51 @@ def _sync_allowlist_remove(platform: str, user_id: str) -> None:
         pass
 
 
+def _load_json_file(path: Path) -> dict:
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except (json.JSONDecodeError, OSError):
+            return {}
+    return {}
+
+
+def _merge_pairing_dir(active_dir: Path, alternate_dir: Path) -> None:
+    """Merge split legacy/new pairing data into the active PairingStore dir.
+
+    Older installs use ``{HERMES_HOME}/pairing`` while newer code/docs may
+    write ``{HERMES_HOME}/platforms/pairing``. If both directories exist, the
+    gateway must not silently ignore approved users sitting in the inactive
+    location; otherwise already-paired Feishu users get asked for a fresh code.
+    """
+    if not alternate_dir.exists() or active_dir.resolve() == alternate_dir.resolve():
+        return
+    active_dir.mkdir(parents=True, exist_ok=True)
+    for src in alternate_dir.glob("*.json"):
+        if not src.is_file():
+            continue
+        dest = active_dir / src.name
+        merged = _load_json_file(src)
+        if not merged:
+            continue
+        current = _load_json_file(dest)
+        before = dict(current)
+        # Active data wins on key conflict; otherwise union the inactive data.
+        merged.update(current)
+        if merged != before:
+            _secure_write(dest, json.dumps(merged, indent=2, ensure_ascii=False))
+
+
+def _migrate_split_pairing_dirs() -> None:
+    home = get_hermes_home()
+    old_dir = home / "pairing"
+    new_dir = home / "platforms" / "pairing"
+    active = PAIRING_DIR
+    alternate = new_dir if active.resolve() == old_dir.resolve() else old_dir
+    _merge_pairing_dir(active, alternate)
+
+
 def _secure_write(path: Path, data: str) -> None:
     """Write data to file with restrictive permissions (owner read/write only).
 
@@ -205,23 +240,46 @@ class PairingStore:
       - {platform}-pending.json   : pending pairing requests
       - {platform}-approved.json  : approved (paired) users
       - _rate_limits.json         : rate limit tracking
+
+    When constructed with ``profile="<name>"``, storage lives under
+    ``<HERMES_HOME>/profiles/<name>/pairing/`` (per-profile, used by
+    multiplexing gateways so each profile has its own whitelist).
+    Without a profile, storage is the global ``<HERMES_HOME>/pairing/``
+    directory (backward-compat for the ``hermes pairing`` CLI).
     """
 
-    def __init__(self, base_dir: Optional[Path] = None):
-        self._pairing_dir = _resolve_pairing_dir(base_dir)
-        self._pairing_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, profile: Optional[str] = None):
+        # Resolve storage directory lazily — tests use a temp HERMES_HOME
+        # and PairingStore may be constructed before the env is set.
+        if profile:
+            from hermes_constants import get_hermes_home
+            self._dir = get_hermes_home() / "profiles" / profile / "pairing"
+        else:
+            self._dir = PAIRING_DIR
+        self._dir.mkdir(parents=True, exist_ok=True)
+        if not profile:
+            # Heal installs whose global pairing data ended up split across
+            # the legacy and new directories (per-profile stores never had
+            # the legacy/new split).
+            _migrate_split_pairing_dirs()
         # Protects all read-modify-write cycles. The gateway runs multiple
         # platform adapters concurrently in threads sharing one PairingStore.
         self._lock = threading.RLock()
+        self._profile = profile  # for diagnostics / log lines
+
+    @property
+    def profile(self) -> Optional[str]:
+        """Profile name this store is scoped to, or None for the global store."""
+        return self._profile
 
     def _pending_path(self, platform: str) -> Path:
-        return self._pairing_dir / f"{platform}-pending.json"
+        return self._dir / f"{platform}-pending.json"
 
     def _approved_path(self, platform: str) -> Path:
-        return self._pairing_dir / f"{platform}-approved.json"
+        return self._dir / f"{platform}-approved.json"
 
     def _rate_limit_path(self) -> Path:
-        return self._pairing_dir / "_rate_limits.json"
+        return self._dir / "_rate_limits.json"
 
     def _load_json(self, path: Path) -> dict:
         if path.exists():
