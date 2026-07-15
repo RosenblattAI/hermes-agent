@@ -1070,6 +1070,7 @@ def run_conversation(
                     aggregator=moa_config.get("aggregator") or {},
                     temperature=float(moa_config.get("reference_temperature", 0.6) or 0.6),
                     aggregator_temperature=float(moa_config.get("aggregator_temperature", 0.4) or 0.4),
+                    max_tokens=moa_config.get("reference_max_tokens"),
                 )
                 if _moa_context:
                     for _msg in reversed(api_messages):
@@ -1668,11 +1669,13 @@ def run_conversation(
                         agent._emit_status(f"❌ Max retries ({max_retries}) exceeded for invalid responses. Giving up.")
                         logger.error(f"{agent.log_prefix}Invalid API response after {max_retries} retries.")
                         agent._persist_session(messages, conversation_history)
+                        _final_response = f"Invalid API response after {max_retries} retries: {_failure_hint}"
                         return {
+                            "final_response": _final_response,
                             "messages": messages,
                             "completed": False,
                             "api_calls": api_call_count,
-                            "error": f"Invalid API response after {max_retries} retries: {_failure_hint}",
+                            "error": _final_response,
                             "failed": True  # Mark as failure for filtering
                         }
                     
@@ -2002,7 +2005,7 @@ def run_conversation(
                             if assistant_message.content:
                                 truncated_response_parts.append(assistant_message.content)
 
-                            if length_continue_retries < 3:
+                            if length_continue_retries < 4:
                                 _is_partial_stream_stub = (
                                     getattr(response, "id", "") == PARTIAL_STREAM_STUB_ID
                                 )
@@ -2016,18 +2019,18 @@ def run_conversation(
                                         f"{agent.log_prefix}↻ Stream interrupted mid "
                                         f"tool-call ({_tool_list}) — requesting "
                                         f"chunked retry "
-                                        f"({length_continue_retries}/3)..."
+                                        f"({length_continue_retries}/4)..."
                                     )
                                 elif _is_partial_stream_stub:
                                     agent._vprint(
                                         f"{agent.log_prefix}↻ Stream interrupted — "
                                         f"requesting continuation "
-                                        f"({length_continue_retries}/3)..."
+                                        f"({length_continue_retries}/4)..."
                                     )
                                 else:
                                     agent._vprint(
                                         f"{agent.log_prefix}↻ Requesting continuation "
-                                        f"({length_continue_retries}/3)..."
+                                        f"({length_continue_retries}/4)..."
                                     )
 
                                 _continue_content = _get_continuation_prompt(
@@ -2051,7 +2054,7 @@ def run_conversation(
                                 "api_calls": api_call_count,
                                 "completed": False,
                                 "partial": True,
-                                "error": "Response remained truncated after 3 continuation attempts",
+                                "error": "Response remained truncated after 4 continuation attempts",
                             }
 
                     if agent.api_mode in {"chat_completions", "bedrock_converse", "anthropic_messages"}:
@@ -2060,7 +2063,7 @@ def run_conversation(
                             _is_stub_stall = (
                                 getattr(response, "id", "") == PARTIAL_STREAM_STUB_ID
                             )
-                            if truncated_tool_call_retries < 3:
+                            if truncated_tool_call_retries < 4:
                                 truncated_tool_call_retries += 1
                                 if _is_stub_stall:
                                     # The stream broke mid tool-call (network /
@@ -2068,13 +2071,13 @@ def run_conversation(
                                     # cap — say so instead of "max output tokens".
                                     agent._buffer_vprint(
                                         f"⚠️  Stream interrupted mid tool-call — "
-                                        f"retrying ({truncated_tool_call_retries}/3)..."
+                                        f"retrying ({truncated_tool_call_retries}/4)..."
                                     )
                                 else:
                                     agent._buffer_vprint(
                                         f"⚠️  Truncated tool call detected — "
                                         f"retrying API call "
-                                        f"({truncated_tool_call_retries}/3)..."
+                                        f"({truncated_tool_call_retries}/4)..."
                                     )
                                 # Boost max_tokens on each retry so the model has
                                 # more room to complete the tool-call JSON. A
@@ -2082,7 +2085,7 @@ def run_conversation(
                                 # a genuine output-cap truncation does, and the
                                 # boost is harmless for the stall case.
                                 _tc_boost_base = agent.max_tokens if agent.max_tokens else 4096
-                                _tc_boost = _tc_boost_base * (truncated_tool_call_retries + 1)
+                                _tc_boost = _tc_boost_base * (2 ** truncated_tool_call_retries)
                                 _tc_requested_cap = agent._requested_output_cap_from_api_kwargs(api_kwargs)
                                 if _tc_requested_cap is not None:
                                     _tc_boost = max(_tc_boost, _tc_requested_cap)
@@ -2095,7 +2098,7 @@ def run_conversation(
                             agent._flush_status_buffer()
                             if _is_stub_stall:
                                 agent._vprint(
-                                    f"{agent.log_prefix}⚠️  Stream kept dropping mid tool-call after 3 retries — the action was not executed.",
+                                    f"{agent.log_prefix}⚠️  Stream kept dropping mid tool-call after 4 retries — the action was not executed.",
                                     force=True,
                                 )
                             else:
@@ -2105,18 +2108,19 @@ def run_conversation(
                                 )
                             agent._cleanup_task_resources(effective_task_id)
                             agent._persist_session(messages, conversation_history)
+                            _final_response = (
+                                "Stream repeatedly dropped mid tool-call (network); "
+                                "the tool was not executed"
+                                if _is_stub_stall
+                                else "Response truncated due to output length limit"
+                            )
                             return {
-                                "final_response": None,
+                                "final_response": _final_response,
                                 "messages": messages,
                                 "api_calls": api_call_count,
                                 "completed": False,
                                 "partial": True,
-                                "error": (
-                                    "Stream repeatedly dropped mid tool-call (network); "
-                                    "the tool was not executed"
-                                    if _is_stub_stall
-                                    else "Response truncated due to output length limit"
-                                ),
+                                "error": _final_response,
                             }
 
                     # If we have prior messages, roll back to last complete state
@@ -2128,7 +2132,7 @@ def run_conversation(
                         agent._persist_session(messages, conversation_history)
 
                         return {
-                            "final_response": None,
+                            "final_response": "Response truncated due to output length limit",
                             "messages": rolled_back_messages,
                             "api_calls": api_call_count,
                             "completed": False,
@@ -2141,7 +2145,7 @@ def run_conversation(
                         agent._vprint(f"{agent.log_prefix}❌ First response truncated - cannot recover", force=True)
                         agent._persist_session(messages, conversation_history)
                         return {
-                            "final_response": None,
+                            "final_response": "First response truncated due to output length limit",
                             "messages": messages,
                             "api_calls": api_call_count,
                             "completed": False,
@@ -2178,10 +2182,20 @@ def run_conversation(
                     # Flush the full-turn MoA trace (references + aggregator I/O)
                     # to disk when moa.save_traces is on. No-op otherwise and
                     # for non-MoA clients. Uses the live session_id so traces
-                    # land in the right per-session file.
+                    # land in the right per-session file. On the streaming path
+                    # the aggregator's output wasn't captured inline (its raw
+                    # token stream went to the live consumer), so pass the
+                    # resolved streamed acting text as a fallback — makes the
+                    # trace self-contained instead of only pointing at state.db.
                     if _moa_client is not None and hasattr(_moa_client, "consume_and_save_trace"):
                         try:
-                            _moa_client.consume_and_save_trace(agent.session_id)
+                            _agg_streamed_text = (
+                                getattr(agent, "_current_streamed_assistant_text", "") or ""
+                            )
+                            _moa_client.consume_and_save_trace(
+                                agent.session_id,
+                                aggregator_output_fallback=_agg_streamed_text or None,
+                            )
                         except Exception as _moa_trace_exc:  # pragma: no cover - defensive
                             logger.debug("MoA trace flush failed: %s", _moa_trace_exc)
                     prompt_tokens = canonical_usage.prompt_tokens
@@ -2235,11 +2249,27 @@ def run_conversation(
                         api_duration, _cache_pct,
                     )
 
+                    # On the MoA path, agent.model/provider are the virtual
+                    # preset name ("closed") and "moa", which have no pricing
+                    # entry — estimating against them returns None and silently
+                    # drops the aggregator's own spend, leaving the session cost
+                    # as advisor-fan-out only (a ~50% undercount when the
+                    # aggregator does the full acting loop). Price the aggregator
+                    # turn at its REAL model/provider, read from the MoA client's
+                    # resolved aggregator slot.
+                    _agg_cost_model = agent.model
+                    _agg_cost_provider = agent.provider
+                    _agg_cost_base_url = agent.base_url
+                    _agg_slot = getattr(_moa_client, "last_aggregator_slot", None) if _moa_client is not None else None
+                    if _agg_slot and _agg_slot.get("model"):
+                        _agg_cost_model = _agg_slot["model"]
+                        _agg_cost_provider = _agg_slot.get("provider") or agent.provider
+                        _agg_cost_base_url = _agg_slot.get("base_url") or agent.base_url
                     cost_result = estimate_usage_cost(
-                        agent.model,
+                        _agg_cost_model,
                         aggregator_usage,
-                        provider=agent.provider,
-                        base_url=agent.base_url,
+                        provider=_agg_cost_provider,
+                        base_url=_agg_cost_base_url,
                         api_key=getattr(agent, "api_key", ""),
                     )
                     if cost_result.amount_usd is not None:
@@ -2801,6 +2831,16 @@ def run_conversation(
                         continue
                 if (
                     agent.api_mode == "chat_completions"
+                    and agent.provider == "vertex"
+                    and status_code == 401
+                    and not _retry.vertex_auth_retry_attempted
+                ):
+                    _retry.vertex_auth_retry_attempted = True
+                    if agent._try_refresh_vertex_client_credentials():
+                        agent._buffer_vprint("🔐 Vertex AI token refreshed after 401. Retrying request...")
+                        continue
+                if (
+                    agent.api_mode == "chat_completions"
                     and agent.provider == "nous"
                     and status_code == 401
                     and not _retry.nous_auth_retry_attempted
@@ -3131,15 +3171,17 @@ def run_conversation(
                         f"auto-compaction disabled — not compressing."
                     )
                     agent._persist_session(messages, conversation_history)
+                    _final_response = (
+                        "Context overflow and auto-compaction is disabled "
+                        "(compression.enabled: false). Run /compress to compact manually, "
+                        "/new to start fresh, or switch to a larger-context model."
+                    )
                     return {
+                        "final_response": _final_response,
                         "messages": messages,
                         "completed": False,
                         "api_calls": api_call_count,
-                        "error": (
-                            "Context overflow and auto-compaction is disabled "
-                            "(compression.enabled: false). Run /compress to compact manually, "
-                            "/new to start fresh, or switch to a larger-context model."
-                        ),
+                        "error": _final_response,
                         "partial": True,
                         "failed": True,
                         "compaction_disabled": True,
@@ -3414,11 +3456,13 @@ def run_conversation(
                         agent._vprint(f"{agent.log_prefix}   💡 Try /new to start a fresh conversation, or /compress to retry compression.", force=True)
                         logger.error(f"{agent.log_prefix}413 compression failed after {max_compression_attempts} attempts.")
                         agent._persist_session(messages, conversation_history)
+                        _final_response = f"Request payload too large: max compression attempts ({max_compression_attempts}) reached."
                         return {
+                            "final_response": _final_response,
                             "messages": messages,
                             "completed": False,
                             "api_calls": api_call_count,
-                            "error": f"Request payload too large: max compression attempts ({max_compression_attempts}) reached.",
+                            "error": _final_response,
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
@@ -3451,6 +3495,16 @@ def run_conversation(
                         _retry.restart_with_compressed_messages = True
                         break
                     else:
+                        if agent._try_strip_image_parts_from_tool_messages(
+                            api_messages,
+                            remember_model=False,
+                        ):
+                            agent._buffer_status(
+                                "📐 Compression could not reduce the request further — "
+                                "removed retained vision payloads and retrying..."
+                            )
+                            continue
+
                         # Terminal — surface buffered context so the user
                         # sees what compression attempts were made.
                         agent._flush_status_buffer()
@@ -3458,11 +3512,13 @@ def run_conversation(
                         agent._vprint(f"{agent.log_prefix}   💡 Try /new to start a fresh conversation, or /compress to retry compression.", force=True)
                         logger.error(f"{agent.log_prefix}413 payload too large. Cannot compress further.")
                         agent._persist_session(messages, conversation_history)
+                        _final_response = "Request payload too large (413). Cannot compress further."
                         return {
+                            "final_response": _final_response,
                             "messages": messages,
                             "completed": False,
                             "api_calls": api_call_count,
-                            "error": "Request payload too large (413). Cannot compress further.",
+                            "error": _final_response,
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
@@ -3511,11 +3567,13 @@ def run_conversation(
                             agent._vprint(f"{agent.log_prefix}   💡 Try /new to start a fresh conversation, or /compress to retry compression.", force=True)
                             logger.error(f"{agent.log_prefix}Context compression failed after {max_compression_attempts} attempts.")
                             agent._persist_session(messages, conversation_history)
+                            _final_response = f"Context length exceeded: max compression attempts ({max_compression_attempts}) reached."
                             return {
+                                "final_response": _final_response,
                                 "messages": messages,
                                 "completed": False,
                                 "api_calls": api_call_count,
-                                "error": f"Context length exceeded: max compression attempts ({max_compression_attempts}) reached.",
+                                "error": _final_response,
                                 "partial": True,
                                 "failed": True,
                                 "compression_exhausted": True,
@@ -3550,14 +3608,16 @@ def run_conversation(
                             f"(max_tokens over provider cap): {error_msg[:200]}"
                         )
                         agent._persist_session(messages, conversation_history)
+                        _final_response = (
+                            "max_tokens exceeds the provider's output cap for this model. "
+                            "Lower model.max_tokens in config.yaml."
+                        )
                         return {
+                            "final_response": _final_response,
                             "messages": messages,
                             "completed": False,
                             "api_calls": api_call_count,
-                            "error": (
-                                "max_tokens exceeds the provider's output cap for this model. "
-                                "Lower model.max_tokens in config.yaml."
-                            ),
+                            "error": _final_response,
                             "partial": True,
                             "failed": True,
                         }
@@ -3619,11 +3679,13 @@ def run_conversation(
                         agent._vprint(f"{agent.log_prefix}   💡 Try /new to start a fresh conversation, or /compress to retry compression.", force=True)
                         logger.error(f"{agent.log_prefix}Context compression failed after {max_compression_attempts} attempts.")
                         agent._persist_session(messages, conversation_history)
+                        _final_response = f"Context length exceeded: max compression attempts ({max_compression_attempts}) reached."
                         return {
+                            "final_response": _final_response,
                             "messages": messages,
                             "completed": False,
                             "api_calls": api_call_count,
-                            "error": f"Context length exceeded: max compression attempts ({max_compression_attempts}) reached.",
+                            "error": _final_response,
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
@@ -3662,11 +3724,13 @@ def run_conversation(
                         agent._vprint(f"{agent.log_prefix}   💡 The conversation has accumulated too much content. Try /new to start fresh, or /compress to manually trigger compression.", force=True)
                         logger.error(f"{agent.log_prefix}Context length exceeded: {new_tokens:,} tokens. Cannot compress further.")
                         agent._persist_session(messages, conversation_history)
+                        _final_response = f"Context length exceeded ({new_tokens:,} tokens). Cannot compress further."
                         return {
+                            "final_response": _final_response,
                             "messages": messages,
                             "completed": False,
                             "api_calls": api_call_count,
-                            "error": f"Context length exceeded ({new_tokens:,} tokens). Cannot compress further.",
+                            "error": _final_response,
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
@@ -3882,7 +3946,7 @@ def run_conversation(
                             error_detail=_nonretryable_summary,
                         )
                     return {
-                        "final_response": None,
+                        "final_response": _nonretryable_summary,
                         "messages": messages,
                         "api_calls": api_call_count,
                         "completed": False,
@@ -4193,13 +4257,14 @@ def run_conversation(
 
         if _retry.restart_with_length_continuation:
             # Progressively boost the output token budget on each retry.
-            # Retry 1 → 2× base, retry 2 → 3× base, capped at 32 768.
+            # Retry 1 → 2× base, retry 2 → 4× base, retry 3 → 8× base,
+            # retry 4 → 16× base, then cap at 32 768.
             # Applies to all providers via _ephemeral_max_output_tokens.
             # If the original request already used a larger provider/model
             # default budget, keep that floor so continuation retries do
             # not accidentally downshift to a much smaller cap.
             _boost_base = agent.max_tokens if agent.max_tokens else 4096
-            _boost = _boost_base * (length_continue_retries + 1)
+            _boost = _boost_base * (2 ** length_continue_retries)
             _requested_cap = agent._requested_output_cap_from_api_kwargs(api_kwargs)
             if _requested_cap is not None:
                 _boost = max(_boost, _requested_cap)
@@ -4339,7 +4404,7 @@ def run_conversation(
                     agent._persist_session(messages, conversation_history)
                     
                     return {
-                        "final_response": None,
+                        "final_response": "Incomplete REASONING_SCRATCHPAD after 2 retries",
                         "messages": rolled_back_messages,
                         "api_calls": api_call_count,
                         "completed": False,
@@ -4399,7 +4464,7 @@ def run_conversation(
                 agent._codex_incomplete_retries = 0
                 agent._persist_session(messages, conversation_history)
                 return {
-                    "final_response": None,
+                    "final_response": "Codex response remained incomplete after 3 continuation attempts",
                     "messages": messages,
                     "api_calls": api_call_count,
                     "completed": False,
@@ -4445,13 +4510,14 @@ def run_conversation(
                         agent._vprint(f"{agent.log_prefix}❌ Max retries (3) for invalid tool calls exceeded. Stopping as partial.", force=True)
                         agent._invalid_tool_retries = 0
                         agent._persist_session(messages, conversation_history)
+                        _final_response = f"Model generated invalid tool call: {invalid_preview}"
                         return {
-                            "final_response": None,
+                            "final_response": _final_response,
                             "messages": messages,
                             "api_calls": api_call_count,
                             "completed": False,
                             "partial": True,
-                            "error": f"Model generated invalid tool call: {invalid_preview}"
+                            "error": _final_response
                         }
 
                     assistant_msg = agent._build_assistant_message(assistant_message, finish_reason)
@@ -4535,7 +4601,7 @@ def run_conversation(
                         agent._cleanup_task_resources(effective_task_id)
                         agent._persist_session(messages, conversation_history)
                         return {
-                            "final_response": None,
+                            "final_response": "Response truncated due to output length limit",
                             "messages": messages,
                             "api_calls": api_call_count,
                             "completed": False,
@@ -5140,12 +5206,17 @@ def run_conversation(
                         getattr(agent, "_verification_stop_nudges", 0) + 1
                     )
                     final_msg["finish_reason"] = "verification_required"
+                    final_msg["_verification_stop_synthetic"] = True
                     messages.append(final_msg)
                     # Keep the attempted final answer in model history so the
                     # synthetic user nudge preserves role alternation, but do
                     # not surface it to the user as an interim answer. The
                     # whole point of this guard is to prevent premature
-                    # "done" claims before checks run.
+                    # "done" claims before checks run. Both the attempted
+                    # answer and the nudge are flagged synthetic so neither
+                    # persists — otherwise the resumed transcript keeps a
+                    # premature "done" with the nudge stripped, producing an
+                    # assistant→assistant adjacency. (#55733)
                     messages.append({
                         "role": "user",
                         "content": _verify_nudge,
@@ -5194,9 +5265,11 @@ def run_conversation(
                 if _verify_nudge2:
                     agent._pre_verify_nudges = _attempt + 1
                     final_msg["finish_reason"] = "verify_hook_continue"
+                    final_msg["_pre_verify_synthetic"] = True
                     # Same alternation contract as verify-on-stop: keep the
                     # attempted answer in history, follow it with a synthetic
-                    # user nudge, and don't surface the premature answer.
+                    # user nudge, and don't surface the premature answer. Both
+                    # are flagged synthetic so neither persists. (#55733)
                     messages.append(final_msg)
                     messages.append({
                         "role": "user",
