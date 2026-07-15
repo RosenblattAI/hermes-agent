@@ -4,6 +4,7 @@ import sqlite3
 import time
 import pytest
 
+import hermes_state
 from hermes_state import SCHEMA_SQL, SCHEMA_VERSION, SessionDB
 
 
@@ -1401,6 +1402,33 @@ class TestFTS5Search:
         result = s('sp_new and 血管瘤')
         assert '"sp_new"' in result
         assert '血管瘤' in result
+
+    def test_sanitize_fts5_query_runtime_is_bounded(self):
+        """Adversarial quote/special-char runs should sanitize quickly."""
+        from hermes_state import MAX_FTS5_QUERY_CHARS, SessionDB
+
+        s = SessionDB._sanitize_fts5_query
+        query = ('"' * 100_000) + ("a." * 100_000) + ("*" * 100_000)
+
+        start = time.perf_counter()
+        result = s(query)
+        elapsed = time.perf_counter() - start
+
+        assert isinstance(result, str)
+        assert len(result) <= MAX_FTS5_QUERY_CHARS * 2
+        assert elapsed < 0.5
+
+    def test_long_search_query_is_capped_and_does_not_crash(self, db):
+        db.create_session(session_id="s1", source="cli")
+        db.append_message("s1", role="user", content="bounded sanitizer target")
+
+        query = ('"' * 50_000) + (" bounded" * 10_000)
+        start = time.perf_counter()
+        results = db.search_messages(query)
+        elapsed = time.perf_counter() - start
+
+        assert isinstance(results, list)
+        assert elapsed < 1.0
 
 
 # =========================================================================
@@ -3810,6 +3838,40 @@ class TestOptimizeFts:
         # Search still works after repeated optimization.
         assert len(db.search_messages("repeat")) == 1
 
+    def test_write_path_optimizes_fts_on_cadence(self, db, monkeypatch):
+        """Writes periodically merge FTS segments so they never accumulate
+        into the tens-of-thousands that lengthen the write-lock hold and
+        starve competing writers ("database is locked")."""
+        db._OPTIMIZE_EVERY_N_WRITES = 5
+        calls = {"n": 0}
+        real_optimize = db.optimize_fts
+
+        def _counting_optimize():
+            calls["n"] += 1
+            return real_optimize()
+
+        monkeypatch.setattr(db, "optimize_fts", _counting_optimize)
+        # create_session is write #1; appends are #2.. -> #5 and #10 trigger.
+        db.create_session(session_id="s1", source="cli")
+        for i in range(9):
+            db.append_message(session_id="s1", role="user", content=f"needle {i}")
+        assert calls["n"] == 2
+        # The auto-merge is layout-only: search is unaffected.
+        assert len(db.search_messages("needle")) == 9
+
+    def test_write_path_optimize_failure_never_breaks_write(self, db, monkeypatch):
+        """A failing periodic optimize must not fail the surrounding write."""
+        db._OPTIMIZE_EVERY_N_WRITES = 2
+
+        def _boom():
+            raise sqlite3.OperationalError("simulated optimize failure")
+
+        monkeypatch.setattr(db, "optimize_fts", _boom)
+        db.create_session(session_id="s1", source="cli")  # write #1
+        # write #2 trips the cadence; the swallowed failure must not propagate.
+        db.append_message(session_id="s1", role="user", content="still persists")
+        assert len(db.get_messages("s1")) == 1
+
 
 class TestAutoMaintenance:
     def _make_old_ended(self, db, sid: str, days_old: int = 100):
@@ -4725,3 +4787,55 @@ def test_gateway_session_recovery_reopens_legacy_agent_close_rows(db):
         chat_id="chat-1",
         chat_type="dm",
     ) is None
+
+
+def test_compression_failure_cooldown_round_trips_and_clears(db):
+    db.create_session("s1", "cli")
+
+    cooldown_until = time.time() + 60.0
+    db.record_compression_failure_cooldown("s1", cooldown_until, "timeout")
+
+    state = db.get_compression_failure_cooldown("s1")
+    assert state is not None
+    assert state["cooldown_until"] == cooldown_until
+    assert state["error"] == "timeout"
+
+    db.clear_compression_failure_cooldown("s1")
+    assert db.get_compression_failure_cooldown("s1") is None
+
+    row = db.get_session("s1")
+    assert row["compression_failure_cooldown_until"] is None
+    assert row["compression_failure_error"] is None
+
+
+def test_expired_compression_failure_cooldown_is_ignored(db):
+    db.create_session("s1", "cli")
+
+    db.record_compression_failure_cooldown("s1", time.time() - 60.0, "stale")
+
+    assert db.get_compression_failure_cooldown("s1") is None
+
+
+def test_refresh_compression_lock_requires_holder_and_preserves_reclaimability(db, monkeypatch):
+    db.create_session("s1", "cli")
+
+    monkeypatch.setattr(hermes_state.time, "time", lambda: 1000.0)
+    assert db.try_acquire_compression_lock("s1", "holder-a", ttl_seconds=10.0) is True
+
+    original_expires = db._conn.execute(
+        "SELECT expires_at FROM compression_locks WHERE session_id = ?",
+        ("s1",),
+    ).fetchone()[0]
+
+    monkeypatch.setattr(hermes_state.time, "time", lambda: 1005.0)
+    assert db.refresh_compression_lock("s1", "holder-a", ttl_seconds=10.0) is True
+    refreshed_expires = db._conn.execute(
+        "SELECT expires_at FROM compression_locks WHERE session_id = ?",
+        ("s1",),
+    ).fetchone()[0]
+    assert refreshed_expires > original_expires
+
+    assert db.refresh_compression_lock("s1", "holder-b", ttl_seconds=10.0) is False
+
+    monkeypatch.setattr(hermes_state.time, "time", lambda: 1016.0)
+    assert db.try_acquire_compression_lock("s1", "holder-b", ttl_seconds=10.0) is True
