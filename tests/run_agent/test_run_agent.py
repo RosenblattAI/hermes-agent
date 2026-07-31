@@ -4203,6 +4203,98 @@ class TestHandleMaxIterations:
         tool_ids = [m.get("tool_call_id") for m in sanitized if m.get("role") == "tool"]
         assert tool_ids == ["call_good", "call_bad"]
 
+    def test_bedrock_summary_uses_converse_dispatch_not_openai_client(self, agent):
+        """Regression: on api_mode='bedrock_converse' the agent has no
+        OpenAI-wire client (client is None / _client_kwargs == {}) because
+        Bedrock auth is AWS SigV4 via boto3, not a bearer key. The
+        max-iterations summary path previously fell through to
+        chat.completions.create() and 401'd with 'You didn't provide an API
+        key'. It must instead route through the boto3 Converse dispatch used
+        by the main loop (build_api_kwargs + _interruptible_api_call) and
+        strip toolConfig so no tools are offered on the summary call."""
+        agent.api_mode = "bedrock_converse"
+        agent.provider = "bedrock"
+        agent.base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+        agent._base_url_lower = agent.base_url.lower()
+        agent._base_url_hostname = "bedrock-runtime.us-east-1.amazonaws.com"
+        agent.model = "us.anthropic.claude-sonnet-5"
+        agent._bedrock_region = "us-east-1"
+        agent._bedrock_guardrail_config = None
+        agent.client = None
+        agent._client_kwargs = {}
+        agent._cached_system_prompt = "You are helpful."
+        captured = {}
+
+        def fake_interruptible_api_call(api_kwargs):
+            captured.update(api_kwargs)
+            return SimpleNamespace(
+                choices=[SimpleNamespace(
+                    message=SimpleNamespace(
+                        role="assistant",
+                        content="Bedrock summary",
+                        tool_calls=None,
+                        reasoning_content=None,
+                    ),
+                    finish_reason="stop",
+                )],
+                usage=SimpleNamespace(
+                    prompt_tokens=10, completion_tokens=5, total_tokens=15,
+                ),
+            )
+
+        with patch.object(agent, "_interruptible_api_call", side_effect=fake_interruptible_api_call):
+            result = agent._handle_max_iterations([{"role": "user", "content": "do stuff"}], 90)
+
+        assert result == "Bedrock summary"
+        # Dispatch went through the boto3 Converse path, never the OpenAI client.
+        assert captured.get("__bedrock_converse__") is True
+        assert "toolConfig" not in captured
+        assert captured["modelId"] == "us.anthropic.claude-sonnet-5"
+
+    def test_bedrock_summary_retry_also_uses_converse_dispatch(self, agent):
+        """If the first Bedrock summary call returns empty content, the retry
+        must take the same boto3 Converse path (not fall back to
+        chat.completions.create, which would 401 with no OpenAI client)."""
+        agent.api_mode = "bedrock_converse"
+        agent.provider = "bedrock"
+        agent.base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+        agent._base_url_lower = agent.base_url.lower()
+        agent._base_url_hostname = "bedrock-runtime.us-east-1.amazonaws.com"
+        agent.model = "us.anthropic.claude-sonnet-5"
+        agent._bedrock_region = "us-east-1"
+        agent._bedrock_guardrail_config = None
+        agent.client = None
+        agent._client_kwargs = {}
+        agent._cached_system_prompt = "You are helpful."
+
+        responses = iter([
+            SimpleNamespace(  # empty content on first attempt
+                choices=[SimpleNamespace(
+                    message=SimpleNamespace(
+                        role="assistant", content=None,
+                        tool_calls=None, reasoning_content=None,
+                    ),
+                    finish_reason="stop",
+                )],
+                usage=None,
+            ),
+            SimpleNamespace(  # retry returns content
+                choices=[SimpleNamespace(
+                    message=SimpleNamespace(
+                        role="assistant", content="Retry summary",
+                        tool_calls=None, reasoning_content=None,
+                    ),
+                    finish_reason="stop",
+                )],
+                usage=None,
+            ),
+        ])
+
+        with patch.object(agent, "_interruptible_api_call", side_effect=lambda kw: next(responses)):
+            result = agent._handle_max_iterations([{"role": "user", "content": "do stuff"}], 90)
+
+        assert result == "Retry summary"
+
 
 class TestRunConversation:
     """Tests for the main run_conversation method.
