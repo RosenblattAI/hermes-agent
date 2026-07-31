@@ -358,6 +358,47 @@ class TestChatCompletionsKimi:
         # The parameters dict is passed through untouched (no synthetic type)
         assert "type" not in kw["tools"][0]["function"]["parameters"]["properties"]["q"]
 
+    @pytest.mark.parametrize("flag", [None, "0", "false"])
+    def test_kimi_max_clamps_to_medium_by_default(self, transport, monkeypatch, flag):
+        """Default (flag off/unset): the Kimi clamp still drops max->medium."""
+        if flag is None:
+            monkeypatch.delenv("HERMES_KIMI_REASONING_EFFORT_MAX", raising=False)
+        else:
+            monkeypatch.setenv("HERMES_KIMI_REASONING_EFFORT_MAX", flag)
+        kw = transport.build_kwargs(
+            model="moonshotai/kimi-k3",
+            messages=[{"role": "user", "content": "Hi"}],
+            max_tokens_param_fn=lambda n: {"max_tokens": n},
+            is_kimi=True,
+            reasoning_config={"enabled": True, "effort": "max"},
+        )
+        assert kw["reasoning_effort"] == "medium"
+
+    def test_kimi_max_passes_through_when_flag_on(self, transport, monkeypatch):
+        """HERMES_KIMI_REASONING_EFFORT_MAX=1: max/xhigh/ultra reach Fireworks Kimi."""
+        monkeypatch.setenv("HERMES_KIMI_REASONING_EFFORT_MAX", "1")
+        for effort in ("high", "xhigh", "max", "ultra"):
+            kw = transport.build_kwargs(
+                model="moonshotai/kimi-k3",
+                messages=[{"role": "user", "content": "Hi"}],
+                max_tokens_param_fn=lambda n: {"max_tokens": n},
+                is_kimi=True,
+                reasoning_config={"enabled": True, "effort": effort},
+            )
+            assert kw["reasoning_effort"] == effort
+
+    def test_kimi_thinking_disabled_still_omits_with_flag_on(self, transport, monkeypatch):
+        """Thinking disabled stays disabled even with the max flag on."""
+        monkeypatch.setenv("HERMES_KIMI_REASONING_EFFORT_MAX", "1")
+        kw = transport.build_kwargs(
+            model="moonshotai/kimi-k3",
+            messages=[{"role": "user", "content": "Hi"}],
+            max_tokens_param_fn=lambda n: {"max_tokens": n},
+            is_kimi=True,
+            reasoning_config={"enabled": False},
+        )
+        assert "reasoning_effort" not in kw
+
 
 class TestChatCompletionsLmStudioReasoning:
     """LM Studio publishes per-model reasoning ``allowed_options``. When the

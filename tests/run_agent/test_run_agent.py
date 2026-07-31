@@ -5899,6 +5899,37 @@ class TestSupportsReasoningExtraBody:
             agent.model = model
             assert agent._supports_reasoning_extra_body() is True, model
 
+    def _make_fireworks_agent(self):
+        agent = object.__new__(AIAgent)
+        agent.provider = "fireworks"
+        agent.base_url = "https://api.fireworks.ai/inference/v1"
+        agent._base_url_lower = agent.base_url.lower()
+        agent.model = "accounts/fireworks/models/deepseek-v4-pro"
+        return agent
+
+    @pytest.mark.parametrize("flag", [None, "0", "false"])
+    def test_fireworks_not_reasoning_capable_by_default(self, monkeypatch, flag):
+        """Default (HERMES_FIREWORKS_REASONING off/unset): Fireworks emits no reasoning."""
+        if flag is None:
+            monkeypatch.delenv("HERMES_FIREWORKS_REASONING", raising=False)
+        else:
+            monkeypatch.setenv("HERMES_FIREWORKS_REASONING", flag)
+        agent = self._make_fireworks_agent()
+        assert agent._supports_reasoning_extra_body() is False
+
+    def test_fireworks_reasoning_capable_when_flag_on(self, monkeypatch):
+        """HERMES_FIREWORKS_REASONING=1: Fireworks-served models get extra_body.reasoning."""
+        monkeypatch.setenv("HERMES_FIREWORKS_REASONING", "1")
+        agent = self._make_fireworks_agent()
+        assert agent._supports_reasoning_extra_body() is True
+        for model in (
+            "accounts/fireworks/models/glm-5p2",
+            "accounts/fireworks/models/deepseek-v4-pro",
+            "accounts/fireworks/models/kimi-k3",
+        ):
+            agent.model = model
+            assert agent._supports_reasoning_extra_body() is True, model
+
 
 class TestMemoryContextSanitization:
     """sanitize_context() helper correctness — used at provider boundaries."""
