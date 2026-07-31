@@ -12,11 +12,14 @@ reasoning configuration, temperature handling, and extra_body assembly.
 import json
 from typing import Any, Dict
 
+import os
+
 from agent.lmstudio_reasoning import resolve_lmstudio_effort
 from agent.moonshot_schema import is_moonshot_model, sanitize_moonshot_tools
 from agent.prompt_builder import DEVELOPER_ROLE_MODELS
 from agent.transports.base import ProviderTransport
 from agent.transports.types import NormalizedResponse, ToolCall, Usage
+from utils import is_truthy_value
 
 
 def _static_prompt_instructions(messages: list[dict[str, Any]]) -> str:
@@ -471,7 +474,15 @@ class ChatCompletionsTransport(ProviderTransport):
                 _kimi_effort = "medium"
                 if reasoning_config and isinstance(reasoning_config, dict):
                     _e = (reasoning_config.get("effort") or "").strip().lower()
-                    if _e in {"low", "medium", "high"}:
+                    # HERMES_KIMI_REASONING_EFFORT_MAX (default off): pass the
+                    # full effort set through to Fireworks-hosted Kimi instead
+                    # of clamping to {low, medium, high}. Kimi K3 on Fireworks
+                    # accepts high-effort reasoning; the clamp silently drops
+                    # max/xhigh/ultra to medium.
+                    if is_truthy_value(os.environ.get("HERMES_KIMI_REASONING_EFFORT_MAX")):
+                        if _e in {"low", "medium", "high", "xhigh", "max", "ultra"}:
+                            _kimi_effort = _e
+                    elif _e in {"low", "medium", "high"}:
                         _kimi_effort = _e
                 api_kwargs["reasoning_effort"] = _kimi_effort
 
