@@ -6809,6 +6809,14 @@ class AIAgent:
             return True
         if base_url_host_matches(self._base_url_lower, "ai-gateway.vercel.sh"):
             return True
+        # HERMES_FIREWORKS_REASONING (default off): Fireworks hosts reasoning
+        # models (GLM, DeepSeek, Kimi, Qwen, etc.) over the OpenAI-compatible
+        # endpoint and accepts the reasoning extra_body. Without this the
+        # reasoning config never reaches Fireworks-served models.
+        if is_truthy_value(os.environ.get("HERMES_FIREWORKS_REASONING")) and base_url_host_matches(
+            self._base_url_lower, "fireworks.ai"
+        ):
+            return True
         if (
             base_url_host_matches(self._base_url_lower, "models.github.ai")
             or base_url_host_matches(self._base_url_lower, "githubcopilot.com")
