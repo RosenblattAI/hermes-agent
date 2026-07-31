@@ -1245,6 +1245,16 @@ clone_repo() {
             log_info "Existing installation found, updating..."
             cd "$INSTALL_DIR"
 
+            # HERMES_SKIP_UPDATE_FETCH_IF_PINNED (opt-in, default off): a
+            # pre-staged offline checkout (vendored, origin unreachable) whose
+            # HEAD already equals --commit has nothing to fetch. Skips the
+            # network-bound fetch/checkout/pull below entirely in that case.
+            if [ -n "$INSTALL_COMMIT" ] \
+               && [ "${HERMES_SKIP_UPDATE_FETCH_IF_PINNED:-}" = "1" ] \
+               && [ "$(git rev-parse HEAD 2>/dev/null)" = "$(git rev-parse "$INSTALL_COMMIT" 2>/dev/null)" ]; then
+                log_info "HEAD already at pinned commit $INSTALL_COMMIT -- skipping fetch/update (offline install)."
+            else
+
             local autostash_ref=""
             discard_update_lockfile_churn "$INSTALL_DIR"
             if [ -n "$(git status --porcelain)" ]; then
@@ -1338,6 +1348,7 @@ EOF
                     log_info "Your changes are still preserved in git stash."
                     log_info "Restore manually with: git stash apply $autostash_ref"
                 fi
+            fi
             fi
         else
             log_error "Directory exists but is not a git repository: $INSTALL_DIR"
