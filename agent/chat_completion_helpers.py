@@ -2014,6 +2014,19 @@ def handle_max_iterations(agent, messages: list, api_call_count: int) -> str:
             _ct_sum = agent._get_transport()
             _cnr_sum = _ct_sum.normalize_response(summary_response)
             final_response = (_cnr_sum.content or "").strip()
+        elif agent.api_mode == "bedrock_converse":
+            # Bedrock uses boto3 (Converse API) with AWS SigV4 auth — there is
+            # no OpenAI-wire client on the agent (`agent.client is None` and
+            # `_client_kwargs` is empty for this api_mode), so falling through
+            # to the chat.completions.create() path below would 401 with
+            # "You didn't provide an API key". Route the summary request
+            # through the same dispatch the main loop uses for bedrock turns.
+            _br_kwargs = agent._build_api_kwargs(api_messages)
+            _br_kwargs.pop("tools", None)
+            _br_kwargs.pop("toolConfig", None)
+            _br_response = agent._interruptible_api_call(_br_kwargs)
+            _br_result = agent._get_transport().normalize_response(_br_response)
+            final_response = (_br_result.content or "").strip()
         else:
             summary_kwargs = {
                 "model": agent.model,
@@ -2116,6 +2129,15 @@ def handle_max_iterations(agent, messages: list, api_call_count: int) -> str:
                 retry_response = agent._anthropic_messages_create(_ant_kw2)
                 _retry_result = _tretry.normalize_response(retry_response, strip_tool_prefix=agent._is_anthropic_oauth)
                 final_response = (_retry_result.content or "").strip()
+            elif agent.api_mode == "bedrock_converse":
+                # Same boto3 Converse dispatch as the primary summary path —
+                # never chat.completions.create() (no OpenAI-wire client).
+                _br_retry_kwargs = agent._build_api_kwargs(api_messages)
+                _br_retry_kwargs.pop("tools", None)
+                _br_retry_kwargs.pop("toolConfig", None)
+                _br_retry_response = agent._interruptible_api_call(_br_retry_kwargs)
+                _br_retry_result = agent._get_transport().normalize_response(_br_retry_response)
+                final_response = (_br_retry_result.content or "").strip()
             else:
                 summary_kwargs = {
                     "model": agent.model,
