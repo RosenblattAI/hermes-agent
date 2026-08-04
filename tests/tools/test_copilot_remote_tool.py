@@ -187,6 +187,10 @@ def test_launch_allowed_for_kanban_worker_despite_cron_session_flag(db, monkeypa
     """
     monkeypatch.setenv("HERMES_CRON_SESSION", "True")
     monkeypatch.setenv("HERMES_KANBAN_TASK", "t_test1234")
+    monkeypatch.setattr(
+        "tools.copilot_remote_tool._resolve_repo",
+        lambda *a, **k: (None, "repo resolution failed"),
+    )
     result = json.loads(
         copilot_remote(
             {"action": "launch", "prompt": "build a website", "repo": "repo-name"},
@@ -195,8 +199,7 @@ def test_launch_allowed_for_kanban_worker_despite_cron_session_flag(db, monkeypa
     )
 
     assert result["success"] is False
-    assert "not available in cron sessions" not in result["error"]
-
+    assert result["error"] == "repo resolution failed"
 
 def test_list_and_show(db):
     db.create_copilot_remote(
