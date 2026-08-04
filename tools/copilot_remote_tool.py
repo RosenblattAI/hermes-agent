@@ -480,7 +480,19 @@ def _finish_job(job_id: str, exit_code: int) -> None:
 
 def _launch(args: Dict[str, Any]) -> str:
     from utils import env_var_enabled
-    if env_var_enabled("HERMES_CRON_SESSION"):
+    # HERMES_CRON_SESSION is set process-wide (not per-subprocess) by
+    # cron/scheduler.py the moment any cron job fires in the gateway
+    # process, and it is never cleared for the rest of that process's
+    # life. hermes_cli/kanban_db.py's _default_spawn() builds every kanban
+    # worker's environment via `env = dict(os.environ)`, so a worker
+    # spawned after any cron tick inherits this stale flag even though it
+    # has nothing to do with cron. A kanban worker is NOT an unattended
+    # cron job — it has its own supervised lifecycle (claim / complete /
+    # block, plus a review loop) and _default_spawn() always sets
+    # HERMES_KANBAN_TASK on its environment. Exempt that case so a stale
+    # inherited flag doesn't block a legitimate, supervised Copilot launch.
+    # Genuine cron jobs (no HERMES_KANBAN_TASK) are still blocked below.
+    if env_var_enabled("HERMES_CRON_SESSION") and not os.environ.get("HERMES_KANBAN_TASK"):
         return _error(
             "copilot_remote launch is not available in cron sessions. "
             "Cron jobs run non-interactively and cannot supervise a Copilot "

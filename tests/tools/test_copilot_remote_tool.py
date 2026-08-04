@@ -152,8 +152,11 @@ def test_launch_requires_prompt(db):
 
 
 def test_launch_blocked_in_cron_session(db, monkeypatch):
-    """copilot_remote launch must be blocked when HERMES_CRON_SESSION is set."""
+    """copilot_remote launch must be blocked when HERMES_CRON_SESSION is set
+    and this is NOT a kanban worker (no HERMES_KANBAN_TASK) — a genuine
+    unattended cron job with nobody to supervise the Copilot session."""
     monkeypatch.setenv("HERMES_CRON_SESSION", "True")
+    monkeypatch.delenv("HERMES_KANBAN_TASK", raising=False)
     result = json.loads(
         copilot_remote(
             {"action": "launch", "prompt": "build a website", "repo": "repo-name"},
@@ -163,6 +166,36 @@ def test_launch_blocked_in_cron_session(db, monkeypatch):
 
     assert result["success"] is False
     assert "not available in cron sessions" in result["error"]
+
+
+def test_launch_allowed_for_kanban_worker_despite_cron_session_flag(db, monkeypatch):
+    """A kanban worker must NOT be blocked by a stale HERMES_CRON_SESSION flag.
+
+    The kanban dispatcher's gateway process sets HERMES_CRON_SESSION=1
+    process-wide the moment any cron job fires in it, and that flag never
+    clears for the rest of the process's life. Every kanban worker spawned
+    afterward inherits it via `_default_spawn`'s `env = dict(os.environ)`
+    copy, even though the worker has nothing to do with cron — it has its
+    own supervised lifecycle (claim/complete/block) via
+    HERMES_KANBAN_TASK. Presence of HERMES_KANBAN_TASK must exempt the
+    launch from the cron-session block.
+
+    This does NOT reach real repo resolution (no HERMES_WORKSPACE_PATH/repos
+    set up in this test), so it's expected to fail with a *different* error
+    (repo resolution) rather than succeed outright — the only thing this
+    test asserts is that it does NOT fail with the cron-session message.
+    """
+    monkeypatch.setenv("HERMES_CRON_SESSION", "True")
+    monkeypatch.setenv("HERMES_KANBAN_TASK", "t_test1234")
+    result = json.loads(
+        copilot_remote(
+            {"action": "launch", "prompt": "build a website", "repo": "repo-name"},
+            task_id="kanban-worker-1",
+        )
+    )
+
+    assert result["success"] is False
+    assert "not available in cron sessions" not in result["error"]
 
 
 def test_list_and_show(db):
