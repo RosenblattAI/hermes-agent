@@ -1047,65 +1047,77 @@ def _paste_callback_reader(result: dict) -> None:
 # OAuth provider compatibility shims
 # ---------------------------------------------------------------------------
 
+if _OAUTH_AVAILABLE and OAuthClientProvider is None:
+    _ensure_sdk_loaded()
 
-class HermesOAuthClientProvider(OAuthClientProvider):
-    """OAuth provider with pragmatic fixes for real-world MCP providers.
+if OAuthClientProvider is not None:
 
-    Supabase MCP dynamic registration returns ``client_secret`` but omits
-    ``token_endpoint_auth_method``. The upstream MCP SDK treats the missing
-    method as ``none`` and therefore omits ``client_secret`` from the token
-    request, causing Supabase to reject the exchange and the browser to show
-    the authorization page again. Coerce the in-memory client info right before
-    token/refresh requests as well as persisting the fixed shape in storage.
-    """
+    class HermesOAuthClientProvider(OAuthClientProvider):
+        """OAuth provider with pragmatic fixes for real-world MCP providers.
 
-    def _coerce_client_secret_post(self) -> None:
-        info = getattr(self.context, "client_info", None)
-        if not info or not getattr(info, "client_secret", None):
-            return
-        method = getattr(info, "token_endpoint_auth_method", None)
-        if method not in (None, "none", ""):
-            return
-        data = info.model_dump(mode="json", exclude_none=True)
-        data["token_endpoint_auth_method"] = "client_secret_post"
-        self.context.client_info = OAuthClientInformationFull.model_validate(data)
+        Supabase MCP dynamic registration returns ``client_secret`` but omits
+        ``token_endpoint_auth_method``. The upstream MCP SDK treats the missing
+        method as ``none`` and therefore omits ``client_secret`` from the token
+        request, causing Supabase to reject the exchange and the browser to show
+        the authorization page again. Coerce the in-memory client info right before
+        token/refresh requests as well as persisting the fixed shape in storage.
+        """
 
-    async def _exchange_token_authorization_code(self, *args: Any, **kwargs: Any):
-        self._coerce_client_secret_post()
-        return await super()._exchange_token_authorization_code(*args, **kwargs)
+        def _coerce_client_secret_post(self) -> None:
+            info = getattr(self.context, "client_info", None)
+            if not info or not getattr(info, "client_secret", None):
+                return
+            method = getattr(info, "token_endpoint_auth_method", None)
+            if method not in (None, "none", ""):
+                return
+            data = info.model_dump(mode="json", exclude_none=True)
+            data["token_endpoint_auth_method"] = "client_secret_post"
+            self.context.client_info = OAuthClientInformationFull.model_validate(data)
 
-    async def _refresh_token(self):
-        self._coerce_client_secret_post()
-        return await super()._refresh_token()
+        async def _exchange_token_authorization_code(self, *args: Any, **kwargs: Any):
+            self._coerce_client_secret_post()
+            return await super()._exchange_token_authorization_code(*args, **kwargs)
 
-    async def _handle_token_response(self, response):
-        """Accept any 2xx token response and avoid leaking token bodies in errors."""
-        if 200 <= response.status_code < 300:
-            from mcp.client.auth.utils import handle_token_response_scopes
+        async def _refresh_token(self):
+            self._coerce_client_secret_post()
+            return await super()._refresh_token()
 
-            token_response = await handle_token_response_scopes(response)
+        async def _handle_token_response(self, response):
+            """Accept any 2xx token response and avoid leaking token bodies in errors."""
+            if 200 <= response.status_code < 300:
+                from mcp.client.auth.utils import handle_token_response_scopes
+
+                token_response = await handle_token_response_scopes(response)
+                self.context.current_tokens = token_response
+                self.context.update_token_expiry(token_response)
+                await self.context.storage.set_tokens(token_response)
+                return
+
+            from mcp.client.auth.oauth2 import OAuthTokenError
+
+            raise OAuthTokenError(f"Token exchange failed ({response.status_code})")
+
+        async def _handle_refresh_response(self, response) -> bool:
+            """Accept any 2xx refresh response and avoid logging token bodies."""
+            if not (200 <= response.status_code < 300):
+                logger.warning("Token refresh failed: %s", response.status_code)
+                self.context.clear_tokens()
+                return False
+
+            content = await response.aread()
+            token_response = OAuthToken.model_validate_json(content)
             self.context.current_tokens = token_response
             self.context.update_token_expiry(token_response)
             await self.context.storage.set_tokens(token_response)
-            return
+            return True
 
-        from mcp.client.auth.oauth2 import OAuthTokenError
+else:
 
-        raise OAuthTokenError(f"Token exchange failed ({response.status_code})")
-
-    async def _handle_refresh_response(self, response) -> bool:
-        """Accept any 2xx refresh response and avoid logging token bodies."""
-        if not (200 <= response.status_code < 300):
-            logger.warning("Token refresh failed: %s", response.status_code)
-            self.context.clear_tokens()
-            return False
-
-        content = await response.aread()
-        token_response = OAuthToken.model_validate_json(content)
-        self.context.current_tokens = token_response
-        self.context.update_token_expiry(token_response)
-        await self.context.storage.set_tokens(token_response)
-        return True
+    class HermesOAuthClientProvider:  # pragma: no cover - exercised via import fallback
+        def __init__(self, *_: Any, **__: Any):
+            raise RuntimeError(
+                "MCP OAuth support requires the optional 'mcp' package"
+            )
 
 # ---------------------------------------------------------------------------
 # Public API
