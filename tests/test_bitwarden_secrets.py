@@ -13,7 +13,6 @@ import io
 import json
 import os
 import stat
-import subprocess
 import sys
 import time
 import zipfile

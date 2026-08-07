@@ -1,6 +1,5 @@
 """Tests for acp_adapter.entry startup wiring."""
 
-import sys
 
 import acp
 import pytest

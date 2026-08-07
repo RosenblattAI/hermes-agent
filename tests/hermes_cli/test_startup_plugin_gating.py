@@ -29,9 +29,6 @@ from unittest.mock import patch
 import pytest
 
 from hermes_cli.main import (
-    _BUILTIN_SUBCOMMANDS,
-    _first_positional_argv,
-    _plugin_cli_discovery_needed,
     _resolve_deferred_platform_cli_command,
 )
 
@@ -91,7 +88,6 @@ def test_deferred_platform_cli_resolution_targets_matching_platform():
     deferred entry, so without this resolution step the CLI command stays
     absent and argparse rejects ``photon`` (issue #54678).
     """
-    from hermes_cli import main as _main
 
     class _FakeRegistry:
         def __init__(self):

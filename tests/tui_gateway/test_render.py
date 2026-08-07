@@ -1,8 +1,8 @@
 """Tests for tui_gateway.render — rendering bridge fallback behavior."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-from tui_gateway.render import make_stream_renderer, render_diff, render_message
+from tui_gateway.render import make_stream_renderer, render_message
 
 
 def _stub_rich(mock_mod):

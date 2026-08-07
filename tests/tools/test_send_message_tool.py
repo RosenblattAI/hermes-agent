@@ -41,7 +41,6 @@ from tools.send_message_tool import (
 from plugins.platforms.discord.adapter import (
     _DISCORD_STANDALONE_JSON_BODY_LIMIT_BYTES,
     _derive_forum_thread_name,
-    _probe_is_forum_cached,
     _standalone_send,
 )
 

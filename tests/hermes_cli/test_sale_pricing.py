@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 
 import hermes_cli.models as models_mod
 from hermes_cli.models import (
-    compute_sale_discount,
     fetch_models_with_pricing,
 )
 

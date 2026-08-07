@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import hermes_cli.memory_setup as memory_setup
-from hermes_cli.memory_setup import _CANCELLED, _curses_select
+from hermes_cli.memory_setup import _CANCELLED
 
 
 

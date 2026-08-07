@@ -5,7 +5,6 @@ their token usage into session_model_usage with a ``task`` dimension via
 the ambient accounting context (agent/aux_accounting.py), making aux model
 spend visible in analytics.
 """
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest

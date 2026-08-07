@@ -46,7 +46,6 @@ from plugins.platforms.telegram.adapter import (  # noqa: E402
     _coerce_duration_seconds,
     _probe_voice_duration_seconds,
 )
-from tools.send_message_tool import _send_telegram  # noqa: E402
 
 
 def _write_wav(path, *, rate, frames):

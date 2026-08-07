@@ -3,7 +3,6 @@
 from gateway.platforms.helpers import (
     TABLE_SEPARATOR_RE,
     is_table_row,
-    split_markdown_table_row,
     convert_table_to_bullets,
 )
 

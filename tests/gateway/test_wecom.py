@@ -1,10 +1,7 @@
 """Tests for the WeCom platform adapter."""
 
 import asyncio
-import base64
-import os
 import socket
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 

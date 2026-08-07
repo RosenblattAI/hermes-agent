@@ -13,7 +13,6 @@ from hermes_cli.config import (
     get_hermes_home,
     ensure_hermes_home,
     get_compatible_custom_providers,
-    _explicit_config_paths,
     _normalize_max_turns_config,
     is_provider_enabled,
     load_config,
@@ -25,8 +24,6 @@ from hermes_cli.config import (
     save_env_value,
     save_env_value_secure,
     sanitize_env_file,
-    set_config_value,
-    write_platform_config_field,
     _sanitize_env_lines,
 )
 
@@ -1223,7 +1220,7 @@ feishu:
 
 
     def test_persist_migration_writes_full_read_raw_config(self, tmp_path):
-        from hermes_cli.config import _persist_migration, read_raw_config
+        from hermes_cli.config import _persist_migration
 
         body = """_config_version: 30
 model:

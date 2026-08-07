@@ -7,7 +7,6 @@ are exposed in the model picker.
 
 import pytest
 from hermes_cli.model_switch import list_authenticated_providers, switch_model
-from hermes_cli import runtime_provider as rp
 
 
 @pytest.fixture(autouse=True)

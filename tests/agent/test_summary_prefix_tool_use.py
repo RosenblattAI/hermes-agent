@@ -7,7 +7,6 @@ into general tool-use suppression (narration-only turns after compression).
 
 from agent.context_compressor import (
     _HISTORICAL_SUMMARY_PREFIXES,
-    LEGACY_SUMMARY_PREFIX,
     SUMMARY_PREFIX,
 )
 

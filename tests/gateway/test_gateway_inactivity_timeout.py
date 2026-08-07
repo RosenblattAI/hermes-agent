@@ -10,7 +10,6 @@ Tests cover:
 """
 
 import concurrent.futures
-import os
 import sys
 import time
 from pathlib import Path

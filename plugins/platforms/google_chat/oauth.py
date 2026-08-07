@@ -63,7 +63,6 @@ import os
 import re
 import secrets
 import stat
-import subprocess
 import sys
 from importlib.metadata import version as _distribution_version
 from pathlib import Path

@@ -13,7 +13,6 @@ import queue
 import threading
 import time
 
-import pytest
 
 from gateway.platforms.base import AudioFormat, StreamingTTSHandle
 from gateway.streaming_tts_consumer import StreamingTTSConsumer

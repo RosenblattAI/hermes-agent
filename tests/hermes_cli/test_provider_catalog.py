@@ -6,9 +6,7 @@ catalog exposes, plus how each provider's ``auth_type`` maps to a desktop tab â€
 never a specific provider count or a frozen vendor list (both change over time).
 """
 
-from hermes_cli.models import CANONICAL_PROVIDERS
 from hermes_cli.provider_catalog import (
-    ProviderDescriptor,
     provider_catalog,
     provider_catalog_by_slug,
     tab_for_auth_type,

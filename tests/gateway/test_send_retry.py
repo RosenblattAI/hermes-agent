@@ -11,7 +11,7 @@ Verifies that:
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from gateway.platforms.base import BasePlatformAdapter, SendResult, _RETRYABLE_ERROR_PATTERNS
+from gateway.platforms.base import BasePlatformAdapter, SendResult
 from gateway.platforms.base import Platform, PlatformConfig
 
 

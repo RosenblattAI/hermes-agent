@@ -3,7 +3,6 @@
 import asyncio
 import threading
 
-import pytest
 
 
 def test_dashboard_flow_exposes_authorization_url_and_accepts_callback():

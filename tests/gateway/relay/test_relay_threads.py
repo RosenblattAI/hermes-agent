@@ -18,14 +18,11 @@ Covers:
 
 from __future__ import annotations
 
-import re
-from typing import Any, Dict
 
 import pytest
 
 from gateway.config import Platform, PlatformConfig
 from gateway.relay.adapter import RelayAdapter
-from gateway.relay.command_manifest import build_relay_command_manifest
 from gateway.relay.descriptor import CONTRACT_VERSION, CapabilityDescriptor
 from gateway.relay.ws_transport import _event_from_wire
 
@@ -285,7 +282,6 @@ async def test_auto_thread_feedback_is_bounded():
 
 def _mk_runner_stub():
     """Minimal object carrying the three GatewayRunner methods under test."""
-    import asyncio as _asyncio
     from gateway.run import GatewayRunner
 
     class _Stub:
@@ -322,7 +318,6 @@ def _relay_channel_source():
 
 def test_relay_channel_lane_shape_gate():
     from types import SimpleNamespace
-    from gateway.config import Platform as P
 
     stub = _mk_runner_stub()(adapter=None)
     src = _relay_channel_source()

@@ -24,7 +24,6 @@ from hermes_cli.dashboard_auth import clear_providers, register_provider
 from hermes_cli.dashboard_auth.ws_tickets import (
     _reset_for_tests,
     consume_internal_credential,
-    internal_ws_credential,
     mint_ticket,
 )
 from tests.hermes_cli.conftest_dashboard_auth import StubAuthProvider

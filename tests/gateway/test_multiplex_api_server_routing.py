@@ -9,7 +9,6 @@ from __future__ import annotations
 from gateway.config import GatewayConfig, PlatformConfig
 from gateway.platforms.api_server import (
     APIServerAdapter,
-    _PROFILE_REJECTED,
     _api_request_profile,
 )
 

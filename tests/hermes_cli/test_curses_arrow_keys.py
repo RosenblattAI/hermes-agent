@@ -17,9 +17,7 @@ if sys.platform == "win32":
 import curses
 
 from hermes_cli.curses_ui import (
-    NAV_CANCEL,
     NAV_DOWN,
-    NAV_NONE,
     NAV_SELECT,
     NAV_UP,
     read_menu_key,

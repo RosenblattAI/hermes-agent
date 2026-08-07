@@ -2,10 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from agent.oneshot import (
-    PROMPT_TEMPLATES,
     render_template,
     run_oneshot,
     _strip_code_fence,

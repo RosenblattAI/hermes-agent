@@ -135,8 +135,6 @@ from plugins.platforms.google_chat.adapter import (  # noqa: E402
     _is_google_owned_host,
     _mime_for_message_type,
     _redact_sensitive,
-    card_spec_to_cards_v2,
-    check_google_chat_requirements,
 )
 
 

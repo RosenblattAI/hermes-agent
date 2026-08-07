@@ -8,7 +8,6 @@ mirrors the Telegram/WeCom/Feishu pattern.
 Batch delays are read from ``config.extra`` (config.yaml), not env vars.
 """
 
-import asyncio
 
 from gateway.config import Platform, PlatformConfig
 from gateway.platforms.base import MessageEvent, MessageType

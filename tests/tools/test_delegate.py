@@ -10,7 +10,6 @@ Run with:  python -m pytest tests/test_delegate.py -v
 """
 
 import json
-import os
 import threading
 import time
 import types
@@ -20,7 +19,6 @@ from unittest.mock import MagicMock, patch
 from tools.delegate_tool import (
     DELEGATE_BLOCKED_TOOLS,
     DELEGATE_TASK_SCHEMA,
-    DelegateEvent,
     _get_max_concurrent_children,
     _load_config,
     delegate_task,

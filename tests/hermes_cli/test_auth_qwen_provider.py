@@ -6,22 +6,16 @@ resolve_qwen_runtime_credentials, get_qwen_auth_status.
 """
 
 import json
-import stat
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from hermes_cli.auth import (
     AuthError,
     DEFAULT_QWEN_BASE_URL,
-    QWEN_ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
     _qwen_cli_auth_path,
-    _read_qwen_cli_tokens,
-    _save_qwen_cli_tokens,
-    _qwen_access_token_is_expiring,
-    _refresh_qwen_cli_tokens,
     resolve_qwen_runtime_credentials,
     get_qwen_auth_status,
 )

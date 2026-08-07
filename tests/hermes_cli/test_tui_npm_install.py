@@ -1,6 +1,5 @@
 """_tui_need_npm_install: auto npm when node_modules is behind the lockfile."""
 
-import os
 import types
 from pathlib import Path
 

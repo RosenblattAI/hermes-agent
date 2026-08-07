@@ -1,6 +1,5 @@
 """Tests for Matrix require-mention gating and auto-thread features."""
 
-import json
 import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch

@@ -54,9 +54,7 @@ def test_breakdown_includes_major_categories():
 # ── /context renderers (pure functions over the payload) ────────────────────
 
 from agent.context_breakdown import (  # noqa: E402
-    compute_context_details,
     render_context_breakdown_lines,
-    render_context_category_lines,
     render_context_details_lines,
     render_context_grid,
 )

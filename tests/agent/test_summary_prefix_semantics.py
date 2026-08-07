@@ -19,7 +19,6 @@ These tests pin the post-fix invariants so the conflict cannot regress.
 """
 
 from agent.context_compressor import (
-    HISTORICAL_TASK_HEADING,
     SUMMARY_PREFIX,
 )
 

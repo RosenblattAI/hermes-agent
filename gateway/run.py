@@ -1797,7 +1797,6 @@ from contextlib import contextmanager as _contextmanager
 # take down the whole multiplexer. The set lives in gateway.config so the
 # dashboard's pre-write validation enforces the same policy.
 from gateway.config import (
-    PORT_BINDING_PLATFORM_VALUES as _PORT_BINDING_PLATFORM_VALUES,
     platform_binds_port as _platform_binds_port,
 )
 
@@ -2289,9 +2288,7 @@ from gateway.restart import (
 
 from gateway.whatsapp_identity import (
     canonical_whatsapp_identifier as _canonical_whatsapp_identifier,  # noqa: F401
-    expand_whatsapp_aliases as _expand_whatsapp_auth_aliases,
-    normalize_whatsapp_identifier as _normalize_whatsapp_identifier,
-)
+    )
 
 
 logger = logging.getLogger(__name__)

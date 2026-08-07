@@ -21,7 +21,7 @@ layer down, which that PR's scope could not reach.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import pytest
 

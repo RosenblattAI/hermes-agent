@@ -1,6 +1,4 @@
 """Tests for automatic MCP reload when config.yaml mcp_servers section changes."""
-import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 

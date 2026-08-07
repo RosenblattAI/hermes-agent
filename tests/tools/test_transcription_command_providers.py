@@ -18,7 +18,6 @@ identically on Linux, macOS, and Windows (with minor quoting differences).
 
 from __future__ import annotations
 
-import os
 import sys
 import wave
 from pathlib import Path
@@ -27,7 +26,6 @@ from unittest.mock import patch
 
 from tools.transcription_tools import (
     BUILTIN_STT_PROVIDERS,
-    COMMAND_STT_OUTPUT_FORMATS,
     DEFAULT_COMMAND_STT_LANGUAGE,
     DEFAULT_COMMAND_STT_OUTPUT_FORMAT,
     DEFAULT_COMMAND_STT_TIMEOUT_SECONDS,

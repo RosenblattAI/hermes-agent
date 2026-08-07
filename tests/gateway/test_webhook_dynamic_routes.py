@@ -7,7 +7,6 @@ from gateway.config import PlatformConfig
 from gateway.platforms.webhook import (
     WebhookAdapter,
     _DYNAMIC_ROUTES_FILENAME,
-    _INSECURE_NO_AUTH,
 )
 
 

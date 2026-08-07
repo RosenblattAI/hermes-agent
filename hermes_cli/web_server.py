@@ -48,7 +48,7 @@ import zipfile
 from hermes_cli._subprocess_compat import windows_detach_flags, windows_hide_flags
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -91,7 +91,6 @@ from gateway.status import (
     derive_gateway_busy,
     derive_gateway_drainable,
     get_running_pid_cached,
-    get_running_pid,
     get_runtime_status_running_pid,
     normalize_updated_at,
     parse_active_agents,
@@ -124,7 +123,6 @@ except ImportError:
         from fastapi.middleware.cors import CORSMiddleware
         from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
         from fastapi.staticfiles import StaticFiles
-        from pydantic import BaseModel, SecretStr, field_validator
         from starlette.concurrency import run_in_threadpool
     except Exception:
         raise SystemExit(
@@ -2731,7 +2729,6 @@ async def fs_default_cwd():
 # these are thin, executor-offloaded wrappers (git/gh can block).
 # ---------------------------------------------------------------------------
 
-from hermes_cli import web_git as _web_git  # noqa: E402
 
 
 async def _git_op(fn, *args):

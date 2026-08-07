@@ -10,7 +10,6 @@ Regression coverage for https://github.com/NousResearch/hermes-agent/issues/1755
 
 import os
 import shutil
-import tempfile
 import threading
 from unittest.mock import MagicMock, patch
 

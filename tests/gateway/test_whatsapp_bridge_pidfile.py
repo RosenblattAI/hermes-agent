@@ -23,13 +23,11 @@ import os
 import socket
 
 from plugins.platforms.whatsapp.adapter import (
-    _bridge_pid_is_ours,
-    _kill_port_process,
     _kill_stale_bridge_by_pidfile,
     _listener_pids_on_port,
     _write_bridge_pidfile,
 )
-from gateway.status import get_process_start_time, _pid_exists
+from gateway.status import get_process_start_time
 
 
 def _spawn_sleeper(*extra_argv) -> subprocess.Popen:

@@ -23,9 +23,7 @@ from hermes_cli.approvals_suggest import (
     apply_proposals,
     build_proposals,
     derive_glob,
-    is_unsafe_class,
     normalize_command,
-    parse_apply_indices,
     scan_approval_history,
     suggest_command,
 )

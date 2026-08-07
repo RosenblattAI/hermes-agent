@@ -2,14 +2,14 @@
 
 import logging
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from gateway.session import SessionSource, build_session_key
 from gateway.run import GatewayRunner
 from gateway.profile_routing import ProfileRoute
-from gateway.config import GatewayConfig, Platform
+from gateway.config import Platform
 from gateway.platforms.base import BasePlatformAdapter
 
 

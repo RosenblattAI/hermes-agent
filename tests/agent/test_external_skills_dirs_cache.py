@@ -12,11 +12,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-from agent import skill_utils
 from agent.skill_utils import (
     _external_dirs_cache_clear,
     get_external_skills_dirs,

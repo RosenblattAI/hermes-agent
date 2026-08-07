@@ -11,18 +11,13 @@ parity across every registered verb.
 from __future__ import annotations
 
 import argparse
-import json
 import os
-import subprocess
-import threading
 import time
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from hermes_cli import kanban_db as kb
-from hermes_cli.kanban import run_slash
 
 
 # ---------------------------------------------------------------------------

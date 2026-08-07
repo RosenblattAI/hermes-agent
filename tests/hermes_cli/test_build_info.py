@@ -5,7 +5,6 @@ into ``<project_root>/.hermes_build_sha``.  These tests cover the read-side
 helper: missing file, malformed file, truncation, and error tolerance.
 """
 
-from pathlib import Path
 from unittest.mock import patch
 
 

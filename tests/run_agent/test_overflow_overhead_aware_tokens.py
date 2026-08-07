@@ -17,7 +17,7 @@ handler used a different (likely messages-only) estimate.
 import pytest
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from run_agent import AIAgent
 import run_agent

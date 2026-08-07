@@ -1,14 +1,12 @@
 """Gateway STT config tests — honor stt.enabled: false from config.yaml."""
 
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 import yaml
 
-from gateway.config import GatewayConfig, Platform, load_gateway_config
-from gateway.platforms.base import MessageEvent, MessageType
-from gateway.session import SessionSource
+from gateway.config import GatewayConfig, load_gateway_config
 
 
 def test_gateway_config_stt_disabled_from_dict_nested():

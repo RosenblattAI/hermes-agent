@@ -8,7 +8,6 @@ rather than silently leaving polling dead.
 
 import ast
 import asyncio
-from pathlib import Path
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 

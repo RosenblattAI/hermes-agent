@@ -9,7 +9,6 @@ Build the real image and verify the actual runtime behavior:
 """
 from __future__ import annotations
 
-import subprocess
 
 from tests.docker.conftest import docker_exec, docker_exec_sh, start_container, restart_container
 

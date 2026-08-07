@@ -25,7 +25,6 @@ from typing import Any, Dict
 import pytest
 
 from gateway.config import PlatformConfig
-from gateway.platforms.base import SendResult
 from plugins.platforms.photon import adapter as photon_adapter
 from plugins.platforms.photon.adapter import PhotonAdapter
 

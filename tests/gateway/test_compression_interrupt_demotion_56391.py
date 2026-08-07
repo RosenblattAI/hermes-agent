@@ -34,7 +34,7 @@ from gateway.platforms.base import (  # noqa: E402
     SessionSource,
     build_session_key,
 )
-from gateway.run import GatewayRunner, _AGENT_PENDING_SENTINEL  # noqa: E402
+from gateway.run import GatewayRunner  # noqa: E402
 
 
 def _make_event(text: str = "hello", chat_id: str = "123") -> MessageEvent:

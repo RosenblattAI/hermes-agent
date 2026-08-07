@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from agent.context_compressor import ContextCompressor, _estimate_msg_budget_tokens
+from agent.context_compressor import ContextCompressor
 from agent.model_metadata import (
     _is_cjk_token_dense_char,
     estimate_messages_tokens_rough,

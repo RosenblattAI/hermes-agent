@@ -18,11 +18,8 @@ Two layers:
 
 from __future__ import annotations
 
-import json
 
 from gateway.relay.auth import (
-    DELIVERY_SIG_HEADER,
-    DELIVERY_TS_HEADER,
     make_token,
     make_upgrade_token,
     sign,

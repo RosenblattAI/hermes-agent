@@ -7,15 +7,12 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from hermes_cli.dashboard_auth.cookies import (
-    PKCE_COOKIE,
     SESSION_AT_COOKIE,
     SESSION_PROVIDER_COOKIE,
     SESSION_RT_COOKIE,
     clear_pkce_cookie,
     clear_session_cookies,
-    read_pkce_cookie,
     read_session_cookies,
-    read_session_provider,
     set_pkce_cookie,
     set_session_cookies,
 )

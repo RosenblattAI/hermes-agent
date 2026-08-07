@@ -8,7 +8,6 @@ import tempfile
 import time
 import unittest
 from collections import OrderedDict
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict
 from unittest.mock import AsyncMock, Mock, patch

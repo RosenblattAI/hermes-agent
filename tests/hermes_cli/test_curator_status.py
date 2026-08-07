@@ -12,7 +12,6 @@ import io
 from argparse import Namespace
 from contextlib import redirect_stdout
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 

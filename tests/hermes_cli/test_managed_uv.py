@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import stat
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -475,7 +474,6 @@ class TestRuntimeRepair:
     def test_safe_runtime_sweeps_old_stale_backups(self, tmp_path):
         """A fixed runtime reclaims aged venv.stale.runtime-* leftovers
         (issue #73109) but leaves fresh ones (possible in-flight repair)."""
-        import os
         import time as _time
 
         from hermes_cli.managed_uv import repair_vulnerable_runtime
@@ -695,7 +693,6 @@ class TestPatchRetryOnVulnerableCandidate:
         resolves to a DIFFERENT candidate Python version depending on which
         exact version string was requested, so retries with explicit
         patches can be distinguished from the initial bare-minor attempt."""
-        import hermes_cli.managed_uv as managed_uv
         from hermes_cli.sqlite_runtime import SQLiteRuntimeInfo
 
         state = {"requested": None}

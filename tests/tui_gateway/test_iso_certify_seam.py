@@ -10,14 +10,11 @@ harness percentile math.
 from __future__ import annotations
 
 import importlib.util
-import threading
-import time
 from pathlib import Path
 
 import pytest
 
 from tui_gateway.synthetic_turn import (
-    SyntheticHeavyAgent,
     maybe_build_synthetic_agent,
     synth_turn_armed,
 )

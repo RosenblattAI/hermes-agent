@@ -9,7 +9,6 @@ remove_env_value / sanitise_env_file) call invalidate_env_cache().
 
 from __future__ import annotations
 
-import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch

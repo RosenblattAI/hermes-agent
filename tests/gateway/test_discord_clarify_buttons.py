@@ -30,7 +30,6 @@ from plugins.platforms.discord.adapter import (  # noqa: E402
     DiscordAdapter,
 )
 from gateway.config import PlatformConfig  # noqa: E402
-from gateway.platforms.base import utf16_len  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

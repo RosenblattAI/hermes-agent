@@ -9,7 +9,6 @@ import pytest
 from agent.lsp.workspace import (
     clear_cache,
     find_git_worktree,
-    is_inside_workspace,
     nearest_root,
     normalize_path,
     resolve_workspace_for_file,

@@ -19,7 +19,6 @@ via ``__new__`` so the full ``run_conversation`` machinery isn't needed
 """
 from unittest.mock import MagicMock
 
-import pytest
 
 
 def _bare_agent():

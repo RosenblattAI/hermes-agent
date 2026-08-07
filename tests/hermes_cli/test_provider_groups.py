@@ -7,7 +7,6 @@ vendors, which is expected to change over time.
 """
 
 from hermes_cli.models import (
-    CANONICAL_PROVIDERS,
     PROVIDER_GROUPS,
     group_providers,
     provider_group_for_slug,

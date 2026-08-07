@@ -2,9 +2,7 @@
 
 import sys
 from pathlib import Path
-from unittest import mock
 
-import pytest
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "skills" / "media" / "youtube-content" / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))

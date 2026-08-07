@@ -7,7 +7,6 @@ Covers:
 - Original issue: 'Built-in: always active' was misleading when features were disabled
 """
 
-import pytest
 from unittest.mock import patch
 
 

@@ -1,9 +1,7 @@
 """Tests for tools/terminal_hints.py — output-pattern failure hints."""
 
-import json
 from unittest.mock import patch as mock_patch
 
-import pytest
 
 from tools.terminal_hints import annotate_failure
 

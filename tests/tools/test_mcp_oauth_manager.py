@@ -235,7 +235,6 @@ async def test_handle_401_dedup_survives_even_if_task_reference_dropped(tmp_path
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 
 def _fake_response(status, url, body):

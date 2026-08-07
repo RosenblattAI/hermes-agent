@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import io
-import sys
-from pathlib import Path
 
-import pytest
 
 from hermes_cli.console_engine import HermesConsoleEngine, run_console_repl
 

@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from gateway.shutdown_flush import (
     flush_agent_history_to_file,

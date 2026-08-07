@@ -9,7 +9,6 @@ cron job store.
 import importlib
 import json
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -19,7 +18,6 @@ from cron.blueprint_catalog import (
     BlueprintSlot,
     fill_blueprint,
     get_blueprint,
-    blueprint_catalog_entry,
     blueprint_deeplink,
     blueprint_form_schema,
     blueprint_slash_command,

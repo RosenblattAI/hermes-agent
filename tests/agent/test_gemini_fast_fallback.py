@@ -6,10 +6,8 @@ when the pool exists, has an available entry, and has more than one entry to
 rotate to; otherwise we should fall back to the configured fallback provider
 immediately.
 """
-import inspect
 from unittest.mock import MagicMock
 
-from agent import conversation_loop
 from run_agent import _pool_may_recover_from_rate_limit
 
 

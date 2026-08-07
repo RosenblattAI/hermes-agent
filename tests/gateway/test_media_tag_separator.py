@@ -11,7 +11,6 @@ fallback would treat the trailing text as part of the path.
 """
 
 from gateway.platforms.base import (
-    MEDIA_EXTENSIONLESS_TAG_RE,
     MEDIA_TAG_CLEANUP_RE,
     _strip_media_tag_directives,
 )

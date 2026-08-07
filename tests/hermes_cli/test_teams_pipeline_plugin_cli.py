@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
-from argparse import ArgumentParser, Namespace
+from argparse import Namespace
 from types import SimpleNamespace
 
 import pytest
 
-from plugins.teams_pipeline.cli import register_cli, teams_pipeline_command
+from plugins.teams_pipeline.cli import teams_pipeline_command
 from plugins.teams_pipeline.store import TeamsPipelineStore
 
 

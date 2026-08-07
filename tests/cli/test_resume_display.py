@@ -8,7 +8,6 @@ conversation with correct formatting, truncation, and config behavior.
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
-import cli as cli_mod
 
 
 

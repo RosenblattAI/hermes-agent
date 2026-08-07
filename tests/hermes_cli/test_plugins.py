@@ -10,13 +10,9 @@ import pytest
 import yaml
 
 from hermes_cli.plugins import (
-    ENTRY_POINTS_GROUP,
-    VALID_HOOKS,
     PluginContext,
     PluginManager,
     PluginManifest,
-    get_plugin_command_handler,
-    get_plugin_commands,
     get_pre_tool_call_block_message,
     get_pre_verify_continue_message,
     has_middleware,

@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import contextvars
-import asyncio
 import json
 import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 

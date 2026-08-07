@@ -19,7 +19,6 @@ from plugins.memory.honcho.client import (
     reset_honcho_client,
     resolve_active_host,
     resolve_config_path,
-    resolve_global_config_path,
 )
 
 

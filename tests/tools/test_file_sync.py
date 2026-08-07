@@ -3,7 +3,6 @@
 import io
 import os
 import tarfile
-import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

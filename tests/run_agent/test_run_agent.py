@@ -5,12 +5,9 @@ pieces. The OpenAI client and tool loading are mocked so no network calls
 are made.
 """
 
-import ast
-import inspect
 import io
 import json
 import logging
-import re
 import threading
 import time
 import uuid
@@ -5627,7 +5624,6 @@ class TestAnthropicInterruptHandler:
         Replaces the former source-reading assertion (which asserted the old,
         now-removed rebuild-on-interrupt behavior) with a behavior test.
         """
-        import threading
         import time
         from unittest.mock import MagicMock
         from run_agent import AIAgent

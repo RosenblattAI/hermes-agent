@@ -10,7 +10,6 @@ from unittest.mock import patch as mock_patch
 import pytest
 
 import tools.approval as approval_module
-from hermes_constants import get_hermes_home
 from tools.approval import (
     _get_approval_mode,
     _normalize_approval_mode,

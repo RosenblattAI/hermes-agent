@@ -9,7 +9,6 @@ written to the launch home while the sandbox mounts (and vision reads) the
 profile home, and the agent can never see the upload it was handed.
 """
 
-from pathlib import Path
 from unittest.mock import patch
 
 from tui_gateway.server import _session_images_dir

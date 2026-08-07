@@ -11,7 +11,6 @@ Covers the design agreed 2026-07-23 (bare-name first-class org skills):
 
 import json
 
-import pytest
 
 from agent import skill_utils as sku
 from agent.prompt_builder import _build_snapshot_entry

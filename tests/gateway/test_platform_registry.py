@@ -1,7 +1,6 @@
 """Tests for the platform adapter registry and dynamic Platform enum."""
 
 import os
-import pytest
 from unittest.mock import MagicMock
 
 from gateway.platform_registry import PlatformRegistry, PlatformEntry

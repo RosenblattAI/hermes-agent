@@ -11,7 +11,7 @@ Runs each scenario N_REPS times in each mode (on/off). Output:
 """
 from __future__ import annotations
 
-import json, os, shutil, sys, tempfile, time, traceback
+import json, os, shutil, sys, time, traceback
 from pathlib import Path
 from typing import Any, Dict, List
 

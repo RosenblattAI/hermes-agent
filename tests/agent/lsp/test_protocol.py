@@ -24,8 +24,6 @@ from agent.lsp.protocol import (
     encode_message,
     make_error_response,
     make_notification,
-    make_request,
-    make_response,
     read_message,
 )
 

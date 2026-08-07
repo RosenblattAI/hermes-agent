@@ -12,11 +12,8 @@ Real imports throughout (AGENTS.md: no mocks for resolution chains).
 import pytest
 
 from hermes_cli.model_switch import (
-    MODEL_SWITCH_ERR_ONCE_REQUIRES_TARGET,
     MODEL_SWITCH_ERR_ONCE_WITH_GLOBAL,
     MODEL_SWITCH_ERROR_TEXT,
-    ModelSwitchRequest,
-    parse_model_flags_detailed,
     parse_model_switch_args,
     resolve_effective_model,
 )

@@ -4,9 +4,7 @@ import os
 import sys
 import threading
 import time
-from pathlib import Path
 
-import pytest
 
 from tui_gateway import compute_host, server
 from tui_gateway.compute_host import ComputeHost, _default_workers

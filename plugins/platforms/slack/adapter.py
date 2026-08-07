@@ -8103,7 +8103,7 @@ class SlackAdapter(BasePlatformAdapter):
     ) -> str:
         """Download a Slack file using the bot token for auth, with retry."""
         import httpx
-        from gateway.platforms.base import _ssrf_redirect_guard, safe_url_for_log
+        from gateway.platforms.base import safe_url_for_log
         from tools.url_safety import create_ssrf_safe_async_client, is_safe_url
 
         # SSRF guard: the download attaches the bot token, so a URL that
@@ -8186,7 +8186,7 @@ class SlackAdapter(BasePlatformAdapter):
     async def _download_slack_file_bytes(self, url: str, team_id: str = "") -> bytes:
         """Download a Slack file and return raw bytes, with retry."""
         import httpx
-        from gateway.platforms.base import _ssrf_redirect_guard, safe_url_for_log
+        from gateway.platforms.base import safe_url_for_log
         from tools.url_safety import create_ssrf_safe_async_client, is_safe_url
 
         # SSRF guard (CWE-918): see _download_slack_file. This sibling path

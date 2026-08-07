@@ -11,7 +11,6 @@ import logging
 import pytest
 
 from agent.anthropic_adapter import (
-    _RESPONSES_ONLY_KWARGS,
     sanitize_anthropic_kwargs,
 )
 

@@ -1,9 +1,7 @@
 """Regression tests for xAI OAuth auth resolution in profile/cron contexts."""
 
-import pytest
 
 from hermes_cli import auth
-from hermes_cli.auth import AuthError
 
 
 def test_read_xai_oauth_tokens_uses_credential_pool_when_provider_tokens_empty(monkeypatch):

@@ -9,7 +9,6 @@ See PR #62601 / #13291.
 import queue
 import threading
 
-import pytest
 
 
 class _FakeStreamer:

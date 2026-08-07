@@ -21,7 +21,6 @@ See hermes-agent#16748.
 
 from __future__ import annotations
 
-import pytest
 
 
 class TestDeepSeekAnthropicPreservesThinking:

@@ -3,7 +3,6 @@
 import sqlite3
 import time
 import json
-from unittest import mock
 
 import pytest
 

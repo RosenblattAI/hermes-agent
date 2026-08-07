@@ -12,7 +12,6 @@ Contract under test:
 """
 
 import os
-import time
 
 import pytest
 import yaml

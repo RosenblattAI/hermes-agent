@@ -9,17 +9,13 @@ can't render it.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
 
 from gateway.stream_dispatch import GatewayEventDispatcher
 from gateway.stream_events import (
     Commentary,
-    GatewayNotice,
-    LongToolHint,
     MessageChunk,
     MessageStop,
     ToolCallChunk,
-    ToolCallFinished,
 )
 
 

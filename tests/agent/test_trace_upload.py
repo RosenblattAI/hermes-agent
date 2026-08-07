@@ -14,8 +14,6 @@ from agent import trace_upload
 from agent.trace_upload import (
     build_trace_jsonl,
     upload_session_trace,
-    _resolve_hf_token,
-    _do_upload,
 )
 
 

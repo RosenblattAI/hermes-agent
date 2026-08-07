@@ -11,22 +11,13 @@ from hermes_cli.nous_subscription import NousSubscriptionFeatures
 from hermes_cli.tools_config import (
     _DEFAULT_OFF_TOOLSETS,
     _RECENTLY_SHIPPED_TOOLSETS,
-    _apply_toolset_change,
     _checklist_toolset_keys,
-    _configure_provider,
-    _reconfigure_provider,
     _get_platform_tools,
-    _platform_toolset_summary,
-    _reconfigure_tool,
-    _run_post_setup,
     _save_platform_tools,
     _toolset_has_keys,
-    _toolset_needs_configuration_prompt,
     CONFIGURABLE_TOOLSETS,
     TOOL_CATEGORIES,
-    gui_toolset_label,
     _visible_providers,
-    provider_readiness_status,
     tools_command,
 )
 

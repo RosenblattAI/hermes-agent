@@ -8,43 +8,21 @@ import os
 import sqlite3
 import stat
 import threading
-import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from hermes_cli.observability import shared_metrics as shared_metrics_module
 from hermes_cli.observability.shared_metrics import SharedMetricsStore
 from hermes_cli.observability.shared_metrics_contract import (
-    COUNT_BUCKETS,
-    DURATION_BUCKETS,
-    EXECUTION_SURFACES,
     MODEL_FAMILIES,
     MODEL_LOCALITIES,
     MODEL_OUTCOMES,
     PRIMARY_MODEL_CALL_ROLE,
     PROVIDER_FAMILIES,
-    TASK_END_REASONS,
-    TASK_ENTRYPOINTS,
-    TASK_OUTCOMES,
-    TASK_TERMINATIONS,
-    count_bucket,
-    duration_bucket,
-    execution_surface,
-    model_call_outcome,
-    model_call_dimensions,
-    model_family,
-    model_locality,
-    provider_family,
-    task_counter,
-    task_start_fields,
-    task_terminal_fields,
-    task_terminal_state,
 )
 
 

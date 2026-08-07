@@ -6,7 +6,6 @@ import io
 import tarfile
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 from tools.environments import modal as modal_env
 

@@ -10,7 +10,6 @@ memory toolset is explicitly enabled, while the external-provider block stays
 gated on ``skip_memory``.
 """
 
-import pytest
 
 from run_agent import AIAgent
 

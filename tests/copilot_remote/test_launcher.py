@@ -8,7 +8,6 @@ suite.
 
 import json
 import os
-import signal
 import threading
 from pathlib import Path
 

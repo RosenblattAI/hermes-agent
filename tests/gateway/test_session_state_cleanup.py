@@ -16,7 +16,6 @@ Also: SessionDB connections were never closed on gateway shutdown,
 leaving WAL locks in place until Python actually exited.
 """
 
-import threading
 from unittest.mock import MagicMock
 
 

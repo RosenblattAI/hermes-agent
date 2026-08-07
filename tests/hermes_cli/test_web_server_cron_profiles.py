@@ -2,7 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 import json
-from queue import Empty, SimpleQueue
+from queue import Empty
 import threading
 
 import pytest

@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from hermes_cli.auth import AuthError, get_provider_auth_state, resolve_nous_runtime_credentials
+from hermes_cli.auth import AuthError
 
 
 # =============================================================================
@@ -1096,7 +1096,6 @@ def test_poll_for_token_timeout_raises_actionable_message():
     """The poll deadline must raise the CAPTCHA-aware guidance at the SOURCE,
     so both the CLI login and the dashboard poller (web_server._nous_poller,
     which surfaces str(e) to the UI) inherit it."""
-    import httpx
     import pytest
 
     import hermes_cli.auth as auth_mod

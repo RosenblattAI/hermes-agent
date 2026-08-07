@@ -10,7 +10,6 @@ Covers:
 """
 
 import os
-import logging
 import sys
 import pytest
 from datetime import datetime, timedelta, timezone

@@ -24,7 +24,6 @@ from agent.context_compressor import (
     SKILL_PRUNED_MARKER_PREFIX,
     SUMMARY_PREFIX,
     ContextCompressor,
-    _collect_protected_skill_names,
     _extract_pruned_skill_names,
     _MAX_PRUNED_SKILL_MARKERS,
     _reinject_pruned_skill_markers,

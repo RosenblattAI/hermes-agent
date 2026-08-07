@@ -22,7 +22,6 @@ from pathlib import Path
 from unittest import mock
 
 import hermes_cli.gateway_windows as gateway_windows
-import hermes_cli.main as cli_main
 
 
 # ---------------------------------------------------------------------------

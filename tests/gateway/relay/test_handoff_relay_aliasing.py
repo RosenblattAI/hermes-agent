@@ -17,7 +17,6 @@ plus the CLI pre-check's env-derived fronted set.
 
 from __future__ import annotations
 
-import pytest
 
 from gateway.config import GatewayConfig, Platform, PlatformConfig
 from gateway.delivery import resolve_delivery_transport

@@ -22,9 +22,7 @@ from types import SimpleNamespace
 from gateway.platforms.base import MessageType
 from gateway.run import (
     _build_media_placeholder,
-    _event_media_is_audio,
     _event_media_is_image,
-    _event_media_is_video,
 )
 
 

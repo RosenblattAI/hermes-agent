@@ -2,7 +2,6 @@
 
 import json
 import sys
-from pathlib import Path
 from urllib.parse import urlencode
 
 import pytest

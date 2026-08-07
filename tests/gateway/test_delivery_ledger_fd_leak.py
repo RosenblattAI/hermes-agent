@@ -10,7 +10,6 @@ the set. These tests fail if the deterministic ``close()`` is ever removed again
 
 import sqlite3
 
-import pytest
 
 from gateway import delivery_ledger as dl
 

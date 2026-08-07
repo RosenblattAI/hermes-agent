@@ -1,7 +1,5 @@
 """Tests for Matrix platform adapter (mautrix-python backend)."""
 import asyncio
-import re
-import stat
 import sys
 import time
 import types
@@ -2768,7 +2766,6 @@ class TestMatrixReconnectDisconnect:
 
         fake_mautrix_mods["mautrix.client"].Client = MagicMock(return_value=mock_client)
 
-        import plugins.platforms.matrix.adapter as matrix_mod
         with patch.dict("sys.modules", fake_mautrix_mods):
             with patch.object(adapter, "_refresh_dm_cache", AsyncMock()):
                 with patch.object(adapter, "_sync_loop", AsyncMock(return_value=None)):

@@ -25,7 +25,6 @@ from gateway.platforms.base import (
     build_auto_tts_output_path,
 )
 from gateway.session import SessionSource, build_session_key
-from tools.tts_tool import OPUS_VOICE_PLATFORMS
 
 
 class _DummyAdapter(BasePlatformAdapter):

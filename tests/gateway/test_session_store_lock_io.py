@@ -8,13 +8,11 @@ SELECTs (``_is_session_ended_in_db``), a full routing-index rewrite +
 These tests assert those three I/O calls are invoked *outside* the lock.
 They follow the mock-DB idiom from ``test_session_store_runtime_stale_guard``.
 """
-import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from gateway.config import GatewayConfig, Platform, SessionResetPolicy
 from gateway.session import SessionEntry, SessionSource, SessionStore

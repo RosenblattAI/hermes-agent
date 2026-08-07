@@ -2,7 +2,6 @@
 
 import base64
 import struct
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest

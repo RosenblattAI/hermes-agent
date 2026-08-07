@@ -1,6 +1,5 @@
 """Tests for agent/insights.py — InsightsEngine analytics and reporting."""
 
-import sqlite3
 import time
 import pytest
 

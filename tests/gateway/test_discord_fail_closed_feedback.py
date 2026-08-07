@@ -1,7 +1,7 @@
 import logging
 
 from gateway.config import PlatformConfig
-from plugins.platforms.discord.adapter import DiscordAdapter, interactive_setup
+from plugins.platforms.discord.adapter import DiscordAdapter
 
 
 def _make_adapter() -> DiscordAdapter:

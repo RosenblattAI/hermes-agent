@@ -1,7 +1,6 @@
 """Tests for acp_adapter.server — HermesACPAgent ACP server."""
 
 import asyncio
-import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock, AsyncMock, patch
 
@@ -10,28 +9,15 @@ import pytest
 import acp
 from acp.agent.router import build_agent_router
 from acp.schema import (
-    AgentCapabilities,
-    AgentMessageChunk,
-    AgentPlanUpdate,
-    AgentThoughtChunk,
     AuthenticateResponse,
-    AvailableCommandsUpdate,
-    Implementation,
     InitializeResponse,
-    LoadSessionResponse,
-    NewSessionResponse,
     PromptResponse,
     ResumeSessionResponse,
     SessionModelState,
     SessionModeState,
     SetSessionConfigOptionResponse,
-    SetSessionModelResponse,
-    SetSessionModeResponse,
     SessionInfo,
-    SessionInfoUpdate,
     TextContentBlock,
-    ToolCallProgress,
-    ToolCallStart,
     UsageUpdate,
     UserMessageChunk,
 )
@@ -39,10 +25,8 @@ from acp_adapter.auth import TERMINAL_SETUP_AUTH_METHOD_ID
 from acp_adapter.server import (
     ACP_MAX_MODELS_PER_PROVIDER,
     HermesACPAgent,
-    HERMES_VERSION,
 )
 from acp_adapter.session import SessionManager
-from hermes_state import SessionDB
 
 
 @pytest.fixture()

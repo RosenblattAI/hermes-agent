@@ -24,7 +24,6 @@ from agent.secret_scope import (
     set_secret_scope,
 )
 from hermes_constants import (
-    DEFAULT_INDICATOR_STYLE,
     INDICATOR_STYLES,
     get_hermes_home,
     get_hermes_home_override,
@@ -34,7 +33,6 @@ from hermes_constants import (
 from hermes_cli.env_loader import load_hermes_dotenv
 from utils import is_truthy_value
 from tools.environments.local import hermes_subprocess_env
-from agent.replay_cleanup import sanitize_replay_history
 from agent.skill_commands import describe_skill_invocation
 from agent.conversation_loop import INTERRUPT_WAITING_FOR_MODEL_PREFIX
 from tui_gateway import git_probe
@@ -138,7 +136,7 @@ try:
 except Exception:
     pass
 
-from tui_gateway.render import make_stream_renderer, render_diff, render_message
+from tui_gateway.render import make_stream_renderer, render_message
 
 _sessions: dict[str, dict] = {}
 _methods: dict[str, callable] = {}

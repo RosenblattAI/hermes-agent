@@ -18,7 +18,6 @@ import hermes_state
 from hermes_state import (
     apply_wal_with_fallback,
     is_sqlite_wal_reset_vulnerable,
-    sqlite_source_id,
 )
 
 

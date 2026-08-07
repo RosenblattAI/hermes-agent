@@ -18,7 +18,6 @@ the hygiene-compression block already uses) and must actually reach
 """
 import logging
 import threading
-from contextlib import contextmanager
 
 import pytest
 

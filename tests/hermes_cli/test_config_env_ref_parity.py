@@ -6,11 +6,9 @@ plus the cache-snapshot tracking and the non-env-source warning behavior.
 """
 from __future__ import annotations
 
-import pytest
 
 from hermes_cli.config import (
     _env_ref_snapshot,
-    _env_ref_var_name,
     _expand_env_vars,
 )
 

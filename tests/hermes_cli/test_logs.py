@@ -12,7 +12,6 @@ from hermes_cli.logs import (
     _parse_line_timestamp,
     _parse_since,
     _read_last_n_lines,
-    _read_tail,
 )
 
 

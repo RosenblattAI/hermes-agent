@@ -1,7 +1,6 @@
 """Tests for search_files zero-match probes and multi-path recovery."""
 
 import json
-import os
 
 import pytest
 

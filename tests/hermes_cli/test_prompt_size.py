@@ -1,18 +1,13 @@
 """Tests for the ``hermes prompt-size`` diagnostic (issue #34667)."""
 
-import json
-import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from hermes_cli.prompt_size import (
     _SKILLS_BLOCK_RE,
-    _build_inspection_agent,
     _compute_skills_breakdown,
     compute_prompt_breakdown,
-    render_breakdown,
 )
 
 

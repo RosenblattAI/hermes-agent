@@ -2,10 +2,6 @@ from __future__ import annotations
 
 import textwrap
 
-from hermes_cli.timeouts import (
-    get_provider_request_timeout,
-    get_provider_stale_timeout,
-)
 
 
 def _write_config(tmp_path, body: str) -> None:

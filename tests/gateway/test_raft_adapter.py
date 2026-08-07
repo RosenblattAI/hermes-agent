@@ -3,13 +3,13 @@
 import asyncio
 import json
 import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from gateway.config import Platform, PlatformConfig
+from gateway.config import PlatformConfig
 from plugins.platforms.raft.adapter import (
     ACTIVITY_DRAIN_SCHEMA,
     ACTIVITY_EVENT_SCHEMA,
@@ -17,27 +17,10 @@ from plugins.platforms.raft.adapter import (
     BRIDGE_TOKEN_HEADER,
     DEFAULT_PATH,
     RaftAdapter,
-    _ACTIVE_ADAPTERS,
-    _ACTIVE_ADAPTERS_LOCK,
-    _RAFT_CONTEXT_LOCK,
-    _RAFT_PROMPT_TURN_IDS,
-    _RAFT_SESSION_IDS,
-    _RAFT_TURN_IDS,
     _has_content_field,
     _env_enablement,
-    _is_connected,
-    _on_session_start,
-    _on_pre_llm_call,
-    _on_pre_tool_call,
-    _on_post_llm_call,
-    _on_post_tool_call,
-    _on_session_end,
-    _on_session_finalize,
-    check_raft_requirements,
     interactive_setup,
-    register,
 )
-from gateway.session import build_session_key
 
 RAFT_CHANNEL_SCHEMA = "raft-channel-wake.v1"
 FUTURE_RAFT_CHANNEL_SCHEMA = "raft-channel-wake.v2"

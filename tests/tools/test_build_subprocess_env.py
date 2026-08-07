@@ -2,11 +2,9 @@
 factory for child-process environments (profile-home + secret-scrub owner).
 """
 
-import os
 import subprocess
 import sys
 
-import pytest
 
 from tools.environments.local import build_subprocess_env
 

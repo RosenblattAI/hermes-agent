@@ -18,7 +18,6 @@ import socket
 import threading
 import urllib.error
 import urllib.request
-from concurrent.futures import Future
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from types import SimpleNamespace
 

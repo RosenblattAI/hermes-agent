@@ -9,7 +9,7 @@ import sqlite3
 
 import pytest
 
-from hermes_cli.backup import copy_db_and_verify, verify_sqlite_integrity
+from hermes_cli.backup import verify_sqlite_integrity
 
 
 @pytest.fixture()

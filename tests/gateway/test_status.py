@@ -2,7 +2,6 @@
 
 import json
 import os
-import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -296,7 +295,6 @@ class TestGetProcessStartTime:
 
     def test_live_process_is_stable_int(self):
         import subprocess
-        import time
         p = subprocess.Popen(["sleep", "20"])
         try:
             a = status._get_process_start_time(p.pid)

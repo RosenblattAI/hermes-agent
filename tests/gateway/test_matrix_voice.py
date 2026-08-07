@@ -18,7 +18,6 @@ try:
 except ImportError:
     pytest.skip("mautrix not installed", allow_module_level=True)
 
-from gateway.platforms.base import MessageType
 
 
 # ---------------------------------------------------------------------------

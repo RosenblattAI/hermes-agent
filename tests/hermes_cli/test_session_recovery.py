@@ -7,15 +7,11 @@ import sqlite3
 import subprocess
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
-import hermes_state
-from hermes_state import FTS_STORAGE_VERSION, SCHEMA_VERSION, SessionDB
-from hermes_cli import session_recovery
+from hermes_state import SessionDB
 from hermes_cli.session_recovery import (
-    SessionRecoverySafetyError,
     SessionRecoverySourceError,
     inspect_session_database,
     recover_session_database,

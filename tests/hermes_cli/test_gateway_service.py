@@ -14,8 +14,6 @@ import hermes_cli.gateway as gateway_cli
 from gateway import status
 from gateway.restart import (
     DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT,
-    GATEWAY_FATAL_CONFIG_EXIT_CODE,
-    GATEWAY_SERVICE_RESTART_EXIT_CODE,
 )
 
 

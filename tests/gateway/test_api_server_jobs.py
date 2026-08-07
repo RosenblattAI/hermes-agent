@@ -10,8 +10,6 @@ Covers:
 - Cron module unavailability (501 when _CRON_AVAILABLE is False)
 """
 
-import logging
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest

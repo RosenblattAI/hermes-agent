@@ -14,14 +14,12 @@ Covers:
     restart cannot resurrect it
   - api_key is NEVER serialized to sessions.json
 """
-import json
 from unittest.mock import patch
 
 import pytest
 
 from gateway.config import GatewayConfig, Platform
 from gateway.session import (
-    SessionEntry,
     SessionSource,
     SessionStore,
     sanitize_model_override,

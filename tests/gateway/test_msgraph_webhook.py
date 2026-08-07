@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from gateway.config import GatewayConfig, Platform, PlatformConfig, _apply_env_overrides
+from gateway.config import GatewayConfig, Platform, PlatformConfig
 from gateway.platforms.msgraph_webhook import AIOHTTP_AVAILABLE, MSGraphWebhookAdapter
 
 

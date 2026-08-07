@@ -7,7 +7,6 @@ import pytest
 from tools.skill_manager_tool import (
     _create_skill,
     _patch_skill,
-    _write_file,
     skill_manage,
 )
 

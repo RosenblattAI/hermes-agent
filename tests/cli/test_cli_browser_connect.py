@@ -1,13 +1,7 @@
 """Tests for CLI browser CDP auto-launch helpers."""
 
-from contextlib import redirect_stdout
-from io import StringIO
-import os
-from queue import Queue
-import subprocess
 from unittest.mock import patch
 
-from cli import HermesCLI
 from hermes_cli.browser_connect import (
     _wait_for_browser_debug_ready_or_exit,
     get_chrome_debug_candidates,

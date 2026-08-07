@@ -5,14 +5,12 @@ from unittest.mock import MagicMock, patch
 
 
 from tools.browser_camofox import (
-    camofox_back,
     camofox_click,
     camofox_close,
     camofox_console,
     camofox_get_images,
     camofox_navigate,
     camofox_press,
-    camofox_scroll,
     camofox_snapshot,
     camofox_type,
     camofox_vision,

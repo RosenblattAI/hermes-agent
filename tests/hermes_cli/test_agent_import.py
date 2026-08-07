@@ -23,7 +23,6 @@ from hermes_cli.agent_import import (
     detect_agents,
     extract_markdown_entries,
     is_secret_key,
-    parse_existing_memory_entries,
     sanitize_mcp_env,
 )
 

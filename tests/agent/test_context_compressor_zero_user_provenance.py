@@ -7,7 +7,6 @@ from unittest.mock import patch
 import pytest
 
 from agent.context_compressor import (
-    COMPRESSION_CONTINUATION_USER_CONTENT,
     COMPRESSED_SUMMARY_HAS_USER_TURN_KEY,
     COMPRESSED_SUMMARY_METADATA_KEY,
     HISTORICAL_TASK_HEADING,
@@ -16,7 +15,6 @@ from agent.context_compressor import (
     _NO_USER_TASK_SENTINEL,
 )
 from agent.conversation_compression import (
-    _ensure_compressed_has_user_turn,
     compress_context,
 )
 from hermes_state import SessionDB

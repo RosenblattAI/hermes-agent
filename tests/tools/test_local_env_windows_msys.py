@@ -18,7 +18,6 @@ and ``os.path.isdir`` so the MSYS path tests as "missing" exactly like
 on the real OS.
 """
 
-import os
 from unittest.mock import patch
 
 from tools.environments.base import BaseEnvironment
@@ -29,7 +28,6 @@ from tools.environments.local import (
     _git_bash_bin_dirs,
     _make_run_env,
     _msys_to_windows_path,
-    _prepend_git_bash_dirs,
     _quote_bash_path,
     _resolve_safe_cwd,
     _sanitize_subprocess_env,

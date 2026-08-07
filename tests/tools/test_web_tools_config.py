@@ -14,7 +14,7 @@ import os
 import sys
 import types
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 
 
 class TestFirecrawlClientConfig:
@@ -624,7 +624,6 @@ class TestSiblingProvidersEnvResolution:
         """is_available() must see a key that lives only in the .env layer."""
         monkeypatch.delenv(env_key, raising=False)
 
-        import importlib
         module = importlib.import_module(module_path)
         provider = getattr(module, cls_name)()
 

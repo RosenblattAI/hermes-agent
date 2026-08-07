@@ -6,14 +6,12 @@ from the same session and aggregate them before dispatching.
 """
 
 import asyncio
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from gateway.config import Platform, PlatformConfig
 from gateway.platforms.base import MessageEvent, MessageType, SessionSource
-from gateway.session import build_session_key
 
 
 def _make_adapter():

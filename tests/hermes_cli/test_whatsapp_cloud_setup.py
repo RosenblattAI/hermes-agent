@@ -24,7 +24,6 @@ import pytest
 from hermes_cli.setup_whatsapp_cloud import (
     _validate_phone_number_id,
     _validate_waba_id,
-    _validate_app_id,
     _validate_app_secret,
     _validate_access_token,
     run_whatsapp_cloud_setup,

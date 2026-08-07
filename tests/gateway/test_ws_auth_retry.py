@@ -7,7 +7,7 @@ of stopping. These tests verify that auth errors now stop the reconnect.
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 
 # ---------------------------------------------------------------------------

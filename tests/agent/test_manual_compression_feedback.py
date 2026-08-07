@@ -3,7 +3,6 @@
 from types import SimpleNamespace
 
 from agent.manual_compression_feedback import (
-    describe_compression_lock_skip,
     summarize_manual_compression,
 )
 

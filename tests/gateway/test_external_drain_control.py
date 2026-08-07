@@ -12,14 +12,11 @@ Q-B, exercises a real `hermes gateway run`); these lock the unit contract.
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
 import gateway.drain_control as dc
 from gateway.run import GatewayRunner
-from gateway.config import Platform
 from gateway.platforms.base import MessageEvent, MessageType
 from tests.gateway.restart_test_helpers import make_restart_runner, make_restart_source
 

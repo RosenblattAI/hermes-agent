@@ -6,9 +6,7 @@ tests cover the crypto (against the official BIP-340 vector) and the WS
 lifecycle as wired into BuzzAdapter.
 """
 
-import asyncio
 import json
-import time
 
 import pytest
 

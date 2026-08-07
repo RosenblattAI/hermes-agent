@@ -1562,7 +1562,6 @@ except ImportError:
 from tools.mcp_tool import (
     CreateMessageResultWithTools,
     SamplingHandler,
-    SamplingToolsCapability,
     ToolUseContent,
     _safe_numeric,
 )
@@ -2495,7 +2494,7 @@ class TestRegisterMcpServers:
         """Stale entries in _server_connecting are cleaned up after timeout (#58862)."""
         from tools.mcp_tool import (
             register_mcp_servers, _servers, _server_connecting,
-            _server_connect_errors, _ensure_mcp_loop,
+            _ensure_mcp_loop,
         )
 
         fake_config = {
@@ -2607,7 +2606,6 @@ class TestMCPDiscoveryCrossProcessLock:
         portalocker on Windows (portalocker only ships on win32 installs).
         """
         if sys.platform == "win32":
-            import portalocker
 
             self._lock_exclusive(fh)
         else:
@@ -2654,9 +2652,7 @@ class TestMCPDiscoveryCrossProcessLock:
     def test_lock_held_retries_exhausted_fallback(self):
         """All retry attempts see lock held -> runs discovery unguarded."""
         from tools.mcp_tool import (
-            _LOCK_UNAVAILABLE,
             discover_mcp_tools,
-            _MCP_DISCOVERY_LOCK_MAX_RETRIES,
         )
 
         mock_config = {"test_srv": {"command": "echo", "enabled": True}}
@@ -2672,7 +2668,6 @@ class TestMCPDiscoveryCrossProcessLock:
 
     def test_posix_flock_acquire_and_release(self):
         """_acquire_lock_on_fh uses fcntl.flock on POSIX."""
-        import sys
         import tempfile
         from unittest.mock import MagicMock
 

@@ -1,6 +1,5 @@
 """Tests for hermes_cli.doctor."""
 
-import os
 import sys
 import types
 import io
@@ -11,7 +10,6 @@ from types import SimpleNamespace
 import pytest
 
 import hermes_cli.doctor as doctor
-import hermes_cli.gateway as gateway_cli
 from hermes_cli import doctor as doctor_mod
 from hermes_cli.doctor import _has_provider_env_config
 
@@ -1269,7 +1267,6 @@ class TestDoctorStaleMaxIterationsDrift:
 
     def _run_config_section(self, monkeypatch, tmp_path, *, fix, ghost, cfg_turns,
                             os_environ_value=None):
-        import pathlib
         import contextlib
         import io
         from argparse import Namespace

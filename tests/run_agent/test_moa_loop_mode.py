@@ -1,5 +1,4 @@
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -1035,7 +1034,6 @@ def test_late_completing_interrupted_reference_feeds_accounting_sink(monkeypatch
     """A reference still in flight at interrupt time gets a placeholder in
     the results, but its eventual REAL accounting must reach the sink."""
     import threading
-    import time
 
     from agent import moa_loop
 

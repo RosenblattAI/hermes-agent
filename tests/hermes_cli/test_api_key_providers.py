@@ -10,13 +10,9 @@ from hermes_cli.auth import (
     resolve_provider,
     get_api_key_provider_status,
     resolve_api_key_provider_credentials,
-    get_external_process_provider_status,
-    resolve_external_process_provider_credentials,
-    get_auth_status,
     AuthError,
     KIMI_CODE_BASE_URL,
     STEPFUN_STEP_PLAN_INTL_BASE_URL,
-    STEPFUN_STEP_PLAN_CN_BASE_URL,
     _resolve_kimi_base_url,
 )
 from hermes_cli.copilot_auth import _try_gh_cli_token

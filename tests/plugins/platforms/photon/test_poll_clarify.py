@@ -13,7 +13,7 @@ both directions without spawning the Node sidecar or binding ports:
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import pytest
 

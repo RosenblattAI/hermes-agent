@@ -10,15 +10,10 @@ from __future__ import annotations
 import pytest
 
 from hermes_cli.service_manager import (
-    LaunchdServiceManager,
     S6ServiceManager,
     ServiceManager,
-    ServiceManagerKind,
     SystemdServiceManager,
     WindowsServiceManager,
-    detect_service_manager,
-    get_service_manager,
-    validate_profile_name,
 )
 
 

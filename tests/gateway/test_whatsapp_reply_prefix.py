@@ -9,14 +9,12 @@ Covers:
 - Config version covers all ENV_VARS_BY_VERSION keys (regression guard)
 """
 
-import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import MessageEvent, MessageType
 
 
 class _AsyncResponseContext:

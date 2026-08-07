@@ -1,8 +1,6 @@
 """Tests for whitespace-visualized mismatch diagnosis in patch no-match hints."""
 
-import json
 
-import pytest
 
 from tools.fuzzy_match import (
     _visualize_whitespace,

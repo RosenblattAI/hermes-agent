@@ -8,7 +8,6 @@ diagnostics after directory changes.
 
 import json
 import os
-import tempfile
 
 import pytest
 

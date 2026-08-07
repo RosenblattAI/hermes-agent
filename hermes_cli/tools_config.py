@@ -1674,7 +1674,6 @@ def _run_cua_driver_installer(
 
 def _run_post_setup(post_setup_key: str):
     """Run post-setup hooks for tools that need extra installation steps."""
-    import shutil
     from hermes_constants import find_node_executable
 
     if post_setup_key in {"agent_browser", "browserbase"}:

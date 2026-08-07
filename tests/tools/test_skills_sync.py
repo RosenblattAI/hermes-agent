@@ -16,7 +16,6 @@ from tools.skills_sync import (
     _dir_hash,
     sync_skills,
     reset_bundled_skill,
-    restore_official_optional_skill,
 )
 
 

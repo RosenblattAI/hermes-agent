@@ -19,8 +19,6 @@ import pytest
 
 from agent.context_compressor import (
     ContextCompressor,
-    _MAX_TAIL_MESSAGE_FLOOR,
-    _PRESSURE_KEEP_RECENT_MESSAGES,
 )
 from agent.model_metadata import estimate_messages_tokens_rough
 from agent.turn_context import _compression_made_progress

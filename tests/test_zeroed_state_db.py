@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
-import pytest
 
 
 def test_is_zeroed_state_db_and_quarantine(tmp_path):

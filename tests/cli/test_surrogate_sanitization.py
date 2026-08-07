@@ -6,7 +6,6 @@ editors like Google Docs, OR from byte-level reasoning models (xiaomi/mimo,
 kimi, glm) emitting lone halves in reasoning output.
 """
 import json
-import pytest
 from unittest.mock import MagicMock, patch
 
 from run_agent import (

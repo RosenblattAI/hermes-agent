@@ -11,7 +11,6 @@ from __future__ import annotations
 import pytest
 
 from gateway.scale_to_zero import (
-    DEFAULT_IDLE_TIMEOUT_MINUTES,
     SCALE_TO_ZERO_ENV,
     is_idle,
     messaging_is_relay_only_or_absent,

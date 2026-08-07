@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import concurrent.futures
 import os
 import sqlite3
 import subprocess
 import sys
 import time
 import types
-import unittest.mock
 from pathlib import Path
 
 import pytest

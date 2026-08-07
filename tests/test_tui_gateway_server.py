@@ -8481,7 +8481,6 @@ def test_rollback_restore_truncates_from_real_user_turn_not_marker(monkeypatch):
     """rollback.restore must truncate from the last *real* user turn,
     not a display_kind timeline marker (same bug class as /undo).
     """
-    from pathlib import Path as _Path
 
     class _Mgr:
         enabled = True

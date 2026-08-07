@@ -22,7 +22,6 @@ import sys
 from types import SimpleNamespace
 
 
-from agent.conversation_loop import _image_error_max_dimension
 from agent.error_classifier import FailoverReason, classify_api_error
 
 

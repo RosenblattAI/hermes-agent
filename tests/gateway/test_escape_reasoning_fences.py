@@ -5,7 +5,6 @@ B1: Escape triple-backtick markers inside reasoning text before wrapping
     in an outer ``` fence, so inner ``` doesn't break the outer block.
 """
 
-import pytest
 from gateway.stream_consumer import escape_code_fences_for_display
 
 

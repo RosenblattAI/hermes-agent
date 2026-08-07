@@ -15,7 +15,6 @@ which crashes on non-GBK bytes (issues #47939, #53428, #57238).
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 

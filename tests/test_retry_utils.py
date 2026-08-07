@@ -5,7 +5,7 @@ import threading
 import agent.retry_utils as retry_utils
 from types import SimpleNamespace
 
-from agent.retry_utils import adaptive_rate_limit_backoff, is_zai_coding_overload_error, jittered_backoff
+from agent.retry_utils import adaptive_rate_limit_backoff, jittered_backoff
 
 
 def test_backoff_is_exponential():

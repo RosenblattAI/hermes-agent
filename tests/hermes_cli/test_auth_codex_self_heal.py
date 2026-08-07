@@ -12,7 +12,6 @@ ones (e.g. 429 quota, where the stored token is still valid).
 
 import json
 
-import pytest
 
 import hermes_cli.auth as auth
 from hermes_cli.auth import AuthError, _refresh_codex_auth_tokens, resolve_codex_runtime_credentials

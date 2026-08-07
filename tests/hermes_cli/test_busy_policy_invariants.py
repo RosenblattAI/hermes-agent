@@ -10,9 +10,7 @@ rather than hand-maintained.
 from hermes_cli.commands import (
     ACTIVE_SESSION_BYPASS_COMMANDS,
     COMMAND_REGISTRY,
-    VALID_BUSY_POLICIES,
     is_interrupt_then_dispatch,
-    should_bypass_active_session,
 )
 
 # The hand-written frozenset as it existed before the busy_policy refactor.

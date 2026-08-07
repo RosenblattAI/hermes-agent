@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 from agent.models_dev import ModelInfo
-from agent.usage_pricing import PricingEntry
 from hermes_cli.model_cost_guard import expensive_model_warning
 
 

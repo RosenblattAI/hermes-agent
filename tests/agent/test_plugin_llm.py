@@ -12,7 +12,6 @@ import asyncio
 import base64
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 

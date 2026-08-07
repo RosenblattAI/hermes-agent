@@ -16,7 +16,6 @@ All HTTP is mocked: nothing here talks to a real IDP.
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 import time
 import urllib.parse
@@ -34,7 +33,6 @@ from hermes_cli.dashboard_auth import (
     InvalidCodeError,
     LoginStart,
     ProviderError,
-    RefreshExpiredError,
     Session,
     assert_protocol_compliance,
 )
@@ -268,7 +266,6 @@ class TestDiscoveryRealRedirect:
     """
 
     def _serve(self, handler_cls):
-        import http.server
         import socketserver
         import threading
 

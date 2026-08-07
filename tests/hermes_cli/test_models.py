@@ -6,8 +6,7 @@ from hermes_cli.nous_account import NousPortalAccountInfo
 from hermes_cli.models import (
     OPENROUTER_MODELS, fetch_openrouter_models, model_ids, detect_provider_for_model,
     is_nous_free_tier, partition_nous_models_by_tier,
-    check_nous_free_tier, _FREE_TIER_CACHE_TTL,
-    union_with_portal_free_recommendations,
+    check_nous_free_tier, union_with_portal_free_recommendations,
     union_with_portal_paid_recommendations,
 )
 import hermes_cli.models as _models_mod

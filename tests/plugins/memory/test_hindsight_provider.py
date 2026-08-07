@@ -20,13 +20,9 @@ import pytest
 from hermes_cli.memory_setup import _CANCELLED
 from plugins.memory.hindsight import (
     HindsightMemoryProvider,
-    RECALL_SCHEMA,
-    REFLECT_SCHEMA,
     RETAIN_SCHEMA,
-    _load_config,
     _load_simple_env,
     _build_embedded_profile_env,
-    _normalize_observation_scopes,
     _normalize_retain_tags,
     _resolve_bank_id_template,
     _sanitize_bank_segment,

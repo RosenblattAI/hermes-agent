@@ -1,5 +1,4 @@
 from argparse import Namespace
-import os
 from pathlib import Path
 import subprocess
 import sys

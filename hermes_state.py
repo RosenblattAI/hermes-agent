@@ -34,11 +34,6 @@ from pathlib import Path
 from agent.memory_manager import sanitize_context
 from agent.session_activity import ActivityProvenance
 from agent.message_sanitization import _sanitize_surrogates
-from agent.skill_commands import (
-    SKILL_EXCERPT_JOINT,
-    SKILL_SCAFFOLD_SQL_LIKE,
-    describe_skill_invocation,
-)
 from hermes_constants import get_hermes_home
 from hermes_cli.sqlite_runtime import (
     is_sqlite_wal_reset_vulnerable as _is_sqlite_wal_reset_vulnerable,

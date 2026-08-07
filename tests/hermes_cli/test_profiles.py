@@ -6,9 +6,7 @@ and shell completion generation.
 """
 
 import json
-import io
 import os
-import shutil
 import sys
 import tarfile
 import types
@@ -29,15 +27,11 @@ from hermes_cli.profiles import (
     set_active_profile,
     get_active_profile,
     get_active_profile_name,
-    resolve_profile_env,
     check_alias_collision,
     create_wrapper_script,
     remove_wrapper_script,
-    validate_alias_name,
     rename_profile,
     export_profile,
-    import_profile,
-    _get_profiles_root,
     _get_default_hermes_home,
     seed_profile_skills,
     has_bundled_skills_opt_out,
@@ -446,7 +440,7 @@ class TestWrapperScript:
 
     def test_remove_finds_bat_on_windows(self, profile_env, monkeypatch):
         monkeypatch.setattr("sys.platform", "win32")
-        from hermes_cli.profiles import create_wrapper_script, remove_wrapper_script
+        from hermes_cli.profiles import create_wrapper_script
         wrapper = create_wrapper_script("mybot")
         assert wrapper is not None
         assert wrapper.exists()

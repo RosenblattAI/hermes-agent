@@ -27,10 +27,6 @@ from gateway.run import GatewayRunner
 from gateway.platforms.base import (
     MessageEvent,
     MessageType,
-    SendResult,
-    SUPPORTED_VIDEO_TYPES,
-    SendResult,
-    is_host_excluded_by_no_proxy,
 )
 
 
@@ -974,7 +970,6 @@ class TestSlackProxyBehavior:
 
 
 from contextlib import contextmanager
-from types import ModuleType
 
 
 @contextmanager
@@ -2587,8 +2582,7 @@ class TestReactions:
         assert "1234567890.000001" in adapter._reacting_message_ids
 
         # Simulate the base class calling on_processing_start
-        from gateway.platforms.base import MessageEvent, MessageType, SessionSource
-        from gateway.config import Platform
+        from gateway.platforms.base import MessageType, SessionSource
 
         source = SessionSource(
             platform=Platform.SLACK,

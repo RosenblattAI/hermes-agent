@@ -219,7 +219,6 @@ def _resolve_repo_slug_cheap(slug: str) -> Optional[RepoEntry]:
     safety check (path separators / ``..`` / etc.), or no matching directory
     exists, so the caller can fall back to full discovery.
     """
-    import os
     from pathlib import Path
 
     ws = os.environ.get("HERMES_WORKSPACE_PATH", "")
@@ -311,7 +310,6 @@ def _expand_prompt_path(token: str) -> Optional[Path]:
     concept of cwd, but they do consistently mean "relative to the workspace
     I'm in".
     """
-    import os
     token = token.strip()
     if not token:
         return None
@@ -355,7 +353,6 @@ def _resolve_repo_from_paths_in_prompt(prompt: str) -> Optional[RepoEntry]:
     monorepo itself. Returns ``None`` if no path token in the prompt maps to
     a git repository.
     """
-    import os
     if not prompt:
         return None
     ws = os.environ.get("HERMES_WORKSPACE_PATH", "")

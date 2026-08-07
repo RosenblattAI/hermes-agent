@@ -15,13 +15,10 @@ These tests assert convert_messages_to_converse never emits a blank text block
 (including inside toolResult content) and never uses a whitespace-only
 placeholder (a lone space would be rejected by the same validation).
 """
-import pytest
 
 from agent.bedrock_adapter import (
     convert_messages_to_converse,
-    _convert_content_to_converse,
     _safe_text,
-    _EMPTY_TEXT_PLACEHOLDER,
 )
 
 

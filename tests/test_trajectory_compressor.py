@@ -4,9 +4,8 @@ import importlib
 import os
 import sys
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 
-import pytest
 
 from trajectory_compressor import (
     CompressionConfig,

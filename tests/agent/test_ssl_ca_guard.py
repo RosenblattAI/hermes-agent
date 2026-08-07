@@ -6,7 +6,7 @@ import certifi
 import pytest
 
 from agent.errors import SSLConfigurationError
-from agent.ssl_guard import verify_ca_bundle, verify_ca_bundle_with_fallback
+from agent.ssl_guard import verify_ca_bundle
 
 
 def test_healthy_bundle_passes(monkeypatch):

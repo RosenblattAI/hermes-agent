@@ -14,10 +14,8 @@ from gateway.channel_directory import (
     resolve_channel_name,
     format_directory_for_display,
     load_directory,
-    _apply_channel_aliases,
     _build_from_sessions,
     _build_slack,
-    _slack_directory_warning_last,
 )
 
 

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
 
-from gateway.run import GatewayRunner, _credential_pool_for_provider
+from gateway.run import GatewayRunner
 
 
 def test_fast_session_override_includes_credential_pool(monkeypatch):

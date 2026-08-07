@@ -250,7 +250,6 @@ class WhatsAppCloudAdapter(WhatsAppBehaviorMixin, BasePlatformAdapter):
         # two adapters can run in parallel with independent policies; the
         # shared WHATSAPP_* names remain as fallback for single-adapter
         # setups.
-        import os
 
         self._reply_prefix: Optional[str] = extra.get("reply_prefix")
         # Allowlist: honor the *documented* WHATSAPP_CLOUD_ALLOWED_USERS (the

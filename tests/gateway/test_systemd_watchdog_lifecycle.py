@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import inspect
-from unittest.mock import patch
 
-import pytest
 
 from gateway.config import GatewayConfig
-from gateway.run import GatewayRunner, start_gateway
-from tests.gateway.restart_test_helpers import make_restart_runner
+from gateway.run import GatewayRunner
 
 
 class _FakeWatchdog:

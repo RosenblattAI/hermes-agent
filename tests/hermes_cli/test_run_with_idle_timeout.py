@@ -12,7 +12,6 @@ fixes both halves — streams output AND idle-kills the process.
 """
 
 import sys as _sys
-import time
 
 from hermes_cli.main import _run_with_idle_timeout
 

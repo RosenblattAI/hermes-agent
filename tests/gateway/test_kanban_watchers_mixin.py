@@ -7,7 +7,6 @@ that GatewayRunner picks them up via the MRO (behavior-neutral relocation).
 
 from __future__ import annotations
 
-import inspect
 
 from gateway.kanban_watchers import GatewayKanbanWatchersMixin
 

@@ -10,13 +10,9 @@ from gateway.platforms.base import (
     BasePlatformAdapter,
     GATEWAY_SECRET_CAPTURE_UNSUPPORTED_MESSAGE,
     MessageEvent,
-    cache_audio_from_bytes,
     cache_image_from_bytes,
-    cache_video_from_bytes,
     safe_url_for_log,
     utf16_len,
-    validate_inbound_media_size,
-    _log_safe_path,
     _prefix_within_utf16_limit,
     cache_audio_from_bytes,
 )

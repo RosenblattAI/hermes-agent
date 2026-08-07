@@ -7,22 +7,15 @@ structurally unable to fire. These tests pin the out-of-loop backstop
 
 from __future__ import annotations
 
-import asyncio
-import json
 import threading
-import time
 from unittest.mock import patch
 
-import pytest
 
 from gateway.shutdown_watchdog import (
     DEFAULT_SHUTDOWN_WATCHDOG_GRACE_S,
     arm_shutdown_watchdog,
-    get_loop_heartbeat_path,
     get_shutdown_watchdog_dump_path,
-    loop_heartbeat_forever,
     resolve_shutdown_watchdog_delay,
-    write_loop_heartbeat,
 )
 
 def test_resolve_shutdown_watchdog_delay_adds_grace():

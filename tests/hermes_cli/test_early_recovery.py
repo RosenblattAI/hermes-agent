@@ -17,7 +17,6 @@ import sys
 import textwrap
 from pathlib import Path
 
-import pytest
 
 from hermes_cli import _early_recovery as er
 

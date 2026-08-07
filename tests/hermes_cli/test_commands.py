@@ -7,7 +7,6 @@ from hermes_cli.commands import (
     COMMAND_REGISTRY,
     COMMANDS,
     COMMANDS_BY_CATEGORY,
-    CommandDef,
     GATEWAY_KNOWN_COMMANDS,
     SUBCOMMANDS,
     SlashCommandAutoSuggest,
@@ -27,7 +26,6 @@ from hermes_cli.commands import (
     slack_subcommand_map,
     telegram_bot_commands,
     telegram_menu_commands,
-    telegram_menu_max_commands,
 )
 
 

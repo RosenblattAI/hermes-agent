@@ -11,14 +11,13 @@ from __future__ import annotations
 import sys
 import threading
 import time
-import types
 from contextlib import nullcontext
 from types import ModuleType, SimpleNamespace
 
 import pytest
 
 from acp_adapter.server import HermesACPAgent
-from acp_adapter.session import SessionManager, SessionState
+from acp_adapter.session import SessionManager
 from hermes_cli import mcp_startup
 
 

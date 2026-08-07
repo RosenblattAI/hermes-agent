@@ -25,7 +25,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from gateway.platforms.base import BasePlatformAdapter
-from gateway.run import GatewayRunner
 
 
 class _StubAdapter(BasePlatformAdapter):

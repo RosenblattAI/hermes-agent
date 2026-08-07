@@ -59,11 +59,10 @@ import hashlib
 import json
 import logging
 import os
-import time
 import stat as _stat
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

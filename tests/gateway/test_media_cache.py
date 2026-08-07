@@ -11,7 +11,6 @@ import mimetypes
 import pytest
 
 from gateway.platforms.media_cache import (
-    DEFAULT_EXT_TO_MIME,
     DEFAULT_MIME_TO_EXT,
     cache_media_bytes,
     ext_for_mime,

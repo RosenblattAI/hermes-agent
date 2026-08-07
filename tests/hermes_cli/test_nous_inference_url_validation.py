@@ -25,7 +25,6 @@ import logging
 
 from hermes_cli.auth import (
     DEFAULT_NOUS_INFERENCE_URL,
-    _ALLOWED_NOUS_INFERENCE_HOSTS,
     _validate_nous_inference_url_from_network,
 )
 

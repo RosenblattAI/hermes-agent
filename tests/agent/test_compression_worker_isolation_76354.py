@@ -142,7 +142,6 @@ def test_f4_five_step_stale_holder_regression(tmp_path: Path) -> None:
        publish stale state.
     """
     from agent.conversation_compression import (
-        CompressionCommitFence,
         run_compress_context_with_progress_timeout,
     )
 

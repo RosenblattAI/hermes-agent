@@ -6,7 +6,6 @@ import types
 
 
 from hermes_cli.config import load_config, save_config
-from hermes_cli import setup as setup_mod
 from hermes_cli.setup import setup_model_provider
 
 

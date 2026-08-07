@@ -18,9 +18,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agent.conversation_compression import (
-    finalize_context_engine_compression_notification,
-)
 
 class TestCompressionBoundaryHook:
     def _make_agent(self, session_db):

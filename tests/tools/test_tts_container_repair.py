@@ -12,7 +12,6 @@ bytes once after synthesis and repairs the container centrally.
 """
 
 import struct
-from unittest.mock import patch
 
 import pytest
 

@@ -6,15 +6,12 @@ from pathlib import PureWindowsPath
 from unittest.mock import MagicMock, patch
 
 from hermes_cli.telegram_managed_bot import (
-    DEFAULT_MANAGER_BOT,
     TELEGRAM_ONBOARDING_URL_ENV,
-    TelegramBotSetupResult,
     TelegramPairing,
     create_pairing,
     generate_bot_username,
     generate_deep_link,
     generate_pairing_nonce,
-    poll_for_setup_result,
     poll_for_token,
     print_qr_code,
     render_qr_terminal,

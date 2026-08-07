@@ -1,6 +1,5 @@
 """Tests for blocked-command recovery guidance (parser-limit + backgrounding)."""
 
-import pytest
 
 from tools.approval import _hardline_block_result, _PARSER_LIMIT_DESCRIPTION, _MALFORMED_EXEC_DESCRIPTION
 from tools.terminal_tool import _foreground_background_guidance

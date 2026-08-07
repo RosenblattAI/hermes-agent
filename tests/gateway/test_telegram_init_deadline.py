@@ -1,9 +1,8 @@
 import sys
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
-from gateway.config import PlatformConfig
 
 
 def _ensure_telegram_mock():
@@ -26,7 +25,6 @@ def _ensure_telegram_mock():
 _ensure_telegram_mock()
 
 from plugins.platforms.telegram import adapter as tg_adapter  # noqa: E402
-from plugins.platforms.telegram.adapter import TelegramAdapter  # noqa: E402
 
 
 @pytest.mark.asyncio

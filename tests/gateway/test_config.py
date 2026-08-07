@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from agent.secret_scope import (
     reset_secret_scope,
@@ -23,7 +22,6 @@ from gateway.config import (
     StreamingConfig,
     _apply_env_overrides,
     load_gateway_config,
-    persist_home_channel,
 )
 
 

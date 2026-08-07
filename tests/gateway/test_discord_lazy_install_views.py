@@ -15,7 +15,6 @@ Fixes: lazy-install path NameError for ExecApprovalView, SlashConfirmView,
 UpdatePromptView, ModelPickerView, ClarifyChoiceView.
 """
 import importlib
-from unittest.mock import patch
 
 
 _VIEW_NAMES = [

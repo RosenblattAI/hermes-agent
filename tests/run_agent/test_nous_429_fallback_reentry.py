@@ -16,8 +16,6 @@ provider (resetting retry_count) or returns the explicit rate-limit failure.
 """
 from __future__ import annotations
 
-import inspect
-import re
 
 
 def _loop_reenters(retry_count: int, max_retries: int) -> bool:

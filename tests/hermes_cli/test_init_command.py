@@ -7,7 +7,6 @@ it builds a guidance-laden prompt that the live agent runs as a normal turn
 """
 
 from hermes_cli.init_command import (
-    _QUALITY_BAR,
     build_init_prompt,
     build_init_prompt_for_cwd,
 )

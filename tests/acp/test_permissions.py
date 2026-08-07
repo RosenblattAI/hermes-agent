@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from acp.schema import (
     AllowedOutcome,
-    DeniedOutcome,
     RequestPermissionResponse,
 )
 

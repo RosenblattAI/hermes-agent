@@ -8,7 +8,6 @@ import sys
 import threading
 import time
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -18,7 +17,6 @@ from hermes_cli.config import (
     reload_env,
     redact_key,
     OPTIONAL_ENV_VARS,
-    DEFAULT_CONFIG,
 )
 
 
@@ -1775,7 +1773,7 @@ class TestConfigRoundTrip:
         round-trip. Deep-merge is required — a shallow merge would drop
         ``agent.<custom_key>`` when the frontend sends a partial ``agent``
         dict containing only schema-known sub-fields."""
-        from hermes_cli.config import load_config, read_raw_config, save_config
+        from hermes_cli.config import read_raw_config, save_config
 
         # Seed config with a key under `agent` that isn't in the schema.
         # Use a sentinel name to avoid colliding with future schema fields.
@@ -3441,7 +3439,6 @@ class TestDashboardPluginManifestExtensions:
 # monkeypatch that hook.
 # ---------------------------------------------------------------------------
 
-import sys
 
 
 skip_on_windows = pytest.mark.skipif(

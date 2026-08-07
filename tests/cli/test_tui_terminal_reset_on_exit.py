@@ -11,7 +11,7 @@ on ``_tui_input_modes_active`` so non-TUI one-shot CLI runs (which share
 """
 
 import unittest
-from unittest.mock import mock_open, patch
+from unittest.mock import patch
 
 
 def _import_cli():

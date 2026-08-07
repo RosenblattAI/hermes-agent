@@ -202,7 +202,7 @@ def copilot_launch(args):
     if getattr(args, "dry_run", False):
         print(f"  State: {_state_badge('done')}")
     else:
-        print(f"  State: 🟢 running")
+        print("  State: 🟢 running")
 
     if prompt_delivery_warning:
         print(f"  Warning: {prompt_delivery_warning}", file=sys.stderr)

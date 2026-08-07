@@ -3,7 +3,6 @@
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-import pytest
 
 from tools.tts_tool import (
     _XAI_INLINE_SPEECH_TAGS,

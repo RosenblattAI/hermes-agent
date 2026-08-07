@@ -72,7 +72,6 @@ class TestInstallCuaDriverUpgrade:
             runner.assert_called_once()
 
     def test_quiet_refresh_prints_single_contextual_progress_line(self):
-        import subprocess
         from unittest.mock import MagicMock
 
         from hermes_cli import tools_config
@@ -575,7 +574,6 @@ class TestInstallerTimeoutKillsProcessGroup:
     `curl | bash` grandchildren can't survive holding the install lock."""
 
     def test_timeout_kills_process_group_and_returns_false(self, tmp_path):
-        import os
         import signal
         import subprocess
         from unittest.mock import MagicMock
@@ -624,7 +622,6 @@ class TestInstallerTimeoutKillsProcessGroup:
         assert tools_config._CUA_INSTALLER_TIMEOUT > tools_config._CUA_LOCK_STALE_AFTER
 
     def test_installer_runs_in_new_session_on_posix(self, tmp_path):
-        import subprocess
         from unittest.mock import MagicMock
         from hermes_cli import tools_config
 
@@ -719,7 +716,6 @@ class TestInstallerNoShell:
     /tmp path TOCTOU that PR introduced)."""
 
     def _run(self, download_rc=0):
-        import subprocess
         from unittest.mock import MagicMock
         from hermes_cli import tools_config
 
@@ -774,7 +770,6 @@ class TestInstallerNoShell:
     def test_temp_script_removed_after_run(self, tmp_path):
         import os
         captured = {}
-        import subprocess
         from unittest.mock import MagicMock
         from hermes_cli import tools_config
 

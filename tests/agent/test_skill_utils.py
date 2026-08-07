@@ -3,12 +3,9 @@
 from unittest.mock import patch
 
 from agent.skill_utils import (
-    extract_skill_config_vars,
-    extract_skill_conditions,
     get_disabled_skill_names,
     get_external_skills_dirs,
     is_excluded_skill_path,
-    is_external_skill_path,
     is_skill_support_path,
     iter_skill_index_files,
     parse_frontmatter,

@@ -2,7 +2,7 @@
 from unittest.mock import patch, MagicMock
 
 
-from toolsets import resolve_toolset, get_toolset, validate_toolset
+from toolsets import resolve_toolset
 
 
 class TestHermesApiServerToolset:

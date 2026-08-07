@@ -10,7 +10,6 @@ import pytest
 
 from gateway.platforms.base import (
     SEND_ERROR_KINDS,
-    SendResult,
     classify_send_error,
 )
 

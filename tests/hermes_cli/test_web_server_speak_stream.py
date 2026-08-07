@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import json
-import time
 from urllib.parse import urlencode
 
 import pytest
 from starlette.testclient import TestClient
-from starlette.websockets import WebSocketDisconnect
 
 from hermes_cli import web_server
 

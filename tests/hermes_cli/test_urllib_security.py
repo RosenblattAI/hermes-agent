@@ -13,7 +13,6 @@ import pytest
 from hermes_cli.urllib_security import (
     SafeCredentialRedirectHandler,
     open_credentialed_url,
-    url_origin,
 )
 
 

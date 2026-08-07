@@ -7,7 +7,6 @@ from agent.tool_guardrails import (
     ToolCallGuardrailController,
     ToolCallSignature,
     canonical_tool_args,
-    classify_tool_failure,
 )
 
 

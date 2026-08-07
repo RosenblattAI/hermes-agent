@@ -11,7 +11,6 @@ import types
 
 import pytest
 
-import cli as cli_mod
 from hermes_cli import main as main_mod
 from hermes_cli import mcp_startup
 

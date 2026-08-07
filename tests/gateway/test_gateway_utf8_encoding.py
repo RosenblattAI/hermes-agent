@@ -7,7 +7,6 @@ AST-based guard pattern in
 
 import ast
 import pathlib
-import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 GATEWAY_DIR = REPO_ROOT / "gateway"

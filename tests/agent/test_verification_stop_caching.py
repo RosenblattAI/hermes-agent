@@ -16,7 +16,6 @@ import json
 import sys
 from unittest.mock import MagicMock
 
-import pytest
 
 
 def _fresh_run_agent(hermes_home):

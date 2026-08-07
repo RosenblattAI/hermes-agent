@@ -26,7 +26,6 @@ engine plugins (e.g. hermes-lcm) rely on:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
 
 from agent.context_compressor import ContextCompressor
 from hermes_state import SessionDB

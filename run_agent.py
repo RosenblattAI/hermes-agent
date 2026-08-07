@@ -5370,8 +5370,6 @@ class AIAgent:
 
         try:
             from hermes_cli.auth import (
-                NOUS_INFERENCE_AUTH_MODE_AUTO,
-                NOUS_INFERENCE_AUTH_MODE_LEGACY,
                 resolve_nous_runtime_credentials,
             )
 

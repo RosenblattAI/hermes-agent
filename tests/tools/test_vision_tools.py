@@ -21,7 +21,6 @@ from tools.vision_tools import (
     _EMBED_MAX_DIMENSION,
     _is_image_size_error,
     _MAX_BASE64_BYTES,
-    _RESIZE_TARGET_BYTES,
     vision_analyze_tool,
     check_vision_requirements,
 )

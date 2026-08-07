@@ -11,7 +11,6 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from prompt_toolkit.keys import Keys
 
 
 ROOT = Path(__file__).resolve().parents[2]

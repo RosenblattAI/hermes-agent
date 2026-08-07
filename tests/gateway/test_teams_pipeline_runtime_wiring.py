@@ -10,9 +10,7 @@ from unittest.mock import MagicMock
 from gateway.config import Platform, PlatformConfig
 from gateway.run import GatewayRunner
 from plugins.teams_pipeline.runtime import (
-    bind_gateway_runtime,
     build_pipeline_runtime,
-    build_pipeline_runtime_config,
 )
 
 

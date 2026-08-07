@@ -437,7 +437,6 @@ from typing import Optional
 import functools as _functools
 
 from hermes_cli.sessions_cmd import cmd_sessions  # noqa: F401
-from hermes_cli.subcommands._shared import add_accept_hooks_flag as _add_accept_hooks_flag
 from hermes_cli.subcommands.cron import build_cron_parser
 from hermes_cli.subcommands.sync import build_sync_parser
 from hermes_cli.subcommands.gateway import build_gateway_parser
@@ -778,7 +777,6 @@ if _FORCE_IPV4_EARLY:
 import logging
 import threading
 import time as _time
-from datetime import datetime
 
 from hermes_cli import __version__, __release_date__
 
@@ -786,7 +784,6 @@ from hermes_cli import __version__, __release_date__
 # (god-file decomposition Phase 2). Re-imported here so select_provider_and_model and
 # existing test monkeypatches (hermes_cli.main._model_flow_*) keep resolving unchanged.
 from hermes_cli.model_setup_flows import (
-    _prompt_auth_credentials_choice,
     _model_flow_openrouter,
     _model_flow_nous,
     _model_flow_openai_codex,
@@ -800,7 +797,6 @@ from hermes_cli.model_setup_flows import (
     _model_flow_copilot_acp,
     _model_flow_kimi,
     _model_flow_stepfun,
-    _model_flow_bedrock_api_key,
     _model_flow_bedrock,
     _model_flow_vertex,
     _model_flow_api_key_provider,

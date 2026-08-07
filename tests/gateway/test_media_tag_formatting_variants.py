@@ -13,7 +13,6 @@ Covers the two follow-up fixes layered on top of the salvaged contributor PRs:
    (#35695), and fenced code blocks are always masked.
 """
 
-import os
 
 import pytest
 

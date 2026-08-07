@@ -10,7 +10,6 @@ gets their logs flooded with WARNING messages every few seconds.
 See: https://github.com/NousResearch/hermes-agent/issues/49234
 """
 
-import logging
 from unittest.mock import patch
 
 import pytest

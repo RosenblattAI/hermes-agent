@@ -18,7 +18,6 @@ violations and the connection enables foreign_keys before init).
 
 import sqlite3
 
-import pytest
 
 from hermes_state import SessionDB
 from hermes_state_common import SCHEMA_VERSION

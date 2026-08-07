@@ -2,7 +2,6 @@
 
 import asyncio
 import datetime as dt
-import os
 import sys
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -10,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from gateway.config import Platform, PlatformConfig
+from gateway.config import PlatformConfig
 from gateway.platforms.base import MessageEvent, MessageType, ProcessingOutcome
 
 

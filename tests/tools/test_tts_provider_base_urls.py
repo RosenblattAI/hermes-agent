@@ -7,7 +7,6 @@ hardcode the SDK default endpoint).
 """
 from __future__ import annotations
 
-import sys
 import types
 from unittest.mock import patch
 

@@ -7,7 +7,6 @@ import pytest
 import hermes_cli.auth as auth
 from hermes_cli.auth import (
     NOUS_BILLING_MANAGE_SCOPE,
-    nous_token_has_billing_scope,
     step_up_nous_billing_scope,
 )
 

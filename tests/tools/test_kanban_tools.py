@@ -9,8 +9,6 @@ Verifies:
 from __future__ import annotations
 
 import json
-import os
-from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -27,7 +25,6 @@ def test_kanban_tools_hidden_without_env_var(monkeypatch, tmp_path):
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
 
-    import tools.kanban_tools  # ensure registered
     from tools.registry import invalidate_check_fn_cache, registry
     from toolsets import resolve_toolset
 

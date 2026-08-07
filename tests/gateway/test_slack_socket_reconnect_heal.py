@@ -14,7 +14,7 @@ from outliving a teardown.
 
 import asyncio
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

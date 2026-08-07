@@ -15,10 +15,7 @@ import pytest
 
 from gateway.config import PlatformConfig, Platform
 from plugins.platforms.telegram.telegram_ids import (
-    looks_like_telegram_username,
     normalize_telegram_chat_id,
-    parse_telegram_username_target,
-    telegram_chat_id_key,
 )
 
 

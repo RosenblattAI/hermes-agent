@@ -2,7 +2,6 @@
 
 from plugins.platforms.slack.block_kit import (
     MAX_BLOCKS,
-    MAX_HEADER_TEXT,
     MAX_SECTION_TEXT,
     render_blocks,
     sanitize_blocks,

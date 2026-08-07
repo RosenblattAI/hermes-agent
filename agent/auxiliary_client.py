@@ -46,7 +46,6 @@ Payment / credit exhaustion fallback:
 
 import contextlib
 import contextvars
-import copy
 import functools
 import hashlib
 import inspect

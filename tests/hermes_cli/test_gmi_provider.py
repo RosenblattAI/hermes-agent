@@ -21,7 +21,6 @@ from hermes_cli.config import load_config
 from hermes_cli.models import (
     CANONICAL_PROVIDERS,
     _PROVIDER_LABELS,
-    _PROVIDER_MODELS,
     normalize_provider,
     provider_model_ids,
 )

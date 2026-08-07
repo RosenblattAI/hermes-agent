@@ -10,7 +10,6 @@ path retained as a compatibility fallback.
 """
 
 import threading
-import time
 import types
 
 import tools.async_delegation as ad

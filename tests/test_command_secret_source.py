@@ -38,7 +38,6 @@ from agent.secret_sources.command import (  # noqa: E402
     _run_helper,
     apply_command_secrets,
     get_command_secret,
-    list_command_secrets,
     parse_secret_output,
     unquote_dotenv_value,
 )

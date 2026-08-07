@@ -24,7 +24,6 @@ from hermes_cli.main import (
     _finish_dashboard_update_cleanup,
     _find_stale_dashboard_pids,
     _kill_stale_dashboard_processes,
-    _restart_managed_dashboard_service,
     _warn_stale_dashboard_processes,  # back-compat alias
 )
 

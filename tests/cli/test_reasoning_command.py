@@ -11,7 +11,6 @@ Combines functionality from:
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-import re
 
 
 # ---------------------------------------------------------------------------

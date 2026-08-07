@@ -12,7 +12,6 @@ import io
 import signal
 import sys
 
-import pytest
 
 from hermes_cli.main import (
     _UpdateOutputStream,

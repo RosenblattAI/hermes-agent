@@ -8,7 +8,6 @@ ThreadPoolExecutor and recreates it on demand if it has been shut down.
 
 Covers: #10849
 """
-import concurrent.futures
 
 import pytest
 

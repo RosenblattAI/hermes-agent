@@ -17,7 +17,6 @@ import pytest
 
 from gateway.config import Platform
 from gateway.run import GatewayRunner
-from gateway.session import SessionSource
 from tools.process_registry import ProcessRegistry, ProcessSession
 
 

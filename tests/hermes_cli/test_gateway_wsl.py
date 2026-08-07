@@ -1,8 +1,7 @@
 """Tests for WSL detection and WSL-aware gateway behavior."""
 
-import subprocess
 from types import SimpleNamespace
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, mock_open
 
 import pytest
 

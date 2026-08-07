@@ -241,7 +241,6 @@ class TestToolset:
 # ===========================================================
 
 import asyncio
-import collections
 
 
 class TestP0ReconnectGuard:

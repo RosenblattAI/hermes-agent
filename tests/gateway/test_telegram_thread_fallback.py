@@ -21,7 +21,6 @@ from gateway.platforms.base import (
     MessageEvent,
     MessageType,
     SendResult,
-    _reply_anchor_for_event,
     _thread_metadata_for_source,
 )
 from gateway.session import build_session_key

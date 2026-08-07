@@ -10,7 +10,6 @@ Two strategies:
 
 import asyncio
 
-import pytest
 
 from gateway.config import Platform
 from gateway.session import SessionSource

@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import contextvars
-import gc
 import importlib
 import json
 import sys
-import warnings
 from pathlib import Path
 from types import SimpleNamespace
 

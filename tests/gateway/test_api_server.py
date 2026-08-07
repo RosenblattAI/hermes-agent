@@ -14,9 +14,6 @@ Tests cover:
 
 import asyncio
 import json
-import os
-import stat
-import sys
 import time
 import types
 import uuid
@@ -32,7 +29,6 @@ from gateway.platforms.api_server import (
     ResponseStore,
     _IdempotencyCache,
     _derive_chat_session_id,
-    _hermes_version,
     _redact_api_error_text,
     _request_agent_overrides,
     check_api_server_requirements,

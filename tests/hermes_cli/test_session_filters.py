@@ -3,13 +3,11 @@
 
 import time
 from argparse import Namespace
-from datetime import datetime
 
 import pytest
 
 from hermes_cli.session_filters import (
     build_prune_filters,
-    describe_filters,
     parse_duration_seconds,
     parse_point_in_time,
 )

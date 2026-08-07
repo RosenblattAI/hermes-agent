@@ -1,7 +1,6 @@
 """Tests for Discord Opus codec loading — must use ctypes.util.find_library."""
 
 import inspect
-import types
 
 
 class TestOpusFindLibrary:

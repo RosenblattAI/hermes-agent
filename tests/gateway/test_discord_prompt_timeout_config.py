@@ -12,7 +12,6 @@ import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import pytest
 
 
 def _ensure_discord_mock():
@@ -51,7 +50,6 @@ _ensure_discord_mock()
 
 from plugins.platforms.discord.adapter import (  # noqa: E402
     _DISCORD_PROMPT_TIMEOUT_DEFAULT,
-    _DISCORD_PROMPT_TIMEOUT_MAX,
     _DISCORD_PROMPT_TIMEOUT_MIN,
     _read_discord_prompt_timeout,
 )

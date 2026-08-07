@@ -1,6 +1,5 @@
 """Tests for the Buzz platform adapter plugin."""
 
-import asyncio
 import json
 
 import pytest

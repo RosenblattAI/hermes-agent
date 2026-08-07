@@ -13,12 +13,10 @@ between ``HERMES_BACKEND_READY`` and the first prompt. Three fixes:
    import on the loop thread.
 """
 
-import asyncio
 import inspect
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import pytest
 
 
 # ─── Fix 1: copilot_auth skips gh CLI when env var is set ──────────────
@@ -173,7 +171,6 @@ def test_warm_gateway_module_imports_cold_start_chains():
     raises ImportError for every name would pass even if a module name
     were misspelled.
     """
-    import sys
 
     import hermes_cli.web_server as web_server_mod
 

@@ -20,9 +20,7 @@ real Azure endpoint. Tests must remain hermetic per AGENTS.md.
 from __future__ import annotations
 
 import sys
-from collections.abc import Callable
 from types import SimpleNamespace
-from typing import cast
 
 import pytest
 

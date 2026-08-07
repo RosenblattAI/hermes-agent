@@ -15,7 +15,6 @@ they run on any host (same approach as test_update_concurrent_quarantine).
 
 from __future__ import annotations
 
-import subprocess
 import sys
 import types
 from types import SimpleNamespace

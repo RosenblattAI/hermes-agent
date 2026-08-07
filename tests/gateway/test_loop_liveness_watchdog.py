@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import threading
-import time
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from gateway.shutdown_watchdog import (
-    _arm_loop_floor_timer,
     start_loop_liveness_watchdog,
 )
 

@@ -1130,7 +1130,7 @@ def cmd_sessions(args, sessions_parser=None):
         if logical_after is not None:
             after_mb = logical_after / (1024 * 1024)
         saved = before_mb - after_mb
-        print(f"\n✓ Search index optimized.")
+        print("\n✓ Search index optimized.")
         print(
             f"  Database size: {before_mb:.1f} MB -> {after_mb:.1f} MB "
             f"({_size_delta_label(saved)})"

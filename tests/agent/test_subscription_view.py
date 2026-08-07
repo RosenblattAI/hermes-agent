@@ -17,7 +17,6 @@ from agent.subscription_view import (
     dev_fixture_subscription_state,
     format_tier_row,
     is_upgrade,
-    selectable_tiers,
     subscription_change_preview_from_payload,
     subscription_manage_url,
     subscription_state_from_payload,

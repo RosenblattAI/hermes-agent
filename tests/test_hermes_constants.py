@@ -12,21 +12,16 @@ from hermes_constants import (
     agent_browser_runnable,
     find_hermes_node_executable,
     find_node_executable,
-    find_node_executable_on_path,
     get_default_hermes_root,
     get_hermes_dir,
     get_hermes_home,
     get_process_hermes_home,
-    heal_hermes_managed_node,
     hermes_managed_node_tree_present,
     iter_hermes_node_dirs,
     is_container,
     node_tool_runnable,
     parse_reasoning_effort,
-    reset_hermes_home_override,
     secure_parent_dir,
-    set_hermes_home_override,
-    with_hermes_node_path,
 )
 
 

@@ -1,8 +1,7 @@
 import pytest
-from unittest.mock import AsyncMock
 
 from gateway.config import GatewayConfig, Platform, PlatformConfig
-from gateway.platforms.base import MessageEvent, MessageType, SendResult
+from gateway.platforms.base import MessageEvent, MessageType
 from gateway.run import (
     GatewayRunner,
     _is_slack_ignored_channel,

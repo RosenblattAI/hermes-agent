@@ -3,9 +3,6 @@
 import json
 import sys
 import types
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from plugins.memory.mem0._setup import (
     parse_flags,
@@ -14,8 +11,6 @@ from plugins.memory.mem0._setup import (
     _prompt_api_key,
     post_setup,
     _check_qdrant_path,
-    _check_ollama,
-    _check_pgvector,
 )
 
 

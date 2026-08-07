@@ -11,7 +11,6 @@ itself (that's covered by test_run_progress_topics.py et al.).
 import asyncio
 import queue as queue_mod
 
-import pytest
 
 from gateway.turn_context import TurnContext
 

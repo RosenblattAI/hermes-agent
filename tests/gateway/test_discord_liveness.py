@@ -25,8 +25,7 @@ from tests.gateway.test_discord_connect import (  # noqa: E402
 _ensure_discord_mock()
 
 import plugins.platforms.discord.adapter as discord_platform  # noqa: E402
-from gateway.config import Platform, PlatformConfig  # noqa: E402
-from gateway.run import GatewayRunner  # noqa: E402
+from gateway.config import PlatformConfig  # noqa: E402
 from plugins.platforms.discord.adapter import DiscordAdapter  # noqa: E402
 
 

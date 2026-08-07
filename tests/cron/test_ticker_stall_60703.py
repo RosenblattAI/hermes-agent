@@ -15,8 +15,6 @@ Three fixes under test:
    "already being fired".
 """
 
-import json
-import os
 import threading
 import time
 from datetime import timedelta
@@ -29,7 +27,6 @@ from cron.jobs import (
     _jobs_lock,
     claim_job_for_fire,
     create_job,
-    get_due_jobs,
     get_job,
     load_jobs,
     save_jobs,

@@ -6,11 +6,9 @@ The detector is patched directly so no real process table interaction occurs.
 
 from __future__ import annotations
 
-import builtins
 import json
 import sys
 import types
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest

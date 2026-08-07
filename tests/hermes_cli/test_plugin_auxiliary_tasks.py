@@ -17,7 +17,6 @@ from hermes_cli.plugins import (
     PluginContext,
     PluginManager,
     PluginManifest,
-    get_plugin_auxiliary_tasks,
 )
 
 

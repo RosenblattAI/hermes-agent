@@ -10,8 +10,6 @@ See: https://github.com/NousResearch/hermes-agent/issues/36144
 See: https://github.com/NousResearch/hermes-agent/issues/29015
 """
 
-import os
-import threading
 from pathlib import Path
 
 import hermes_constants

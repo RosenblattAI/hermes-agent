@@ -1,6 +1,5 @@
 """Tests for cron job context_from feature (issue #5439 Option C)."""
 
-import logging
 import sys
 from pathlib import Path
 

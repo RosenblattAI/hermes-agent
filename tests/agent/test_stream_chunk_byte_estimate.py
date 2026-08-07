@@ -10,8 +10,6 @@ from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_chunk import (
     Choice,
     ChoiceDelta,
-    ChoiceDeltaToolCall,
-    ChoiceDeltaToolCallFunction,
 )
 
 from agent.chat_completion_helpers import _estimate_chunk_bytes

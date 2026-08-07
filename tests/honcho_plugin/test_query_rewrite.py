@@ -1,7 +1,7 @@
 """Behavior contract for Honcho's latest-message query rewrite."""
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -12,8 +12,6 @@ from plugins.memory.query_rewrite import (
     _normalize_rewrite,
     rewrite_memory_query,
 )
-from hermes_cli.config import DEFAULT_CONFIG
-from hermes_cli.main import _AUX_TASKS
 
 
 def _response(text: str):

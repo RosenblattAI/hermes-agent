@@ -134,7 +134,6 @@ class TestWhatsAppCloudAdapterUsesSecretScope:
 
     def test_cloud_dm_policy_reads_scope(self, tmp_path, monkeypatch):
         """WhatsAppCloudAdapter._dm_policy respects profile scope."""
-        from gateway.config import PlatformConfig
 
         monkeypatch.delenv("WHATSAPP_CLOUD_DM_POLICY", raising=False)
         monkeypatch.delenv("WHATSAPP_DM_POLICY", raising=False)
@@ -143,7 +142,6 @@ class TestWhatsAppCloudAdapterUsesSecretScope:
         (tmp_path / ".env").write_text("WHATSAPP_DM_POLICY=allowlist\n")
         tok = ss.set_secret_scope(ss.build_profile_secret_scope(tmp_path))
         try:
-            from gateway.platforms.whatsapp_cloud import WhatsAppCloudAdapter
 
             cfg = type("C", (), {
                 "extra": {},

@@ -3,7 +3,6 @@ appended to final gateway replies."""
 
 from __future__ import annotations
 
-import os
 
 import pytest
 

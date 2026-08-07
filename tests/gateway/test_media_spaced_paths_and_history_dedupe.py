@@ -15,7 +15,6 @@ Covers the follow-up wave after PR #72170:
 
 import os
 
-import pytest
 
 from gateway.platforms.base import (
     BasePlatformAdapter,

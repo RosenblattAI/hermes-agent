@@ -13,7 +13,6 @@ import pytest
 
 from gateway.status import (
     looks_like_gateway_command_line as matches,
-    looks_like_gateway_runtime_command_line as matches_runtime,
 )
 
 

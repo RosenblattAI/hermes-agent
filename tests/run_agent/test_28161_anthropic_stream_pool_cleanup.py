@@ -20,7 +20,6 @@ Tests cover:
 
 Fixes #28161. Extends #67142.
 """
-import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 

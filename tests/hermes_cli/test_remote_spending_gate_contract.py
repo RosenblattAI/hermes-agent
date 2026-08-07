@@ -13,7 +13,6 @@ from hermes_cli.nous_billing import (
     BillingError,
     BillingRateLimited,
     BillingRemoteSpendingRevoked,
-    BillingScopeRequired,
     BillingSessionRevoked,
     _raise_for_error,
 )

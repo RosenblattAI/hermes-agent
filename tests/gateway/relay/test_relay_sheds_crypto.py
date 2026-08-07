@@ -20,7 +20,6 @@ change-detector snapshot of a frozen import list.
 
 from __future__ import annotations
 
-import ast
 import re
 from pathlib import Path
 

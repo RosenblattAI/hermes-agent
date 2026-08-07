@@ -2,11 +2,9 @@
 
 from pathlib import Path
 
-import pytest
 
 import hermes_cli.gateway as gateway
 import hermes_cli.gateway_windows as gateway_windows
-import hermes_cli.setup as setup
 
 
 

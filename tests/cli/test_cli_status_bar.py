@@ -245,7 +245,7 @@ class TestStatusBarWidthSource:
 
     def test_fragments_fit_within_announced_width(self):
         """Total fragment text length must not exceed the width used to build them."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
         cli_obj = self._make_wide_cli()
 
         for width in (40, 52, 76, 80, 120, 200):
@@ -264,7 +264,7 @@ class TestStatusBarWidthSource:
 
     def test_fragments_use_pt_width_over_shutil(self):
         """When prompt_toolkit reports a width, shutil.get_terminal_size must not be used."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
         cli_obj = self._make_wide_cli()
 
         mock_app = MagicMock()
@@ -279,7 +279,7 @@ class TestStatusBarWidthSource:
 
     def test_build_status_bar_text_uses_pt_width(self):
         """_build_status_bar_text() must also prefer prompt_toolkit width."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
         cli_obj = self._make_wide_cli()
 
         mock_app = MagicMock()

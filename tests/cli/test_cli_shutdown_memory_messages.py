@@ -17,7 +17,6 @@ other tests keep their existing no-arg behaviour.
 from __future__ import annotations
 
 import threading
-import types
 from typing import Any
 from unittest.mock import MagicMock, patch
 

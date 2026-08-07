@@ -3,7 +3,6 @@
 import json
 import os
 import tempfile
-import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -19,7 +18,6 @@ from plugins.platforms.feishu.feishu_comment_rules import (
     load_config,
     pairing_add,
     pairing_list,
-    pairing_remove,
     resolve_rule,
 )
 

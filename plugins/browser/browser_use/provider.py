@@ -29,7 +29,6 @@ Auth env vars (one of)::
 from __future__ import annotations
 
 import logging
-import os
 import threading
 import uuid
 from typing import Any, Dict, Optional

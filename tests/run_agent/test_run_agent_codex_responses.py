@@ -692,7 +692,7 @@ def test_codex_preflight_defangs_harmony_tokens_before_and_after_middleware(monk
     """Both mutable request boundaries must reject literal Harmony wire tokens."""
     agent = _build_agent(monkeypatch)
     setattr(agent, "_disable_streaming", True)
-    token = f"<\x7cstart\x7c>"
+    token = "<\x7cstart\x7c>"
     captured = {}
 
     def _request_middleware(request, **_context):
@@ -744,7 +744,7 @@ def test_copilot_responses_preflight_preserves_harmony_tokens(monkeypatch):
     """Other Responses-compatible providers remain byte-identical."""
     agent = _build_copilot_agent(monkeypatch)
     setattr(agent, "_disable_streaming", True)
-    token = f"<\x7cstart\x7c>"
+    token = "<\x7cstart\x7c>"
     captured = {}
 
     def _capture_api_call(api_kwargs):

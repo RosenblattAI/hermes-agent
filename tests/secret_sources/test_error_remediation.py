@@ -6,17 +6,12 @@ identity reject, the bws stderr summarizer, the per-source
 """
 from __future__ import annotations
 
-from pathlib import Path
-from unittest import mock
 
-import pytest
 
 from agent.secret_sources import bitwarden as bw
-from agent.secret_sources import onepassword as op
-from agent.secret_sources.base import ErrorKind, SecretSource
+from agent.secret_sources.base import ErrorKind
 from agent.secret_sources.bitwarden import (
     BitwardenSource,
-    _classify_bws_error,
     _summarize_bws_stderr,
 )
 from agent.secret_sources.onepassword import OnePasswordSource

@@ -1,10 +1,9 @@
 import json
 import sys
 
-from hermes_cli.session_export import export_record_count, render_sessions_export
+from hermes_cli.session_export import export_record_count
 from hermes_cli.session_export_html import (
     _generate_messages_html,
-    generate_multi_session_html_export,
 )
 
 

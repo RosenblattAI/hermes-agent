@@ -11,7 +11,6 @@ thread while preserving update_token_counts() semantics exactly:
 4. A failing apply is logged by the writer and never raises into a turn.
 """
 
-import sqlite3
 import threading
 import time
 

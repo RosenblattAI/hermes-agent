@@ -7,7 +7,6 @@ without depending on a downloaded pet.
 
 from __future__ import annotations
 
-import io
 
 import pytest
 

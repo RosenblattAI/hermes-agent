@@ -1,7 +1,6 @@
 """Tests for gateway/pairing.py — DM pairing security system."""
 
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -11,10 +10,8 @@ import pytest
 
 from gateway.pairing import (
     PairingStore,
-    ALPHABET,
     CODE_LENGTH,
     CODE_TTL_SECONDS,
-    RATE_LIMIT_SECONDS,
     MAX_PENDING_PER_PLATFORM,
     MAX_FAILED_ATTEMPTS,
     _secure_write,
@@ -563,7 +560,6 @@ class TestProfileScopedStorage:
     def test_default_store_uses_global_dir(self, tmp_path, monkeypatch):
         """PairingStore() (no profile) keeps the legacy global path so the
         ``hermes pairing`` CLI continues to work without a profile context."""
-        from hermes_constants import get_hermes_home
         monkeypatch.setattr("hermes_constants.get_hermes_home", lambda: tmp_path)
         # Re-import PAIRING_DIR (it's a module-level constant resolved at
         # import time) so the test exercises the right path. We patch it

@@ -6,14 +6,10 @@ Every ``CommandDef`` with ``execute`` set must:
     executor may only vary on ``args``/``options``, never on ``surface``.
 """
 
-import pytest
 
-from hermes_cli.commands import COMMAND_REGISTRY, resolve_command
+from hermes_cli.commands import COMMAND_REGISTRY
 from hermes_cli.slash_exec import (
-    EXECUTORS,
     CommandContext,
-    CommandReply,
-    execute_command,
     resolve_executor,
     run_execute,
 )

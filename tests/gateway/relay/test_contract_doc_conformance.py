@@ -27,7 +27,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
 
 from gateway.relay.descriptor import CapabilityDescriptor
 from gateway.session import SessionSource

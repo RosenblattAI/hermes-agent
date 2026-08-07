@@ -13,7 +13,6 @@ from hermes_cli.dashboard_auth.base import (
     DashboardAuthProvider,
     Session,
     LoginStart,
-    assert_protocol_compliance,
 )
 
 
@@ -92,7 +91,6 @@ class _CompliantProvider(DashboardAuthProvider):
 
 from hermes_cli.dashboard_auth import (  # noqa: E402  (after-imports for clarity)
     register_provider,
-    get_provider,
     list_providers,
     clear_providers,
 )

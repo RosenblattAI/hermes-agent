@@ -19,7 +19,6 @@ guards the property so a refactor cannot quietly undo it.
 """
 
 import logging
-import os
 from pathlib import Path
 
 import pytest

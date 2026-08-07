@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-import types
 from pathlib import Path
 
 import pytest

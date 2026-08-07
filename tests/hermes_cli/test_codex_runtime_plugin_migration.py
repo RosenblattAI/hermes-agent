@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 
-import pytest
 
 from hermes_cli.codex_runtime_plugin_migration import (
     MIGRATION_MARKER,
     MIGRATION_END_MARKER,
     _build_hermes_tools_mcp_entry,
-    _format_toml_value,
-    _looks_like_test_tempdir,
     _strip_existing_managed_block,
     _strip_unmanaged_plugin_tables,
     _translate_one_server,

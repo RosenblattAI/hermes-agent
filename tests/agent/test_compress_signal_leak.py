@@ -1,7 +1,6 @@
 """Invariant: stale signal leak between consecutive compress_context calls."""
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 
 def test_signal_cleared_on_entry_between_calls(monkeypatch):

@@ -2,7 +2,6 @@
 
 import json
 
-import pytest
 
 from tools.code_execution_tool import _sandbox_failure_hint, execute_code
 

@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from hermes_cli.auth import AuthError
 from hermes_cli import main as hermes_main
 
 
@@ -585,7 +584,6 @@ def test_custom_endpoint_key_env_is_a_valid_posix_name_for_ip_endpoints():
     raise on exactly the local-proxy setups this is meant to protect. The
     fixed prefix makes the result valid by construction.
     """
-    import re
 
     from hermes_cli.config import _ENV_VAR_NAME_RE, custom_endpoint_key_env
 

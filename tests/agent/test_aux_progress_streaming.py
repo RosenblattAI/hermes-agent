@@ -10,7 +10,7 @@ hook, behavior is byte-for-byte the old non-streaming call.
 import threading
 import time
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

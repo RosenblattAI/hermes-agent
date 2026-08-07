@@ -5,8 +5,6 @@ writes a .container-mode metadata file. The host CLI detects this and
 execs into the container instead of running locally.
 """
 import os
-import subprocess
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest

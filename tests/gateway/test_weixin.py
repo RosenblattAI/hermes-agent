@@ -3,18 +3,15 @@
 import asyncio
 import base64
 import json
-import os
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from gateway.config import PlatformConfig
-from gateway.config import GatewayConfig, HomeChannel, Platform, _apply_env_overrides
-from gateway.platforms.base import SendResult
-from gateway.platforms.base import MessageEvent, MessageType
+from gateway.config import GatewayConfig, Platform
 from gateway.platforms import weixin
-from gateway.platforms.weixin import ContextTokenStore, WeixinAdapter
-from tools.send_message_tool import _parse_target_ref, _send_to_platform
+from gateway.platforms.weixin import WeixinAdapter
+from tools.send_message_tool import _parse_target_ref
 
 
 def _make_adapter() -> WeixinAdapter:

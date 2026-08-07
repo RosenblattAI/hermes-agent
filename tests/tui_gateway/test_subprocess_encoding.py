@@ -14,10 +14,8 @@ the crash class cannot silently regress.
 
 from __future__ import annotations
 
-import subprocess
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 import tui_gateway.server as server
 

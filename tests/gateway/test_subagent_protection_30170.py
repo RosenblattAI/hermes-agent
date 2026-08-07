@@ -27,9 +27,7 @@ from __future__ import annotations
 
 import sys
 import threading
-import time
 import types
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -54,7 +52,7 @@ from gateway.platforms.base import (  # noqa: E402
     SessionSource,
     build_session_key,
 )
-from gateway.run import GatewayRunner, _AGENT_PENDING_SENTINEL  # noqa: E402
+from gateway.run import GatewayRunner  # noqa: E402
 
 
 # ──────────────────────────────────────────────────────────────────────

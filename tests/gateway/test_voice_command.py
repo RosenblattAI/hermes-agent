@@ -1,6 +1,5 @@
 """Tests for the /voice command and auto voice reply in the gateway."""
 
-import asyncio
 import importlib.util
 import json
 import os

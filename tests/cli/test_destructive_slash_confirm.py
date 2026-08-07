@@ -6,7 +6,6 @@ don't have to construct a full HermesCLI (which requires extensive setup).
 
 from __future__ import annotations
 
-import queue
 from types import SimpleNamespace
 from unittest.mock import patch
 

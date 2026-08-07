@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import json
 import time
-from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
@@ -651,7 +650,6 @@ def test_seed_from_singletons_respects_hermes_pkce_suppression(tmp_path, monkeyp
     hermes_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 
-    import yaml
     (hermes_home / "config.yaml").write_text(yaml.dump({"model": {"provider": "anthropic", "model": "claude"}}))
     (hermes_home / "auth.json").write_text(json.dumps({
         "version": 1,

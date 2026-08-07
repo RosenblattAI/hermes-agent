@@ -60,7 +60,6 @@ from gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
-    ProcessingOutcome,
     SendResult,
 )
 from gateway.platforms.helpers import compile_mention_patterns, strip_markdown

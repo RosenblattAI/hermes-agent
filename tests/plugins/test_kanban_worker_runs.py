@@ -14,7 +14,6 @@ import secrets
 import sys
 import time
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI

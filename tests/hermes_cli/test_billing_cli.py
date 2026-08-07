@@ -13,7 +13,7 @@ from decimal import Decimal
 import pytest
 
 import agent.billing_view as bv
-from agent.billing_view import BillingState, CardInfo, MonthlyCap
+from agent.billing_view import BillingState, CardInfo
 from cli import HermesCLI
 
 

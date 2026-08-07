@@ -1,13 +1,9 @@
-import base64
 
 import pytest
 from acp.schema import (
-    BlobResourceContents,
-    EmbeddedResourceContentBlock,
     ImageContentBlock,
     ResourceContentBlock,
     TextContentBlock,
-    TextResourceContents,
 )
 
 from acp_adapter.server import HermesACPAgent, _content_blocks_to_openai_user_content

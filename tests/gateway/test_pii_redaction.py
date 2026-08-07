@@ -5,7 +5,6 @@ from gateway.session import (
     SessionSource,
     build_session_context_prompt,
     _hash_id,
-    _hash_sender_id,
     _hash_chat_id,
 )
 from gateway.config import Platform, HomeChannel

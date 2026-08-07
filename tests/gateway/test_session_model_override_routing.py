@@ -6,17 +6,11 @@ That let helper agents (and cache-miss main agents) route GPT-5.4 to the wrong
 provider, e.g. Nous instead of OpenAI Codex.
 """
 
-import asyncio
-import sys
 import threading
-import types
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 import gateway.run as gateway_run
-from gateway.config import Platform
-from gateway.session import SessionSource
 
 
 class _CapturingAgent:

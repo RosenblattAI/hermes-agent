@@ -4,11 +4,9 @@ Mirrors the TUI's writeClipboardText fallback chain: pbcopy /
 PowerShell Set-Clipboard / wl-copy / xclip / xsel, with OSC 52 left to
 the caller when every backend fails.
 """
-import base64
 import subprocess
 from unittest.mock import patch
 
-import pytest
 
 from hermes_cli import clipboard as clip
 

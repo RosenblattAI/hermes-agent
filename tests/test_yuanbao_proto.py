@@ -37,14 +37,11 @@ from gateway.platforms.yuanbao_proto import (
     # 入站/出站
     decode_inbound_push,
     encode_send_c2c_message,
-    encode_send_group_message,
-    # 帮助函数
     encode_auth_bind,
     encode_ping,
     encode_push_ack,
     # 常量
     PB_MSG_TYPES,
-    BIZ_SERVICES,
     CMD_TYPE,
     next_seq_no,
 )

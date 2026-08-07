@@ -3177,10 +3177,10 @@ def _run_approval_gate(
         return {
             "approved": False,
             "message": (
-                f"BLOCKED: Action timed out without user response. The user "
-                f"has NOT consented to this action. Do NOT retry it, do NOT "
-                f"rephrase it, and do NOT attempt the same outcome via a "
-                f"different path. Silence is not consent."
+                "BLOCKED: Action timed out without user response. The user "
+                "has NOT consented to this action. Do NOT retry it, do NOT "
+                "rephrase it, and do NOT attempt the same outcome via a "
+                "different path. Silence is not consent."
             ),
             "pattern_key": pattern_key,
             "description": description,

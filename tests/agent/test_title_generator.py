@@ -1,6 +1,5 @@
 """Tests for agent.title_generator — auto-generated session titles."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
 

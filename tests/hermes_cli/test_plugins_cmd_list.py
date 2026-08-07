@@ -1,5 +1,4 @@
 import argparse
-import json
 from types import SimpleNamespace
 
 from hermes_cli import plugins_cmd

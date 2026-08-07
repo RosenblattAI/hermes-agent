@@ -8,7 +8,6 @@ get_hermes_home() inside the coroutine, most visibly OAuth token-store
 paths. _run_on_mcp_loop now wraps scheduled coroutines with the caller's
 override (mcp_tool._wrap_with_home_override).
 """
-import os
 
 import pytest
 

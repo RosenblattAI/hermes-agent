@@ -1,9 +1,7 @@
 """Tests for skill_view repeat-view dedup (unchanged-skill stub)."""
 
 import json
-import os
 import time
-from pathlib import Path
 
 import pytest
 

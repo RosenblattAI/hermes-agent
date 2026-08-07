@@ -3,10 +3,8 @@
 Covers the fallback logic in _get_session_info() when a cloud provider
 is configured but fails at runtime (issue #10883).
 """
-import logging
 from unittest.mock import Mock
 
-import pytest
 
 import tools.browser_tool as browser_tool
 

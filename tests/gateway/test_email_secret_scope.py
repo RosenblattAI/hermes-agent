@@ -12,7 +12,7 @@ Related PRs: #51374 (config.py api_server guard), #50094 (config.py scoped env r
 
 import os
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from agent import secret_scope as ss
 
@@ -35,7 +35,7 @@ class TestEmailAdapterSecretScope(unittest.TestCase):
     def test_adapter_uses_scoped_credentials_not_environ(self):
         """When a secret scope is installed, the adapter must read from it,
         not from os.environ which may hold another profile's values."""
-        from gateway.config import PlatformConfig, Platform
+        from gateway.config import PlatformConfig
         from plugins.platforms.email.adapter import EmailAdapter
 
         scoped = {

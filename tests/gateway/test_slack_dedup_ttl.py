@@ -12,7 +12,6 @@ Follows the slack-bolt mocking pattern from test_slack_mention.py.
 
 import os
 import sys
-import time
 from unittest.mock import MagicMock, patch
 
 
@@ -46,7 +45,6 @@ import plugins.platforms.slack.adapter as _slack_mod  # noqa: E402
 
 _slack_mod.SLACK_AVAILABLE = True
 
-from gateway.platforms.helpers import MessageDeduplicator  # noqa: E402
 from plugins.platforms.slack.adapter import _slack_dedup_ttl_seconds  # noqa: E402
 
 

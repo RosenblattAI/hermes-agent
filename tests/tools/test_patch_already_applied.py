@@ -8,8 +8,6 @@ into re-read/re-patch loops; they now return success with no_change=True.
 """
 
 import json
-import os
-import tempfile
 
 import pytest
 

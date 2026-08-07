@@ -4,7 +4,6 @@ Pure logic — the validity predicate is injected, so these tests need neither t
 tool registry nor a running Hermes.
 """
 
-import pytest
 
 from hermes_cli.toolset_validation import validate_platform_toolsets
 

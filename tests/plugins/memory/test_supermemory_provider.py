@@ -8,7 +8,6 @@ import pytest
 from plugins.memory.supermemory import (
     SupermemoryMemoryProvider,
     _clean_text_for_capture,
-    _format_connection_summary,
     _format_prefetch_context,
     _load_supermemory_config,
     _probe_supermemory_connection,

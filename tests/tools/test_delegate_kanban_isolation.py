@@ -7,7 +7,6 @@ import shlex
 import sys
 from pathlib import Path
 
-import pytest
 
 # The subprocess-boundary tests below spawn ``sys.executable -c`` with a tmp
 # cwd. Without an explicit PYTHONPATH the child resolves ``hermes_cli`` /

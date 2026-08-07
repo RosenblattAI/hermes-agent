@@ -23,7 +23,6 @@ file's path layout — ``HermesCLI.__init__`` imports a lot of optional
 state we don't need here.
 """
 
-import os
 from types import SimpleNamespace
 from unittest.mock import patch
 

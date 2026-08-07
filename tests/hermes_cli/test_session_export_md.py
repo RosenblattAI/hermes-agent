@@ -1,10 +1,6 @@
-from pathlib import Path
 
-import pytest
 
 from hermes_cli.session_export_md import (
-    append_manifest_entry,
-    render_session_markdown,
     safe_session_filename,
     verify_export_file,
     write_session_markdown,

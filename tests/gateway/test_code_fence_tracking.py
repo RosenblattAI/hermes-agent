@@ -28,8 +28,7 @@ Test categories:
   I. Integration: what a fix would look like
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, ANY
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from gateway.platforms.base import BasePlatformAdapter
 from gateway.stream_consumer import GatewayStreamConsumer, StreamConsumerConfig, ensure_closed_code_fences

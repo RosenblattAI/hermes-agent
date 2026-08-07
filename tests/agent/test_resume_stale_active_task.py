@@ -26,7 +26,6 @@ mechanism that makes the stale task historical rather than active.
 from agent.context_compressor import (
     HISTORICAL_TASK_HEADING,
     SUMMARY_PREFIX,
-    LEGACY_SUMMARY_PREFIX,
     ContextCompressor,
 )
 

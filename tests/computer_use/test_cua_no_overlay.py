@@ -9,9 +9,8 @@ These assert the behavior contract (auto-detect, explicit override, version
 probe), not specific config snapshots.
 """
 
-import os
 import sys
-from unittest.mock import mock_open, patch
+from unittest.mock import patch
 
 from tools.computer_use import cua_backend
 

@@ -5,7 +5,6 @@ Inspired by Claude Code's Rewind "Summarize up to here" action.
 """
 
 from hermes_cli.partial_compress import (
-    DEFAULT_KEEP_LAST,
     MAX_KEEP_LAST,
     parse_partial_compress_args,
     rejoin_compressed_head_and_tail,

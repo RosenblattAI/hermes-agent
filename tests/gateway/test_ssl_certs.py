@@ -1,7 +1,7 @@
 """Tests for SSL certificate auto-detection in gateway/run.py."""
 
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 def _load_ensure_ssl():

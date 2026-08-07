@@ -9,7 +9,6 @@ Direct-SQL setup is used to construct that state deterministically.
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
 import pytest

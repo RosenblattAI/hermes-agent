@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from hermes_cli.models import LMStudioLoadResult
 from run_agent import AIAgent

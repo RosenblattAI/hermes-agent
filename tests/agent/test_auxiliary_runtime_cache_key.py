@@ -5,11 +5,6 @@
 #56889, which isolates callers that pass different explicit ``model=`` values.
 """
 
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 

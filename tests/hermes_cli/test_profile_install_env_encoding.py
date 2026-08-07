@@ -16,7 +16,6 @@ The fix reads `utf-8-sig` and also catches `UnicodeDecodeError`.
 
 from types import SimpleNamespace
 
-import pytest
 
 from hermes_cli.main import _render_distribution_plan
 

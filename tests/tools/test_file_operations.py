@@ -1,7 +1,6 @@
 """Tests for tools/file_operations.py — deny list, result dataclasses, helpers."""
 
 import os
-import re
 import pytest
 import subprocess
 from pathlib import Path
@@ -16,9 +15,7 @@ from tools.file_operations import (
     SearchMatch,
     LintResult,
     ShellFileOperations,
-    MAX_LINE_LENGTH,
     normalize_read_pagination,
-    normalize_search_pagination,
 )
 
 

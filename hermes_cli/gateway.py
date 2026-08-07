@@ -32,7 +32,6 @@ PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 from gateway.config import coerce_systemd_watchdog_seconds, load_gateway_config
 from gateway.status import terminate_pid
 from gateway.restart import (
-    DEFAULT_GATEWAY_RESTART_AFTER_TURN_TIMEOUT,
     DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT,
     EXTERNAL_GATEWAY_SUPERVISOR_ENV,
     GATEWAY_FATAL_CONFIG_EXIT_CODE,
@@ -4752,7 +4751,6 @@ def _guard_named_profile_under_multiplexer(force: bool = False) -> None:
         return
 
     try:
-        import yaml as _yaml
         from gateway.status import _read_pid_record  # type: ignore
 
         # (b) default gateway PID file present + alive

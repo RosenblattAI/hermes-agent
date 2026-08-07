@@ -2,8 +2,6 @@
 
 import contextlib
 import io
-import json
-import time
 from types import SimpleNamespace
 import pytest
 from unittest.mock import MagicMock, patch

@@ -19,9 +19,7 @@ import base64
 import hashlib
 import hmac
 import json
-import socket
 import time
-from collections import deque
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
