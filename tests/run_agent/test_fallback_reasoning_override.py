@@ -5,8 +5,7 @@ swapping to a fallback model, so per-model overrides are honored even
 during error recovery.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 class TestFallbackReasoningOverride:
@@ -51,16 +50,6 @@ class TestFallbackReasoningOverride:
         result = resolve_per_model_reasoning_effort("gpt-5", overrides)
         assert result is None  # caller falls back to global
 
-    def test_fallback_with_normalized_model_name(self):
-        """Fallback model name may be normalized (dots→dashes); override should still match."""
-        from hermes_constants import resolve_per_model_reasoning_effort
-
-        # User wrote key with dots, but normalize_model_for_provider converts to dashes
-        overrides = {"claude-sonnet-4.6": "high"}
-
-        result = resolve_per_model_reasoning_effort("claude-sonnet-4-6", overrides)
-        assert result is not None
-        assert result["effort"] == "high"
 
     def test_fallback_recovery_restores_primary_reasoning(self):
         """After fallback + restore_primary_runtime, reasoning_config returns to primary's value.

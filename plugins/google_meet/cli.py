@@ -88,7 +88,7 @@ def register_cli(subparser: argparse.ArgumentParser) -> None:
     try:
         from plugins.google_meet.node.cli import register_cli as _register_node_cli
         _register_node_cli(node_p)
-    except Exception as e:  # pragma: no cover — defensive
+    except Exception:  # pragma: no cover — defensive
         # If the node module fails to import for any reason (optional dep
         # missing at import time etc.), leave the subparser present but
         # flag it. The argparse dispatch will surface a clear error.
@@ -293,7 +293,7 @@ def _cmd_install(*, realtime: bool, assume_yes: bool) -> int:
         elif system == "Darwin":
             have_bh = False
             try:
-                out = _sp.check_output(["system_profiler", "SPAudioDataType"], text=True)
+                out = _sp.check_output(["system_profiler", "SPAudioDataType"], text=True, encoding='utf-8', errors='replace')
                 have_bh = "BlackHole" in out
             except Exception:
                 pass

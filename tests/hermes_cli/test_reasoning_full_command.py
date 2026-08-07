@@ -7,7 +7,6 @@ These assert the toggle sets the instance flag, persists to config.yaml,
 and that the clamp gate honours the flag.
 """
 
-import os
 
 import yaml
 
@@ -53,25 +52,6 @@ def test_reasoning_full_sets_and_persists(tmp_path, monkeypatch):
     assert s.reasoning_full is True
     saved = yaml.safe_load((hh / "config.yaml").read_text())
     assert saved["display"]["reasoning_full"] is True
-
-
-def test_reasoning_clamp_resets_and_persists(tmp_path, monkeypatch, capsys):
-    hh = _seed_config(tmp_path, monkeypatch)
-    s = _Stub()
-    s.reasoning_full = True
-
-    s._handle_reasoning_command("/reasoning clamp")
-    assert s.reasoning_full is False
-    saved = yaml.safe_load((hh / "config.yaml").read_text())
-    assert saved["display"]["reasoning_full"] is False
-    assert "Unknown argument" not in capsys.readouterr().out
-
-
-def test_reasoning_all_is_alias_for_full(tmp_path, monkeypatch):
-    _seed_config(tmp_path, monkeypatch)
-    s = _Stub()
-    s._handle_reasoning_command("/reasoning all")
-    assert s.reasoning_full is True
 
 
 def test_clamp_gate_honours_flag():

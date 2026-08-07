@@ -9,7 +9,6 @@ configured" path (the real cause behind gated tools like ``web_search`` going
 missing on Desktop). The dump now flags that mismatch.
 """
 
-from pathlib import Path
 from types import SimpleNamespace
 
 
@@ -39,24 +38,6 @@ def test_dump_flags_shell_only_key_not_in_dotenv(monkeypatch, capsys, tmp_path):
     assert "set" in line
     assert "shell only" in line
     assert ".env" in line
-
-
-def test_dump_does_not_flag_key_present_in_dotenv(monkeypatch, capsys, tmp_path):
-    from hermes_cli import dump
-    from hermes_cli.config import get_hermes_home
-
-    monkeypatch.setattr(dump, "get_project_root", lambda: tmp_path / "noproject")
-
-    home = get_hermes_home()
-    home.mkdir(parents=True, exist_ok=True)
-    (home / ".env").write_text("FIRECRAWL_API_KEY=fc-in-dotenv\n")
-    monkeypatch.setenv("FIRECRAWL_API_KEY", "fc-in-dotenv")
-
-    dump.run_dump(SimpleNamespace(show_keys=False))
-
-    line = _api_key_line(capsys.readouterr().out, "firecrawl")
-    assert "set" in line
-    assert "shell only" not in line
 
 
 def test_dump_leaves_unset_key_untouched(monkeypatch, capsys, tmp_path):

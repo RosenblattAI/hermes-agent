@@ -1,7 +1,7 @@
 """Regression coverage for provider-aware @-context sizing in the CLI."""
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 
 def test_at_context_resolution_passes_active_provider():

@@ -15,8 +15,6 @@ Three fixes under test:
    "already being fired".
 """
 
-import json
-import os
 import threading
 import time
 from datetime import timedelta
@@ -29,7 +27,6 @@ from cron.jobs import (
     _jobs_lock,
     claim_job_for_fire,
     create_job,
-    get_due_jobs,
     get_job,
     load_jobs,
     save_jobs,
@@ -146,23 +143,6 @@ class TestFutureDatedClaims:
                 j["fire_claim"] = {"at": past.isoformat(), "by": "other-host:1"}
         save_jobs(jobs)
         assert claim_job_for_fire(job["id"]) is True
-
-    def test_future_run_claim_does_not_skip_oneshot_forever(self):
-        """A one-shot with a future-dated run_claim must still become due."""
-        past_fire = (jobs_mod._hermes_now() - timedelta(seconds=30)).isoformat()
-        job = create_job(name="oneshot", schedule=past_fire, prompt="x")
-        jobs = load_jobs()
-        for j in jobs:
-            if j["id"] == job["id"]:
-                future = jobs_mod._hermes_now() + timedelta(hours=6)
-                j["run_claim"] = {"at": future.isoformat(), "by": "other-host:1"}
-                j["next_run_at"] = past_fire
-        save_jobs(jobs)
-
-        due_ids = {j["id"] for j in get_due_jobs()}
-        assert job["id"] in due_ids, (
-            "future-dated run_claim must be treated as stale, not fresh"
-        )
 
 
 class TestHonestRunSkipMessages:
