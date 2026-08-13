@@ -703,6 +703,33 @@ class ToolRegistry:
                     continue
             # Ensure schema always has a "name" field — use entry.name as fallback
             schema_with_name = {**entry.schema, "name": entry.name}
+            # Defensive: if a plugin registered an entry that is ALREADY in
+            # OpenAI tool-envelope form ({"type":"function","function":{...}}),
+            # unwrap it here so the append below never produces a doubly-wrapped
+            # {"type":"function","function":{"type":"function","function":{...}}}.
+            # Strict OpenAI-compatible backends (Fireworks, etc.) reject the whole
+            # request with HTTP 400 ("Extra inputs are not permitted, field:
+            # 'tools[N].function.type'") when any tool is doubled, disabling every
+            # tool on the surface. This mirrors normalize_tool_schema in
+            # agent/memory_manager.py. Accept both bare and wrapped entry.shape.
+            _es = entry.schema
+            if (
+                isinstance(_es, dict)
+                and _es.get("type") == "function"
+                and isinstance(_es.get("function"), dict)
+            ):
+                _es = _es["function"]
+                _name = _es.get("name")
+                if not _name:
+                    if not quiet:
+                        logger.warning(
+                            "Registered tool %r was an already-wrapped envelope "
+                            "with no resolvable inner name; skipping to avoid "
+                            "poisoning the request",
+                            entry.name,
+                        )
+                    continue
+                schema_with_name = {**_es, "name": _name}
             # Apply runtime-dynamic overrides (e.g. delegate_task description
             # depends on current delegation.max_concurrent_children /
             # max_spawn_depth). Caller side (model_tools.get_tool_definitions)

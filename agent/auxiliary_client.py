@@ -7917,12 +7917,25 @@ def _build_call_kwargs(
         else:
             effort = reasoning_config.get("effort") or "medium"
             merged_extra["reasoning"] = {"enabled": True, "effort": effort}
+    _provider_for_portal = str(provider or "").strip().lower()
+    # Fireworks' OpenAI-compatible endpoint uses a strict request schema that
+    # executes the flat-model's own reasoning internally and does NOT publish
+    # a `reasoning` body field. The per-task `auxiliary.<task>.reasoning_effort`
+    # shorthand below folds into extra_body.reasoning, which Fireworks rejects
+    # with HTTP 400 "Extra inputs are not permitted, field: 'reasoning'" —
+    # failing every auxiliary call (title generation, compression, vision,
+    # triage...). OPT IN to sending `reasoning` to Fireworks via
+    # HERMES_FIREWORKS_REASONING=1 (mirrors the main-model gate in
+    # run_agent's _supports_reasoning_extra_body). When off/unset, drop it.
+    if "reasoning" in merged_extra and _provider_for_portal == "fireworks":
+        from utils import is_truthy_value
+        if not is_truthy_value(os.environ.get("HERMES_FIREWORKS_REASONING")):
+            merged_extra.pop("reasoning", None)
     # Portal product tags + sticky session_id. The provider profile usually
     # supplies both; this fallback covers profile-load failures and alias
     # spellings the profile lookup might miss. session_id keeps aux
     # compression/title/vision calls on the same upstream instance as the
     # main turn (cache warmth) — tags alone are not enough on /v1/messages.
-    _provider_for_portal = str(provider or "").strip().lower()
     if _provider_for_portal in {"nous", "nous-portal", "nousresearch"}:
         if "tags" not in merged_extra:
             merged_extra["tags"] = _nous_portal_tags()

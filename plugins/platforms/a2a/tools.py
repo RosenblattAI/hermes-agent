@@ -480,95 +480,88 @@ def a2a_orchestrate(args: dict, **_: Any) -> str:
 # Tool schemas + registration
 # --------------------------------------------------------------------------
 
-_FunctionSchema = TypedDict("_FunctionSchema", {"name": str, "description": str, "parameters": dict[str, Any]}, total=False)
-_ToolSchema = TypedDict("_ToolSchema", {"type": str, "function": _FunctionSchema}, total=False)
-_SCHEMAS: dict[str, _ToolSchema] = {
+_FunctionSchema = TypedDict("_FunctionSchema", {"name": str, "description": str, "parameters": dict[str, Any]}, total=True)
+# Registry contract: ``ctx.register_tool(schema=...)`` takes the BARE function
+# schema ({"name", "description", "parameters"}). The registry's
+# get_definitions() wraps each entry as {"type": "function", "function": ...}
+# before it reaches the wire. Registering a pre-wrapped envelope here made
+# that step wrap the schema a SECOND time — {"type": "function", "function":
+# {"type": "function", "function": {...}}} — which strict OpenAI-compatible
+# backends reject for the whole request (Fireworks: HTTP 400 "Extra inputs
+# are not permitted, field: 'tools[N].function.type'"), disabling every tool
+# on the surface. Keep these bare.
+_SCHEMAS: dict[str, _FunctionSchema] = {
     "a2a_discover": {
-        "type": "function",
-        "function": {
-            "name": "a2a_discover",
-            "description": (
-                "Fetch and summarize another agent's A2A Agent Card from a URL "
-                "(its name, description, capabilities, and skills). Use this to "
-                "find out what a remote agent can do before calling it."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "url": {"type": "string", "description": "Base URL of the remote A2A agent, e.g. http://localhost:9999"},
-                },
-                "required": ["url"],
+        "name": "a2a_discover",
+        "description": (
+            "Fetch and summarize another agent's A2A Agent Card from a URL "
+            "(its name, description, capabilities, and skills). Use this to "
+            "find out what a remote agent can do before calling it."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Base URL of the remote A2A agent, e.g. http://localhost:9999"},
             },
+            "required": ["url"],
         },
     },
     "a2a_call": {
-        "type": "function",
-        "function": {
-            "name": "a2a_call",
-            "description": (
-                "Send a natural-language task to a remote A2A agent and return "
-                "its reply. The agent is a peer (any A2A-compliant framework), "
-                "not a sub-agent you control. Pass 'context_id' from a previous "
-                "reply to continue a multi-turn exchange."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "agent": {"type": "string", "description": "Configured peer name (from a2a_agents) or a full http(s):// URL."},
-                    "message": {"type": "string", "description": "The task / message to send the peer, in natural language."},
-                    "context_id": {"type": "string", "description": "Optional: context id from a prior reply, to continue the conversation."},
-                },
-                "required": ["agent", "message"],
+        "name": "a2a_call",
+        "description": (
+            "Send a natural-language task to a remote A2A agent and return "
+            "its reply. The agent is a peer (any A2A-compliant framework), "
+            "not a sub-agent you control. Pass 'context_id' from a previous "
+            "reply to continue a multi-turn exchange."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "agent": {"type": "string", "description": "Configured peer name (from a2a_agents) or a full http(s):// URL."},
+                "message": {"type": "string", "description": "The task / message to send the peer, in natural language."},
+                "context_id": {"type": "string", "description": "Optional: context id from a prior reply, to continue the conversation."},
             },
+            "required": ["agent", "message"],
         },
     },
     "a2a_list": {
-        "type": "function",
-        "function": {
-            "name": "a2a_list",
-            "description": "List configured A2A peer agents, persisted A2A conversations, and metrics.",
-            "parameters": {"type": "object", "properties": {}},
-        },
+        "name": "a2a_list",
+        "description": "List configured A2A peer agents, persisted A2A conversations, and metrics.",
+        "parameters": {"type": "object", "properties": {}},
     },
     "a2a_history": {
-        "type": "function",
-        "function": {
-            "name": "a2a_history",
-            "description": (
-                "Recall a persisted A2A conversation transcript by context_id "
-                "(survives restarts and context compaction). Use a2a_list to "
-                "see known context ids."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "context_id": {"type": "string", "description": "Context id of the conversation to recall."},
-                    "limit": {"type": "integer", "description": "Max messages to return (default 50, max 200)."},
-                },
-                "required": ["context_id"],
+        "name": "a2a_history",
+        "description": (
+            "Recall a persisted A2A conversation transcript by context_id "
+            "(survives restarts and context compaction). Use a2a_list to "
+            "see known context ids."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "context_id": {"type": "string", "description": "Context id of the conversation to recall."},
+                "limit": {"type": "integer", "description": "Max messages to return (default 50, max 200)."},
             },
+            "required": ["context_id"],
         },
     },
     "a2a_orchestrate": {
-        "type": "function",
-        "function": {
-            "name": "a2a_orchestrate",
-            "description": (
-                "Fan-out a task to multiple peer agents by capability. Peers are "
-                "matched from config.yaml a2a_agents.*.capabilities. Modes: 'all' "
-                "(return all replies), 'first' (first successful), 'best' (longest "
-                "successful reply)."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "capability": {"type": "string", "description": "Capability to match (e.g. 'research', 'code') or '*' for all peers."},
-                    "message": {"type": "string", "description": "The task to send to all matching peers."},
-                    "mode": {"type": "string", "enum": ["all", "first", "best"], "description": "How to aggregate results. Default: 'all'."},
-                    "context_id": {"type": "string", "description": "Optional: shared context id for all peers."},
-                },
-                "required": ["capability", "message"],
+        "name": "a2a_orchestrate",
+        "description": (
+            "Fan-out a task to multiple peer agents by capability. Peers are "
+            "matched from config.yaml a2a_agents.*.capabilities. Modes: 'all' "
+            "(return all replies), 'first' (first successful), 'best' (longest "
+            "successful reply)."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "capability": {"type": "string", "description": "Capability to match (e.g. 'research', 'code') or '*' for all peers."},
+                "message": {"type": "string", "description": "The task to send to all matching peers."},
+                "mode": {"type": "string", "enum": ["all", "first", "best"], "description": "How to aggregate results. Default: 'all'."},
+                "context_id": {"type": "string", "description": "Optional: shared context id for all peers."},
             },
+            "required": ["capability", "message"],
         },
     },
 }
@@ -590,6 +583,6 @@ def register_tools(ctx) -> None:
             toolset="a2a",
             schema=schema,
             handler=_HANDLERS[name],
-            description=schema["function"]["description"],
+            description=schema["description"],
             emoji="\U0001f9e9",  # puzzle piece
         )
