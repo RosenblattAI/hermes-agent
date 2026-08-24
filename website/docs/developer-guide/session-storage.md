@@ -13,10 +13,15 @@ Source file: `hermes_state.py`
 ~/.hermes/state.db (SQLite, WAL mode)
 ├── sessions              — Session metadata, token counts, billing
 ├── messages              — Full message history per session
+├── session_model_usage   — Per-model/per-task usage attribution rows
 ├── messages_fts          — FTS5 virtual table (content + tool_name + tool_calls)
 ├── messages_fts_trigram  — FTS5 virtual table with trigram tokenizer (CJK / substring search)
+├── messages_fts_cjk      — FTS5 virtual table with cjk_unicode61 tokenizer
 ├── state_meta            — Key/value metadata table
 ├── copilot_remote        — Detached Copilot remote session lifecycle metadata
+├── gateway_routing       — Gateway routing metadata
+├── compression_locks     — Cross-process compression locking
+├── async_delegations     — Async delegation bookkeeping
 └── schema_version        — Single-row table tracking migration state
 ```
 
@@ -32,6 +37,13 @@ Key design decisions:
 ## SQLite Schema
 
 ### Sessions Table
+
+Abridged — see `SCHEMA_SQL` in `hermes_state.py` for the full current column list
+(which also includes gateway routing metadata such as `session_key`, `chat_id`,
+`chat_type`, `thread_id`, `display_name`, `origin_json`, `expiry_finalized`,
+workspace fields `cwd` / `git_branch` / `git_repo_root`, handoff and
+compression-failure fields, `profile_name`, `rewind_count`, `archived`, and
+`pinned`):
 
 ```sql
 CREATE TABLE IF NOT EXISTS sessions (
@@ -62,6 +74,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     pricing_version TEXT,
     title TEXT,
     api_call_count INTEGER DEFAULT 0,
+    -- ... additional gateway/workspace/handoff/compression columns ...
     FOREIGN KEY (parent_session_id) REFERENCES sessions(id)
 );
 
@@ -73,6 +86,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_title_unique
 ```
 
 ### Messages Table
+
+Abridged — the full schema also includes `effect_disposition`,
+`platform_message_id`, `observed`, `active`, `compacted`, `api_content`,
+`display_kind`, and `display_metadata`:
 
 ```sql
 CREATE TABLE IF NOT EXISTS messages (
@@ -91,15 +108,18 @@ CREATE TABLE IF NOT EXISTS messages (
     reasoning_details TEXT,
     codex_reasoning_items TEXT,
     codex_message_items TEXT
+    -- ... additional display/compaction columns ...
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id, id);
 ```
 
 Notes:
 - `tool_calls` is stored as a JSON string (serialized list of tool call objects)
 - `reasoning_details`, `codex_reasoning_items`, and `codex_message_items` are stored as JSON strings
 - `reasoning` stores the raw reasoning text for providers that expose it
+- `api_content` is a byte-fidelity sidecar: the exact content string sent to the API for this message when it differs from `content` (ephemeral memory/plugin injections, persist overrides). It preserves the wire bytes for prompt-cache-stable replay — stored as sent, except lone surrogates, which sqlite3 cannot bind and which the conversation loop scrubs from every outgoing payload anyway. `NULL` means `content` was sent verbatim.
 - Timestamps are Unix epoch floats (`time.time()`)
 
 ### Copilot Remote Table
@@ -120,12 +140,12 @@ CREATE TABLE IF NOT EXISTS copilot_remote (
     finished_at REAL,
     error_text TEXT
 );
-
 CREATE INDEX IF NOT EXISTS idx_copilot_remote_state ON copilot_remote(state);
 CREATE INDEX IF NOT EXISTS idx_copilot_remote_repo ON copilot_remote(repo_slug, state);
 ```
 
 Notes:
+
 - `id` is the Hermes-side job ID and primary lookup key
 - `connect_handle` stores the reconnect handle that Hermes extracts from the Copilot CLI's stdout/log output (used by `hermes copilot show` to emit `copilot --connect=<handle>`)
 - `signal_source` and `signal_ref` are caller-supplied metadata only (e.g. `--signal-source=jira`, `--signal-ref=PROJ-123`); they are never used as the reconnect handle
@@ -137,35 +157,23 @@ Notes:
 ```sql
 CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
     content,
-    content=messages,
-    content_rowid=id
+    tool_name,
+    tool_calls,
+    content='messages',
+    content_rowid='id'
 );
 ```
 
 The FTS5 table is kept in sync via three triggers that fire on INSERT, UPDATE,
-and DELETE of the `messages` table:
-
-```sql
-CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
-    INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
-END;
-
-CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
-    INSERT INTO messages_fts(messages_fts, rowid, content)
-        VALUES('delete', old.id, old.content);
-END;
-
-CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
-    INSERT INTO messages_fts(messages_fts, rowid, content)
-        VALUES('delete', old.id, old.content);
-    INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
-END;
-```
+and DELETE of the `messages` table. The current triggers are gated on the
+`fts_rebuild_high_water` / `fts_rebuild_progress` markers in `state_meta` (so a
+background FTS rebuild can proceed without double-indexing) and cover all three
+indexed columns — see `SCHEMA_SQL` in `hermes_state.py` for the exact SQL.
 
 
 ## Schema Version and Migrations
 
-Current schema version: **22**
+Current schema version: **23**
 
 The `schema_version` table stores a single integer. Simple column additions are handled declaratively by `_reconcile_columns()` (which diffs live columns against `SCHEMA_SQL` and ADDs any missing ones). The version-gated chain is reserved for data migrations and index/FTS changes that can't be expressed declaratively:
 
@@ -177,10 +185,10 @@ The `schema_version` table stores a single integer. Simple column additions are 
 | 4 | Add unique index on `title` (NULLs allowed, non-NULL must be unique) |
 | 5 | Add billing columns: `cache_read_tokens`, `cache_write_tokens`, `reasoning_tokens`, `billing_provider`, `billing_base_url`, `billing_mode`, `estimated_cost_usd`, `actual_cost_usd`, `cost_status`, `cost_source`, `pricing_version` |
 | 6 | Add reasoning columns to messages: `reasoning`, `reasoning_details`, `codex_reasoning_items` |
-| 7 | Add `reasoning_content` to messages and introduce the first `copilot_remote` table |
-| 8 | Add `api_call_count` to sessions and simplify Copilot remote storage |
+| 7 | Add `reasoning_content` column to messages; [rosenblatt] also introduced the first `copilot_remote` table |
+| 8 | Add `api_call_count` column to sessions; [rosenblatt] simplified Copilot remote storage |
 | 9 | Add `codex_message_items` column to messages for Codex Responses message id/phase replay |
-| 10 | Add `messages_fts_trigram` virtual table (trigram tokenizer for CJK / substring search) and backfill existing rows. Only runs when v10 is the direct target schema — v11 below drops and rebuilds both FTS tables anyway |
+| 10 | Add `messages_fts_trigram` virtual table (trigram tokenizer for CJK / substring search) and backfill existing rows |
 | 11 | Re-index `messages_fts` and `messages_fts_trigram` to cover `tool_name` + `tool_calls` and switch from external-content to inline mode; drop old triggers and backfill every message row |
 | 13 | [rosenblatt] Remove `copilot_session_id`; Hermes job IDs become the canonical Copilot remote key. Renumbered from v10 to avoid colliding with upstream's v10 (trigram FTS5) |
 | 14 | [rosenblatt] Rename legacy `copilot_jobs` storage to `copilot_remote`. Renumbered from v11 to avoid colliding with upstream's v11 (FTS re-index) |
@@ -188,7 +196,8 @@ The `schema_version` table stores a single integer. Simple column additions are 
 | 16 | Tag delegate subagent rows in `model_config` (`$._delegate_from`) so session pickers stay clean after parent deletes orphan them |
 | 18 | Gateway metadata consolidation — backfill `display_name` / `origin_json` / `expiry_finalized` from `sessions.json` |
 | 20 | Per-model usage attribution — seed `session_model_usage` rows from historical per-session aggregate totals |
-| 22 | Task-dimension usage attribution — add a `task` column to `session_model_usage`'s primary key (rebuilds the table, since SQLite cannot `ALTER` a primary key) so auxiliary-call spend (vision/compression/title_generation/...) is tracked separately from the main agent loop |
+| 22 | Task-dimension usage attribution — rebuild `session_model_usage` so the `task` column participates in the PRIMARY KEY |
+| 23 | FTS storage redesign — external-content FTS tables replacing the v11 inline-mode copies (opt-in transition for existing DBs) |
 
 Versions not listed above were declarative column additions handled by `_reconcile_columns()` (version bump only, no data migration).
 
@@ -246,6 +255,26 @@ db.end_session("sess_abc123", end_reason="user_exit")
 db.reopen_session("sess_abc123")
 ```
 
+### Create and Manage Copilot Remote
+
+```python
+job_id = db.create_copilot_remote(
+    job_id="job_123",
+    repo_slug="fridai-backend",
+    repo_path="/workspace/repos/proservice/fridai-backend",
+    prompt="Patch the failing webhook retry path",
+    signal_source="cli",
+    signal_ref="PROJ-123",       # caller-supplied metadata (e.g. Jira ticket)
+)
+
+# After the launcher extracts the Copilot reconnect handle from CLI stdout:
+db.update_copilot_remote_connect_handle(job_id, "task-123")
+
+job = db.get_copilot_remote(job_id)
+running_jobs = db.list_copilot_remote(state="running", limit=20)
+db.finish_copilot_remote(job_id, state="done", exit_code=0)
+```
+
 ### Store Messages
 
 ```python
@@ -283,27 +312,6 @@ session_id = db.resolve_session_by_title("Fix Docker Build")
 # Auto-generate next title in lineage
 next_title = db.get_next_title_in_lineage("Fix Docker Build")
 # Returns: "Fix Docker Build #2"
-```
-
-### Create and Manage Copilot Remote
-
-```python
-job_id = db.create_copilot_remote(
-    job_id="job_123",
-    repo_slug="fridai-backend",
-    repo_path="/workspace/repos/proservice/fridai-backend",
-    prompt="Patch the failing webhook retry path",
-    signal_source="cli",
-    signal_ref="PROJ-123",       # caller-supplied metadata (e.g. Jira ticket)
-)
-
-# After the launcher extracts the Copilot reconnect handle from CLI stdout:
-db.update_copilot_remote_connect_handle(job_id, "task-123")
-
-job = db.get_copilot_remote(job_id)
-running_jobs = db.list_copilot_remote(state="running", limit=20)
-
-db.finish_copilot_remote(job_id, state="done", exit_code=0)
 ```
 
 
