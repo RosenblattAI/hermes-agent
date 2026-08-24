@@ -4,7 +4,7 @@ name: plan
 # Reason: Route plan execution to copilot_remote by default
 # Upstream: internal-only
 description: Plan mode for Hermes — inspect context, write a markdown plan into the active workspace's `.hermes/plans/` directory, do not execute the work, and hand off software implementation to `/copilot_remote` by default.
-version: 1.0.0
+version: 2.0.0
 author: Hermes Agent
 # === ROSENBLATT PATCH END ===
 license: MIT
@@ -32,6 +32,31 @@ name it explicitly in the plan and treat that repo root as the active workspace 
 future execution. If the repo cannot be inferred from the current working directory,
 launch `/copilot_remote` with `--repo <name>` or `--repo-path <absolute-path>` instead of
 starting from the wrapper workspace root.
+
+## Adversarial assumption audit
+
+# === ROSENBLATT PATCH START: adversarial assumption audit ===
+# Reason: Plans that state and verify their system assumptions fail less often
+# than plans that inherit them silently. This phase makes the assumptions
+# explicit, checks them against live state, and records the result.
+Before finalizing the plan, run a dedicated pass that tries to break it:
+
+1. List every assumption the plan makes about the system: file paths, module
+   locations, versions, schemas, function signatures, environment behavior,
+   tool output, and upstream/dependency state.
+2. Verify each assumption against live state — read the file, check the
+   version, run a read-only probe. Do not rely on memory from earlier
+   sessions.
+3. Record the audit in the plan itself. Mark each assumption verified,
+   corrected (what the probe actually showed), or unverified (why it could
+   not be checked).
+4. For large plans, delegate the audit to a separate adversarial reviewer
+   (e.g. a dedicated kanban review card) that receives only the plan and is
+   tasked with finding assumptions the planner took for granted.
+5. A plan with unverified assumptions that are load-bearing for the approach
+   must either resolve them or flag the risk explicitly before handoff to
+   `/copilot_remote`.
+# === ROSENBLATT PATCH END ===
 
 ## Core behavior
 
